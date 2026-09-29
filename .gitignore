@@ -1,0 +1,18 @@
+# 真实业务文档目录（含测试大纲等敏感材料，禁止提交）
+文档S/
+
+# 常见临时/构建产物
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+dist/
+build/
+*.egg-info/
+.DS_Store
+Thumbs.db
+
+# 编辑器/IDE
+.vscode/
+.idea/
