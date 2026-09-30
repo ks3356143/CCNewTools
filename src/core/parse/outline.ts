@@ -1,6 +1,6 @@
 import { children, textOf, numPrOf, localName, W, type OfficeFile } from './docx.ts'
 import { parseNumbering, createChapterCounter } from './numbering.ts'
-import { parseStyles, headingLevel } from './styles.ts'
+import { parseStyles, headingLevel, styleNumPr } from './styles.ts'
 import { extractItemTable } from './table.ts'
 import { parseMethod } from './cases.ts'
 import { parseDescription, resolveSummaries } from './describe.ts'
@@ -43,7 +43,8 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
       const lvl = headingLevel(node, styles)
       if (lvl === null) continue
       const text = textOf(node).trim()
-      const np = numPrOf(node)
+      // 编号可能在段落直接格式或标题样式定义里（真实大纲：heading1-9 样式各带 numId+ilvl）
+      const np = numPrOf(node) ?? styleNumPr(node, styles)
       const num = np !== null ? counters.advance(np.numId, np.ilvl) : ''
 
       if (!inSection) {

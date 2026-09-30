@@ -79,13 +79,11 @@ describe('M3 渲染：测试说明模板', () => {
     const hs = headings(buf)
     expect(hs).toEqual([
       { level: '1', text: '测试说明' },
-      { level: '2', text: '某软件配置项' },
       { level: '1', text: '测试用例' },
       { level: '2', text: '功能测试' },
       { level: '3', text: 'A星模板功能测试' },
       { level: '4', text: 'A星指令参数管理' },
       { level: '2', text: '文档审查' },
-      { level: '4', text: '文档审查' },
       { level: '1', text: '需求的可追踪性' },
       { level: '2', text: '某软件配置项需求追踪表' }
     ])
@@ -93,9 +91,11 @@ describe('M3 渲染：测试说明模板', () => {
 
   test('用例清单与追踪表进入正文，无残留占位符', () => {
     const text = bodyText(buf)
-    expect(text).toContain('某软件配置项测试说明如下：')
+    expect(text).toContain('某软件配置项测试说明')
     expect(text).toContain('用例综述')
     expect(text).toContain('需求规格说明章节号')
+    expect(text).toContain('4.3.1.2')
+    expect(text).toContain('6.2.1.4.1.1')
     expect(text).toContain('YL_SU_ZLPA_001')
     expect(text).toContain('YL_SU_ZLPA_002')
     expect(text).toContain('YL_DC_001')

@@ -58,10 +58,12 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
         lastGroupKey = gk
       }
       const ik = item.chapter + '\u0000' + item.itemName
-      if (ik !== lastItemKey) {
+      // 无中间层且测试项与测试类型同名（静态三类型等）：标题完全重复，
+      // 跳过测试项标题，避免"2.1 文档审查"下再出现"2.1.1.1 文档审查"（用户反馈）
+      if (ik !== lastItemKey && !(item.groupName === null && item.itemName === item.typeName)) {
         row.showItem = item.itemName
-        lastItemKey = ik
       }
+      lastItemKey = ik
       cases.push(row)
 
       if (!row.excluded) {

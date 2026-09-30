@@ -111,7 +111,7 @@ describe('M2 模板数据组装（03 字段映射）', () => {
     expect(rows[0].showItem).toBe('A星指令参数管理')
     expect(rows[1].showType).toBeNull()
     expect(rows[2].showType).toBe('文档审查')
-    expect(rows[2].showItem).toBe('文档审查')
+    expect(rows[2].showItem).toBeNull()
 
     // 纯操作步并入验证步：case1 = 1 步
     expect(rows[0].steps.length).toBe(1)

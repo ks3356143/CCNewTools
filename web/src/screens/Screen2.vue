@@ -1,12 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { store, goCase, showToast } from '../store.ts'
+import { store, goCase, showToast, scheduleSave, activeSuspects } from '../store.ts'
 import TreeNav from '../components/TreeNav.vue'
 import ParamsCard from '../components/ParamsCard.vue'
 import CasePanel from '../components/CasePanel.vue'
 
 const reviewedCount = computed(() => store.cases.filter(c => c.reviewed).length)
+const suspectTotal = computed(() => store.cases.reduce((n, c) => n + activeSuspects(c), 0))
 const errorCount = computed(() => store.issues.filter(i => i.level === 'error').length)
+
+function markAllReviewed(): void {
+  for (const c of store.cases) {
+    if (!c.excluded) c.reviewed = true
+  }
+  scheduleSave()
+  showToast('已将全部用例标记为已核对')
+}
 
 function prev(): void {
   if (store.currentIdx > 0) goCase(store.currentIdx - 1)
@@ -37,7 +46,14 @@ function gen(): void {
 
     <div class="actionbar">
       <div class="prog">
-        <div class="txt"><span>核对进度</span><b>{{ reviewedCount }} / {{ store.cases.length }}</b></div>
+        <div class="txt">
+          <span>核对进度</span>
+          <b>{{ reviewedCount }} / {{ store.cases.length }}</b>
+          <span class="sus" :class="{ zero: suspectTotal === 0 }" :title="suspectTotal > 0 ? '还有切分可疑步骤待确认' : '切分可疑已全部处理'">
+            <v-icon size="12">mdi-alert-circle-outline</v-icon>
+            可疑 {{ suspectTotal }}
+          </span>
+        </div>
         <div class="bar"><i :class="{ done: store.cases.length > 0 && reviewedCount === store.cases.length }" :style="{ width: (store.cases.length ? (reviewedCount / store.cases.length) * 100 : 0) + '%' }" /></div>
       </div>
       <v-btn size="small" rounded="pill" variant="tonal" :disabled="store.currentIdx === 0" @click="prev">
@@ -45,6 +61,9 @@ function gen(): void {
       </v-btn>
       <v-btn size="small" rounded="pill" variant="tonal" :disabled="store.currentIdx >= store.cases.length - 1" @click="next">
         下一条<v-icon size="15" class="ml-1">mdi-arrow-right</v-icon>
+      </v-btn>
+      <v-btn size="small" rounded="pill" variant="tonal" @click="markAllReviewed">
+        <v-icon size="15" class="mr-1">mdi-check-all</v-icon>全部已核对
       </v-btn>
       <div class="grow" />
       <v-btn rounded="pill" color="primary" elevation="1" @click="gen">
@@ -80,6 +99,12 @@ function gen(): void {
   color: rgb(var(--v-theme-primary)); font-weight: 650; font-variant-numeric: tabular-nums;
   background: rgba(var(--v-theme-primary), 0.12); border-radius: 999px; padding: 1px 10px;
 }
+.prog .txt .sus {
+  display: inline-flex; align-items: center; gap: 3px;
+  color: rgb(var(--v-theme-warning)); background: rgba(var(--v-theme-warning), 0.14);
+  border-radius: 999px; padding: 1px 10px; cursor: default;
+}
+.prog .txt .sus.zero { color: rgb(var(--v-theme-success)); background: rgba(var(--v-theme-success), 0.13); }
 .bar { height: 6px; border-radius: 999px; background: rgba(var(--v-theme-outline), 0.5); overflow: hidden; }
 .bar i { display: block; height: 100%; border-radius: inherit; background: rgb(var(--v-theme-primary)); transition: width 0.3s; }
 .bar i.done { background: rgb(var(--v-theme-success)); }

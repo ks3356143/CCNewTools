@@ -301,6 +301,23 @@ describe('M1 综述与标识（9.2/9.3/9.4、02 第八节）', () => {
     expect(issues.issues.length).toBe(0)
   })
 
+  test('共用综述：手打编号残痕清除、多段按行拼接（用户样例：V1.012）错乱）', () => {
+    const { result } = parse([
+      { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+      { kind: 'p', para: { text: '文档审查', heading: 4, numId: 1, ilvl: 3 } },
+      {
+        kind: 'tbl',
+        rows: itemTable('文档审查', 'XQ_DC', [
+          [DESC, '本软件测试文档审查包括的内容如下：\n软件需求规格说明TY-00-DZY-06-SRS-01-1.01，V1.01\n2）软件用户手册TY-00-DZY-06-SUM-01-1.02，V1.02'],
+          [METHOD, '1.软件文档审查（XQ_DC_DC001）\n1）审查内容是否完整；']
+        ])
+      }
+    ])
+    expect(result.items[0].cases[0].summary).toBe(
+      '本软件测试文档审查包括的内容如下：\n软件需求规格说明TY-00-DZY-06-SRS-01-1.01，V1.01\n软件用户手册TY-00-DZY-06-SUM-01-1.02，V1.02'
+    )
+  })
+
   test('描述格多出的子项 → 告警并忽略（9.3）', () => {
     const { result, issues } = parse([
       { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },

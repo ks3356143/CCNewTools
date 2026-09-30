@@ -24,8 +24,9 @@ const issues = new IssueCollector()
 const parsed = extractOutline(office, issues)
 const data = convertToTemplateData(parsed, DEFAULT_PARAMS)
 
-const spec = renderTemplate(readFileSync('模板/测试说明模板.docx'), data)
-const rec = renderTemplate(readFileSync('模板/测试记录模板.docx'), data)
+const tplData = { ...data, configName: DEFAULT_PARAMS.configName }
+const spec = renderTemplate(readFileSync('模板/测试说明模板.docx'), tplData)
+const rec = renderTemplate(readFileSync('模板/测试记录模板.docx'), tplData)
 
 const specPath = join(outDir, '测试说明_render.docx')
 const recPath = join(outDir, '测试记录_render.docx')

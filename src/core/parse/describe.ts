@@ -7,27 +7,35 @@ export interface DescriptionInfo {
   entries: DescriptionEntry[]
 }
 
+/** 段落文本清理：去掉段首手打的列表编号残痕（如"2）"——Word 自动编号不在正文里，
+ *  但作者手打的编号会残留，直接拼接会形成"V1.012）软件用户手册"这类错乱文本） */
+function cleanSummaryPara(t: string): string {
+  return t.replace(/^[0-9]{1,3}\s*[）)、]\s*/, '').trim()
+}
+
 /** 解析测试项描述格（9.2：有子项标题行 → 逐用例综述；无 → 全部用例共用） */
 export function parseDescription(paras: ParaInfo[], issues: IssueCollector, ctx: string): DescriptionInfo {
   const entries: DescriptionEntry[] = []
   let cur: DescriptionEntry | null = null
-  let beforeFirst = ''
+  const sharedParts: string[] = []
 
   for (const para of paras) {
-    const t = para.text
-    const m = matchCaseTitle(t)
+    const m = matchCaseTitle(para.text)
     if (m !== null) {
       cur = { itemId: m.itemId, summary: '' }
       entries.push(cur)
       continue
     }
+    const t = cleanSummaryPara(para.text)
+    if (t === '') continue
     if (cur !== null) {
-      cur.summary = cur.summary + t
+      cur.summary = cur.summary + (cur.summary === '' ? '' : '\n') + t
     } else {
-      beforeFirst = beforeFirst + t
+      sharedParts.push(t)
     }
   }
 
+  const beforeFirst = sharedParts.join('\n')
   if (beforeFirst.trim() !== '' && entries.length > 0) {
     issues.info('DESC_ORPHAN', '描述格标题行之前有孤立段落，已忽略：' + beforeFirst.slice(0, 30), ctx)
   }
