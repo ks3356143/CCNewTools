@@ -109,3 +109,15 @@ export function buildDocxBuffer(spec: DocSpec): Buffer {
 export function buildDocx(spec: DocSpec): OfficeFile {
   return readDocx(new Uint8Array(buildDocxBuffer(spec)))
 }
+
+/** 构造测试项表格（首行：测试项名称 | 名称 | 标识 | 标识值） */
+export function itemTable(name: string, itemId: string, extraRows: Cell[][]): Cell[][] {
+  return [
+    [{ text: '测试项名称' }, { text: name }, { text: '标识' }, { text: itemId }],
+    ...extraRows
+  ]
+}
+
+export const DESC = '测试项描述'
+export const METHOD = '测试方法'
+export const CRITERIA = '通过准则'

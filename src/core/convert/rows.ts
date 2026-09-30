@@ -29,6 +29,10 @@ export interface CaseRow {
   expectSource: string
   /** 可疑步骤数（界面用） */
   suspectCount: number
+  /** 界面状态：已核对 / 不生成此用例 / 已确认无误的可疑步序号 */
+  reviewed: boolean
+  excluded: boolean
+  dismissedSuspects: number[]
 }
 
 /** 记录模板的追踪关系三行文本（03 第六节假设格式，待用户最终确认） */
@@ -77,6 +81,9 @@ export function buildRow(item: TestItem, c: RawCase, params: GlobalParams): Case
     monitor: params.monitor,
     trace: traceOf(item, c),
     expectSource: expectSource,
-    suspectCount: suspectCount
+    suspectCount: suspectCount,
+    reviewed: false,
+    excluded: false,
+    dismissedSuspects: []
   }
 }

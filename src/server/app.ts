@@ -1,4 +1,5 @@
 import { extname, join, normalize, resolve } from 'node:path'
+import { handleApi } from './api.ts'
 
 /** 前端构建产物目录 */
 export const DIST_DIR = resolve(import.meta.dir, '../../web/dist')
@@ -20,15 +21,8 @@ const MIME: Record<string, string> = {
 
 export async function handle(req: Request): Promise<Response> {
   const url = new URL(req.url)
-  if (url.pathname.startsWith('/api/')) return api(req, url)
+  if (url.pathname.startsWith('/api/')) return handleApi(req, url)
   return serveStatic(url)
-}
-
-function api(req: Request, url: URL): Response {
-  if (url.pathname === '/api/ping') {
-    return Response.json({ ok: true, version: VERSION, ts: Date.now() })
-  }
-  return Response.json({ ok: false, error: `未知接口 ${url.pathname}` }, { status: 404 })
 }
 
 async function serveStatic(url: URL): Promise<Response> {
