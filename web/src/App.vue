@@ -1,51 +1,111 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
+import { useTheme } from 'vuetify'
+import { store, scheduleSettingsSave, showToast } from './store.ts'
+import { loadSettings } from './api.ts'
+import Screen1 from './screens/Screen1.vue'
+import Screen2 from './screens/Screen2.vue'
+import Screen3 from './screens/Screen3.vue'
 
-const pingState = ref<'pending' | 'ok' | 'fail'>('pending')
-const pingInfo = ref('正在连接本地服务…')
+const theme = useTheme()
+const STEPS = ['选择大纲', '核对与编辑', '生成文档']
 
-async function checkPing() {
+onMounted(async () => {
   try {
-    const res = await fetch('/api/ping')
-    const data = await res.json()
-    pingState.value = data.ok ? 'ok' : 'fail'
-    pingInfo.value = data.ok
-      ? `服务正常 · v${data.version} · ${new Date(data.ts).toLocaleTimeString('zh-CN', { hour12: false })}`
-      : '服务返回异常'
+    const s = await loadSettings()
+    if (s.theme === 'dark' || s.theme === 'light') {
+      store.theme = s.theme
+      theme.global.name.value = s.theme
+    }
   } catch {
-    pingState.value = 'fail'
-    pingInfo.value = '无法连接本地服务（bun run dev:server 未启动？）'
+    // 服务未就绪时忽略
   }
+})
+
+function toggleTheme(): void {
+  store.theme = store.theme === 'dark' ? 'light' : 'dark'
+  theme.global.name.value = store.theme
+  scheduleSettingsSave()
 }
 
-onMounted(checkPing)
+function stepClick(n: number): void {
+  if (n === 1) {
+    store.screen = 1
+    return
+  }
+  if (!store.parsed) {
+    showToast('请先选择并解析大纲')
+    return
+  }
+  if (n === 3 && store.screen !== 3) {
+    showToast('请先点击「生成文档」')
+    return
+  }
+  store.screen = n as 2 | 3
+}
 </script>
 
 <template>
   <v-app>
-    <v-app-bar color="primary" elevation="0">
-      <v-app-bar-title class="font-weight-semibold">测试文档生成工具</v-app-bar-title>
-      <v-chip size="small" variant="tonal" class="mr-4">M0 工程骨架</v-chip>
+    <v-app-bar color="appbar" elevation="0">
+      <div class="mark"><v-icon size="19">mdi-file-word-box</v-icon></div>
+      <span class="app-title">测试文档生成工具</span>
+      <div class="spacer" />
+      <nav class="stepper">
+        <template v-for="(t, i) in STEPS" :key="t">
+          <button
+            class="step"
+            :class="{ active: store.screen === i + 1, done: store.screen > i + 1 }"
+            @click="stepClick(i + 1)"
+          >
+            <span class="dot">
+              <v-icon v-if="store.screen > i + 1" size="13">mdi-check</v-icon>
+              <template v-else>{{ i + 1 }}</template>
+            </span>
+            <span class="lbl">{{ t }}</span>
+          </button>
+          <span v-if="i < 2" class="link" />
+        </template>
+      </nav>
+      <div class="spacer" />
+      <v-btn icon size="small" class="mr-3" @click="toggleTheme">
+        <v-icon>{{ store.theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
+      </v-btn>
     </v-app-bar>
+
     <v-main>
-      <v-container class="fill-height" fluid>
-        <v-row justify="center">
-          <v-col cols="12" sm="9" md="6" lg="5">
-            <v-card rounded="xl" elevation="2" class="pa-8 text-center">
-              <v-icon size="56" color="primary">mdi-file-word-box</v-icon>
-              <h1 class="text-h6 font-weight-bold mt-3">工程骨架已就绪</h1>
-              <p class="text-body-2 text-medium-emphasis mt-1">
-                Bun 服务 + Vue 3 / Vuetify 前端 + docxtemplater 冒烟测试全部通过
-              </p>
-              <v-alert
-                class="mt-6" rounded="lg" :type="pingState === 'ok' ? 'success' : pingState === 'fail' ? 'error' : 'info'"
-                variant="tonal" density="compact" :text="pingInfo"
-              />
-              <v-btn class="mt-4" color="primary" rounded="pill" @click="checkPing">再测一次</v-btn>
-            </v-card>
-          </v-col>
-        </v-row>
-      </v-container>
+      <Screen1 v-if="store.screen === 1" />
+      <Screen2 v-else-if="store.screen === 2" />
+      <Screen3 v-else />
     </v-main>
+
+    <v-snackbar v-model="store.toast.show" location="bottom" timeout="2600" rounded="lg">
+      {{ store.toast.text }}
+    </v-snackbar>
   </v-app>
 </template>
+
+<style scoped>
+.mark {
+  width: 32px; height: 32px; border-radius: 9px; margin-left: 14px;
+  background: rgba(255, 255, 255, 0.18); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.app-title { font-size: 16px; font-weight: 600; color: #fff; margin-left: 4px; }
+.spacer { flex: 1; }
+.stepper { display: flex; align-items: center; }
+.step { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 999px; color: rgba(255, 255, 255, 0.75); }
+.dot {
+  width: 24px; height: 24px; border-radius: 50%; flex: none;
+  border: 1.4px solid rgba(255, 255, 255, 0.6);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+}
+.lbl { font-size: 13px; white-space: nowrap; }
+.step.active { color: #fff; }
+.step.active .dot { background: #fff; border-color: #fff; color: rgb(var(--v-theme-primary)); }
+.step.done { color: rgba(255, 255, 255, 0.92); }
+.step.done .dot { background: rgba(255, 255, 255, 0.25); border-color: transparent; }
+.link { width: 24px; height: 1.4px; background: rgba(255, 255, 255, 0.45); margin: 0 3px; }
+@media (max-width: 760px) { .lbl { display: none; } .link { width: 12px; } }
+</style>

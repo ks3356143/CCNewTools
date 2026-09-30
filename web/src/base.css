@@ -1,0 +1,20 @@
+/* 关闭 Vuetify 4 布局默认的 MD3 大圆角：工具型应用顶栏与内容满幅显示 */
+.v-main,
+.v-app-bar,
+.v-application__wrap > .v-footer {
+  border-radius: 0 !important;
+}
+
+/* 自定义按钮基（仅针对本项目自建按钮类，不重置 v-btn） */
+button.step,
+button.row,
+button.case-row,
+button.type-row,
+button.item-row,
+.steps .ops button,
+.steps .fix {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+}

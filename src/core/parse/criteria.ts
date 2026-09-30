@@ -16,6 +16,7 @@ function incomplete(s: string): boolean {
 export function parseCriteriaCell(paras: ParaInfo[], issues: IssueCollector, ctx: string): CriteriaEntry[] {
   const entries: CriteriaEntry[] = []
   let cur: CriteriaEntry | null = null
+  const orphans: string[] = []
 
   for (const para of paras) {
     const t = para.text.trim()
@@ -29,14 +30,14 @@ export function parseCriteriaCell(paras: ParaInfo[], issues: IssueCollector, ctx
     }
 
     if (t.endsWith('：')) {
-      // 小标题行（如"不同检索类型（……）："），无实际内容 → 丢弃 + 提示
-      issues.info('CRITERIA_LABEL', '通过准则格已忽略小标题行：' + t, ctx)
+      // 小标题行（如"不同检索类型（……）："），无实际内容 → 丢弃；仅在有用例结构时提示
+      if (entries.length > 0) issues.info('CRITERIA_LABEL', '通过准则格已忽略小标题行：' + t, ctx)
       continue
     }
 
     if (/^\d{1,3}\s*[）)]/.test(t)) {
       if (cur === null) {
-        issues.info('CRITERIA_ORPHAN_ITEM', '通过准则格中有未归属用例的条目，已忽略：' + t.slice(0, 30), ctx)
+        orphans.push(t)
         continue
       }
       cur.items.push(t.replace(/^\d{1,3}\s*[）)]\s*/, ''))
@@ -48,7 +49,14 @@ export function parseCriteriaCell(paras: ParaInfo[], issues: IssueCollector, ctx
       cur.items[cur.items.length - 1] = cur.items[cur.items.length - 1] + t
       continue
     }
-    issues.info('CRITERIA_ORPHAN_TEXT', '通过准则格中有未归属用例的段落，已忽略：' + t.slice(0, 30), ctx)
+    orphans.push(t)
+  }
+
+  // 格内没有用例结构（如整格只是一句结论）→ 内容本就不参与配对，静默忽略
+  if (entries.length > 0) {
+    for (const o of orphans) {
+      issues.info('CRITERIA_ORPHAN_TEXT', '通过准则格中有未归属用例的段落，已忽略：' + o.slice(0, 30), ctx)
+    }
   }
   return entries
 }

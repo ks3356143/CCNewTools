@@ -1,11 +1,18 @@
 import 'vuetify/styles'
+import '@mdi/font/css/materialdesignicons.css'
+import './base.css'
 import { createApp } from 'vue'
 import { createVuetify } from 'vuetify'
+import { mdi } from 'vuetify/iconsets/mdi'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import App from './App.vue'
 
 const vuetify = createVuetify({
+  icons: {
+    defaultSet: 'mdi',
+    sets: { mdi }
+  },
   theme: {
     defaultTheme: 'light',
     themes: {
@@ -19,7 +26,8 @@ const vuetify = createVuetify({
           surface: '#FFFFFF',
           success: '#22642F',
           warning: '#8F5F00',
-          error: '#B3261E'
+          error: '#B3261E',
+          appbar: '#2D5B91'
         }
       },
       dark: {
@@ -28,7 +36,11 @@ const vuetify = createVuetify({
           primary: '#A3C4EE',
           secondary: '#A9B0C1',
           background: '#101319',
-          surface: '#181C24'
+          surface: '#181C24',
+          success: '#8BD697',
+          warning: '#F0C463',
+          error: '#F2B8B5',
+          appbar: '#1E3A5F'
         }
       }
     }

@@ -32,5 +32,5 @@ export function renderTemplate(template: Buffer, data: object): Buffer {
     throw new Error('模板渲染失败：' + detail)
   }
 
-  return doc.getZip().generate({ type: 'nodebuffer' }) as Buffer
+  return doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' }) as Buffer
 }

@@ -19,3 +19,4 @@ web/dist/
 # 编辑器/IDE
 .vscode/
 .idea/
+web/public/_test.docx
