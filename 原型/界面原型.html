@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>测试文档生成工具 · 界面原型</title>
+<style>
+/* ============ 设计令牌 ============ */
+:root{
+  --bg:#F4F6FB;
+  --surface:#FFFFFF;
+  --surface-2:#EDF1F8;
+  --surface-3:#E2E8F2;
+  --on-surface:#191C23;
+  --on-surface-var:#4A5060;
+  --outline:#C4CAD8;
+  --outline-soft:#E1E5EF;
+  --primary:#2D5B91;
+  --primary-hover:rgba(45,91,145,.08);
+  --on-primary:#FFFFFF;
+  --primary-container:#D6E4F7;
+  --on-primary-container:#0C2A4C;
+  --secondary-container:#E4E9F3;
+  --on-secondary-container:#28303F;
+  --amber:#8F5F00;
+  --amber-container:#FBEBC6;
+  --success:#22642F;
+  --success-container:#D3EED8;
+  --inverse:#28303C;
+  --inverse-on:#EFF1F6;
+  --shadow-1:0 1px 2px rgba(23,28,40,.06),0 1px 3px rgba(23,28,40,.08);
+  --shadow-2:0 1px 2px rgba(23,28,40,.08),0 2px 6px rgba(23,28,40,.10);
+  --r-sm:8px; --r-md:14px; --r-lg:20px; --r-full:999px;
+  color-scheme:light;
+}
+[data-theme="dark"]{
+  --bg:#101319;
+  --surface:#181C24;
+  --surface-2:#1F242E;
+  --surface-3:#282E3A;
+  --on-surface:#E3E6EE;
+  --on-surface-var:#A9B0C1;
+  --outline:#3D4452;
+  --outline-soft:#2A303C;
+  --primary:#A3C4EE;
+  --primary-hover:rgba(163,196,238,.10);
+  --on-primary:#0B3055;
+  --primary-container:#25496F;
+  --on-primary-container:#D4E4F8;
+  --secondary-container:#313A4A;
+  --on-secondary-container:#DCE2EE;
+  --amber:#F0C463;
+  --amber-container:#4A3A14;
+  --success:#8BD697;
+  --success-container:#1D3B25;
+  --inverse:#E3E6EE;
+  --inverse-on:#1F242E;
+  --shadow-1:0 1px 2px rgba(0,0,0,.3),0 1px 3px rgba(0,0,0,.25);
+  --shadow-2:0 1px 2px rgba(0,0,0,.35),0 2px 8px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+
+/* ============ 基础 ============ */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:"Segoe UI","Microsoft YaHei UI","Microsoft YaHei","PingFang SC",sans-serif;
+  background:var(--bg);color:var(--on-surface);
+  font-size:15px;line-height:1.6;
+  transition:background .25s,color .25s;
+}
+.mono{font-family:Consolas,"Cascadia Mono","Courier New",monospace;font-size:.92em;letter-spacing:.01em}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+button:focus-visible,[contenteditable]:focus-visible,a:focus-visible,input:focus-visible{
+  outline:2px solid var(--primary);outline-offset:2px;border-radius:4px;
+}
+::selection{background:var(--primary-container);color:var(--on-primary-container)}
+
+/* ============ 图标按钮 / 按钮 ============ */
+.icon-btn{
+  width:40px;height:40px;border-radius:var(--r-full);
+  display:inline-flex;align-items:center;justify-content:center;
+  color:var(--on-surface-var);transition:background .15s;flex:none;
+}
+.icon-btn:hover{background:var(--primary-hover)}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  height:40px;padding:0 22px;border-radius:var(--r-full);
+  font-size:14.5px;font-weight:500;transition:filter .15s,background .15s,box-shadow .15s;
+}
+.btn svg{flex:none}
+.btn-filled{background:var(--primary);color:var(--on-primary);box-shadow:var(--shadow-1)}
+.btn-filled:hover{filter:brightness(1.08)}
+.btn-tonal{background:var(--secondary-container);color:var(--on-secondary-container)}
+.btn-tonal:hover{filter:brightness(1.04)}
+.btn-success{background:var(--success-container);color:var(--success)}
+.btn-success:hover{filter:brightness(1.04)}
+.btn-text{color:var(--primary);padding:0 14px}
+.btn-text:hover{background:var(--primary-hover)}
+.btn:disabled{opacity:.4;cursor:default;filter:none;box-shadow:none}
+.btn-sm{height:32px;padding:0 14px;font-size:13px}
+
+/* ============ 顶栏 ============ */
+.appbar{
+  position:sticky;top:0;z-index:20;
+  display:flex;align-items:center;gap:14px;
+  height:60px;padding:0 18px;
+  background:var(--surface);border-bottom:1px solid var(--outline-soft);
+}
+.app-mark{
+  width:34px;height:34px;border-radius:10px;flex:none;
+  background:var(--primary-container);color:var(--on-primary-container);
+  display:flex;align-items:center;justify-content:center;
+}
+.app-title{font-size:16.5px;font-weight:600;letter-spacing:.01em}
+.proto-chip{
+  font-size:11.5px;font-weight:500;color:var(--amber);
+  background:var(--amber-container);border-radius:var(--r-full);
+  padding:2px 10px;letter-spacing:.05em;
+}
+.appbar .spacer{flex:1}
+
+/* ============ 步骤条 ============ */
+.stepper{display:flex;align-items:center;margin:0 auto}
+.step{display:flex;align-items:center;gap:9px;padding:6px 4px;border-radius:var(--r-full)}
+.step:not(:disabled):hover{background:var(--primary-hover)}
+.step:disabled{cursor:default}
+.step-dot{
+  width:26px;height:26px;border-radius:var(--r-full);flex:none;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;
+  border:1.6px solid var(--outline);color:var(--on-surface-var);
+  transition:all .2s;
+}
+.step-label{font-size:13.5px;color:var(--on-surface-var);white-space:nowrap}
+.step.active .step-dot{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+.step.active .step-label{color:var(--on-surface);font-weight:600}
+.step.done .step-dot{background:var(--primary-container);border-color:transparent;color:var(--on-primary-container)}
+.step.done .step-label{color:var(--on-surface)}
+.step-link{width:26px;height:1.6px;background:var(--outline);margin:0 2px;flex:none}
+
+/* ============ 屏幕容器 ============ */
+.screen{display:none;animation:rise .28s ease both}
+.screen.on{display:block}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+.wrap{max-width:1180px;margin:0 auto;padding:34px 26px 60px}
+
+/* ============ 卡片 / 通用块 ============ */
+.card{background:var(--surface);border:1px solid var(--outline-soft);border-radius:var(--r-lg);box-shadow:var(--shadow-1)}
+.card-pad{padding:24px 26px}
+.sec-title{font-size:15.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+.sec-title .icon-btn{width:32px;height:32px}
+.cap{font-size:13px;color:var(--on-surface-var)}
+
+/* ============ 第 1 屏：选择大纲 ============ */
+.s1-hero{max-width:640px;margin:26px auto 0;text-align:center}
+.s1-badge{
+  width:72px;height:72px;border-radius:24px;margin:0 auto 22px;
+  background:var(--primary-container);color:var(--on-primary-container);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow-1);
+}
+.s1-hero h1{font-size:24px;font-weight:650;letter-spacing:.01em}
+.s1-hero p{margin-top:10px;color:var(--on-surface-var);font-size:14.5px}
+.drop{
+  margin-top:28px;padding:46px 30px;border-radius:var(--r-lg);
+  border:1.6px dashed var(--outline);background:var(--surface);
+  cursor:pointer;transition:border-color .2s,background .2s;
+  text-align:center;
+}
+.drop:hover,.drop.over{border-color:var(--primary);background:var(--primary-hover)}
+.drop svg{color:var(--primary)}
+.drop-t{margin-top:14px;font-size:15.5px;font-weight:550}
+.drop-c{margin-top:5px;font-size:13px;color:var(--on-surface-var)}
+.drop.parse{cursor:default}
+.drop.parse:hover{border-color:var(--outline);background:var(--surface)}
+.progress{height:5px;border-radius:var(--r-full);background:var(--surface-3);overflow:hidden;margin-top:20px}
+.progress i{display:block;height:100%;width:0;border-radius:inherit;background:var(--primary);transition:width 1.7s cubic-bezier(.3,.6,.4,1)}
+.parse-name{margin-top:14px;font-size:13.5px;color:var(--on-surface-var)}
+.parse-name b{color:var(--on-surface);font-weight:550}
+
+.s1-result{max-width:640px;margin:22px auto 0;display:none;text-align:left}
+.s1-result.show{display:block;animation:rise .3s ease both}
+.alert{display:flex;gap:12px;padding:14px 18px;border-radius:var(--r-md);font-size:14px}
+.alert svg{flex:none;margin-top:3px}
+.alert.ok{background:var(--success-container);color:var(--success)}
+.alert.warn{background:var(--amber-container);color:var(--amber);margin-top:12px}
+.alert b{font-weight:600}
+.stat-band{
+  margin-top:12px;display:flex;align-items:stretch;
+  background:var(--surface);border:1px solid var(--outline-soft);
+  border-radius:var(--r-md);box-shadow:var(--shadow-1);overflow:hidden;
+}
+.stat{flex:1;padding:18px 10px 16px;text-align:center}
+.stat + .stat{border-left:1px solid var(--outline-soft)}
+.stat b{display:block;font-size:32px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:.01em;white-space:nowrap}
+.stat b small{font-size:17px;font-weight:600}
+.stat span{display:block;margin-top:2px;font-size:12.5px;color:var(--on-surface-var)}
+.s1-cta{margin-top:22px;display:flex;gap:12px;align-items:center;justify-content:center}
+.s1-foot{margin-top:26px;text-align:center;font-size:12.5px;color:var(--on-surface-var)}
+
+/* ============ 第 2 屏：核对与编辑 ============ */
+.s2{display:none;gap:0;max-width:1360px;margin:0 auto;padding:20px 20px 96px}
+.s2.on{display:flex;align-items:flex-start}
+.tree{
+  width:296px;flex:none;position:sticky;top:80px;
+  background:var(--surface);border:1px solid var(--outline-soft);
+  border-radius:var(--r-lg);box-shadow:var(--shadow-1);
+  max-height:calc(100vh - 100px);display:flex;flex-direction:column;
+}
+.tree-head{padding:16px 16px 10px}
+.tree-head .sec-title{margin-bottom:10px}
+.search{
+  display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;
+  border:1px solid var(--outline);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--on-surface-var);
+}
+.search input{border:none;outline:none;background:none;font:inherit;font-size:13.5px;color:var(--on-surface);width:100%}
+.tree-note{padding:8px 16px 10px;font-size:12px;color:var(--on-surface-var);border-bottom:1px solid var(--outline-soft)}
+.tree-body{overflow-y:auto;padding:8px;flex:1}
+.t-type{margin-top:2px}
+.t-type-row{
+  width:100%;display:flex;align-items:center;gap:6px;
+  padding:8px 8px;border-radius:var(--r-sm);font-size:14.5px;font-weight:600;
+}
+.t-type-row:hover{background:var(--primary-hover)}
+.t-type-row .cnt{margin-left:auto;font-size:12px;font-weight:500;color:var(--on-surface-var)}
+.t-type-row .chev{transition:transform .18s;color:var(--on-surface-var)}
+.t-type.closed .chev{transform:rotate(-90deg)}
+.t-type.closed .t-sub{display:none}
+.t-item{margin-left:16px;border-left:1px solid var(--outline-soft);padding-left:6px}
+.t-item-row{
+  width:100%;display:flex;align-items:center;gap:6px;
+  padding:6px 8px;border-radius:var(--r-sm);font-size:13.5px;font-weight:500;
+  color:var(--on-surface-var);text-align:left;
+}
+.t-item-row:hover{background:var(--primary-hover);color:var(--on-surface)}
+.t-item-row .cnt{margin-left:auto;font-size:11.5px;color:var(--on-surface-var)}
+.t-cases{margin-left:14px;border-left:1px solid var(--outline-soft);padding-left:4px}
+.t-case{
+  width:100%;display:flex;align-items:center;gap:8px;
+  padding:6px 10px;border-radius:var(--r-sm);font-size:13.5px;text-align:left;
+  color:var(--on-surface-var);
+}
+.t-case:hover{background:var(--primary-hover)}
+.t-case.cur{background:var(--secondary-container);color:var(--on-secondary-container);font-weight:550}
+.t-case .cid{margin-left:auto;font-size:10.5px;color:var(--on-surface-var);opacity:.75}
+.t-case .ok-ic{color:var(--success);flex:none}
+
+.main{flex:1;min-width:0;margin-left:20px}
+
+/* 全局参数 */
+.params-body{display:none;margin-top:18px}
+.params.open .params-body{display:block}
+.params .chev{transition:transform .18s}
+.params.open .params .chev{transform:rotate(180deg)}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
+.pfield label{display:block;font-size:12.5px;font-weight:550;color:var(--on-surface-var);margin-bottom:6px}
+.pfield input{
+  width:100%;height:40px;padding:0 14px;font:inherit;font-size:14px;
+  border:1px solid var(--outline);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--on-surface);
+}
+.pfield input:focus{border-color:var(--primary);outline:2px solid var(--primary);outline-offset:-1px}
+.pgrid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px 18px;margin-top:14px}
+.p-note{margin-top:14px;font-size:12.5px;color:var(--on-surface-var);display:flex;align-items:center;gap:6px}
+
+/* 用例面板 */
+.case-head{margin:22px 2px 12px}
+.crumb{font-size:13px;color:var(--on-surface-var);display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.crumb .sep{opacity:.5;margin:0 2px}
+.case-title-row{display:flex;align-items:flex-start;gap:14px;margin-top:6px;flex-wrap:wrap}
+.case-title-row h2{font-size:21px;font-weight:650;letter-spacing:.01em}
+.case-title-row .btn{margin-left:auto}
+.chiprow{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 11px;
+  border-radius:var(--r-sm);font-size:12.5px;font-weight:500;
+}
+.chip .k{opacity:.68;font-weight:400}
+.chip.id1{background:var(--primary-container);color:var(--on-primary-container)}
+.chip.id2{background:var(--secondary-container);color:var(--on-secondary-container)}
+.chip.ch{border:1px solid var(--outline);color:var(--on-surface-var)}
+.case-summary{
+  margin-top:12px;padding:13px 16px;border-radius:var(--r-md);
+  background:var(--surface-2);font-size:13.5px;color:var(--on-surface-var);
+}
+.case-summary b{color:var(--on-surface);font-weight:550}
+
+/* 步骤表 */
+.table-card{overflow:hidden}
+.steps-head{
+  display:flex;align-items:center;padding:15px 20px;
+  border-bottom:1px solid var(--outline-soft);
+}
+.steps-head .cap{margin-left:auto}
+table.steps{width:100%;border-collapse:collapse;table-layout:fixed}
+.steps th{
+  text-align:left;font-size:12.5px;font-weight:550;color:var(--on-surface-var);
+  padding:10px 14px;background:var(--surface-2);white-space:nowrap;
+  border-bottom:1px solid var(--outline-soft);
+}
+.steps td{padding:13px 14px;vertical-align:top;border-bottom:1px solid var(--outline-soft);font-size:14px;line-height:1.7}
+.steps tr:last-child td{border-bottom:none}
+.col-no{width:52px;text-align:center;color:var(--on-surface-var);font-variant-numeric:tabular-nums}
+.col-act{width:44%}
+.steps td.edit{cursor:text;position:relative}
+.steps td.edit:hover{background:var(--primary-hover)}
+.steps td.edit:focus{outline:2px solid var(--primary);outline-offset:-2px;background:var(--surface)}
+.steps td .ph{color:var(--amber);font-style:normal}
+tr.suspect td{background:color-mix(in srgb,var(--amber-container) 34%,transparent)}
+tr.suspect td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+tr.suspect.dis td{background:transparent}
+.sus-chip{
+  display:inline-flex;align-items:center;gap:5px;margin-top:6px;
+  font-size:11.5px;color:var(--amber);
+  background:var(--amber-container);border-radius:var(--r-full);padding:2px 9px;
+}
+.sus-fix{margin-top:6px;font-size:12px;color:var(--primary);text-decoration:underline;text-underline-offset:3px}
+.sus-fix:hover{color:var(--on-surface)}
+tr.dis .sus-fix{display:none}
+td .edit-ic{position:absolute;top:8px;right:8px;opacity:0;color:var(--on-surface-var);transition:opacity .15s}
+td.edit:hover .edit-ic{opacity:.6}
+
+/* 底部操作条 */
+.actionbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:15;
+  background:color-mix(in srgb,var(--surface) 88%,transparent);
+  backdrop-filter:blur(10px);
+  border-top:1px solid var(--outline-soft);
+}
+.actionbar .in{max-width:1360px;margin:0 auto;display:flex;align-items:center;gap:14px;padding:12px 22px}
+.ab-progress{flex:1;max-width:300px}
+.ab-progress .txt{font-size:12.5px;color:var(--on-surface-var);margin-bottom:6px;display:flex;justify-content:space-between}
+.bar{height:5px;border-radius:var(--r-full);background:var(--surface-3);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:inherit;background:var(--primary);transition:width .3s}
+.actionbar .grow{flex:1}
+
+/* ============ 第 3 屏：生成 ============ */
+.s3-wrap{max-width:560px;margin:48px auto 0;text-align:center}
+#s3gen .card{text-align:left}
+.gen-title{text-align:center;font-size:18px;font-weight:650;margin-bottom:20px}
+.gen-row{display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;color:var(--on-surface-var);margin-bottom:8px}
+.gen-row b{font-size:14px;color:var(--on-surface);font-variant-numeric:tabular-nums}
+.gen-bar{height:7px}
+.logbox{
+  margin-top:18px;background:#10141D;border:1px solid #232B3B;border-radius:var(--r-md);
+  height:236px;overflow-y:auto;padding:12px 16px;
+  font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px;line-height:2;color:#C4CCDC;
+  text-align:left;
+}
+[data-theme="dark"] .logbox{border-color:#2A3244}
+.logbox::-webkit-scrollbar{width:8px}
+.logbox::-webkit-scrollbar-thumb{background:#2A3244;border-radius:4px}
+.log-line{display:flex;gap:9px;align-items:baseline;animation:logIn .18s ease both}
+@keyframes logIn{from{opacity:0;transform:translateX(-5px)}to{opacity:1;transform:none}}
+.log-line .lt{color:#5D6880;flex:none;font-size:11.5px}
+.log-line .lk{flex:none;width:12px}
+.log-line.cur{color:#A9CCF4}
+.log-line.cur .lk{color:#E8C36A}
+.log-line.ok{color:#C4CCDC}
+.log-line.ok .lk{color:#7BD88F}
+.done-badge{
+  width:76px;height:76px;border-radius:26px;margin:0 auto 20px;
+  background:var(--success-container);color:var(--success);
+  display:flex;align-items:center;justify-content:center;
+}
+.s3-wrap h1{font-size:23px;font-weight:650}
+.s3-wrap .sub{margin-top:8px;color:var(--on-surface-var);font-size:14px}
+.file-card{margin-top:26px;text-align:left;overflow:hidden}
+.file-row{display:flex;align-items:center;gap:14px;padding:16px 20px}
+.file-row + .file-row{border-top:1px solid var(--outline-soft)}
+.file-ic{
+  width:42px;height:42px;border-radius:12px;flex:none;
+  background:var(--primary-container);color:var(--on-primary-container);
+  display:flex;align-items:center;justify-content:center;
+}
+.file-name{font-size:14.5px;font-weight:550}
+.file-meta{font-size:12.5px;color:var(--on-surface-var);margin-top:1px}
+.file-row .btn{margin-left:auto}
+.s3-cta{margin-top:26px;display:flex;gap:10px;justify-content:center}
+
+/* ============ Snackbar ============ */
+.snack{
+  position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);
+  background:var(--inverse);color:var(--inverse-on);
+  padding:11px 20px;border-radius:var(--r-sm);font-size:13.5px;
+  box-shadow:var(--shadow-2);opacity:0;pointer-events:none;
+  transition:opacity .22s,transform .22s;z-index:50;max-width:70vw;
+}
+.snack.show{opacity:1;transform:translate(-50%,0)}
+
+/* ============ 响应式 ============ */
+@media (max-width:960px){
+  .s2.on{flex-direction:column}
+  .tree{width:100%;position:static;max-height:340px}
+  .main{margin-left:0;margin-top:18px;width:100%}
+  .pgrid,.pgrid4{grid-template-columns:1fr}
+  .app-title{font-size:15px}
+  .wrap{padding:22px 16px 40px}
+  .stat b{font-size:24px}
+}
+@media (max-width:700px){
+  .step-label{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ 顶栏 ============ -->
+<header class="appbar">
+  <div class="app-mark" id="mark"></div>
+  <span class="app-title">测试文档生成工具</span>
+  <span class="proto-chip">界面原型</span>
+  <span class="spacer"></span>
+  <nav class="stepper" id="stepper" aria-label="流程步骤"></nav>
+  <span class="spacer"></span>
+  <button class="icon-btn" id="themeBtn" title="切换深浅色" aria-label="切换深浅色主题"></button>
+</header>
+
+<!-- ============ 第 1 屏：选择大纲 ============ -->
+<main id="s1" class="screen on">
+  <div class="wrap">
+    <div class="s1-hero">
+      <div class="s1-badge" id="heroBadge"></div>
+      <h1>选择测试大纲</h1>
+      <p>导入第三方测试大纲（.docx），自动解析其中的测试项表格，<br>生成测试说明与测试记录两份 Word 文档。</p>
+    </div>
+
+    <div class="drop" id="drop" role="button" tabindex="0" aria-label="选择大纲文件">
+      <div id="dropInner">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+        <div class="drop-t">拖入文件，或点击选择</div>
+        <div class="drop-c">支持 .docx 格式 · 原型演示，任意文件都会走一遍解析流程</div>
+      </div>
+      <div id="parseInner" style="display:none">
+        <div class="drop-t">正在解析大纲…</div>
+        <div class="progress"><i id="parseBar"></i></div>
+        <div class="parse-name">文件：<b id="parseFile">示例_测试大纲V1.0.docx</b></div>
+      </div>
+    </div>
+
+    <div class="s1-result" id="result">
+      <div class="alert ok" id="okAlert">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        <div>解析完成，共 <b>37</b> 个测试项、<b>112</b> 个测试用例、<b>544</b> 个测试步骤，未发现无法解析的内容。</div>
+      </div>
+      <div class="alert warn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-6h2v6z"/></svg>
+        <div><b>1 条告警：</b>用例 <span class="mono">XQ_SU_ZLQX_SU01</span> 所在测试项的标识为 <span class="mono">XQ_SU_ZLQQ</span>，两者不一致，已按用例标题中的标识为准处理。可在核对时重点确认。</div>
+      </div>
+      <div class="stat-band">
+        <div class="stat"><b>37</b><span>测试项</span></div>
+        <div class="stat"><b>112</b><span>测试用例</span></div>
+        <div class="stat"><b>544</b><span>测试步骤</span></div>
+        <div class="stat"><b>84.5<small>%</small></b><span>步骤自动切分成功率</span></div>
+      </div>
+      <div class="s1-cta">
+        <button class="btn btn-filled" id="toStep2">开始核对与编辑</button>
+        <button class="btn btn-text" id="rePick">重新选择文件</button>
+      </div>
+    </div>
+    <div class="s1-foot">离线运行，文档内容不出本机。</div>
+  </div>
+</main>
+
+<!-- ============ 第 2 屏：核对与编辑 ============ -->
+<main id="s2" class="screen s2">
+  <aside class="tree">
+    <div class="tree-head">
+      <div class="sec-title">测试项导航</div>
+      <div class="search">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <input id="searchBox" placeholder="搜索用例名称或标识" aria-label="搜索用例">
+      </div>
+    </div>
+    <div class="tree-note">数字为大纲中的实际用例数；本原型仅内置 4 个测试项的节选数据。</div>
+    <div class="tree-body" id="treeBody"></div>
+  </aside>
+
+  <section class="main">
+    <!-- 全局参数 -->
+    <div class="card params open" id="paramsCard">
+      <div class="card-pad">
+        <div class="sec-title" style="cursor:pointer" id="paramsToggle" role="button" tabindex="0">
+          全局参数
+          <span class="cap">对所有用例生效</span>
+          <svg class="chev icon-btn" style="margin-left:auto" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg>
+        </div>
+        <div class="params-body">
+          <div class="pgrid">
+            <div class="pfield"><label>用例初始化</label><input id="p_init"></div>
+            <div class="pfield"><label>前提和约束</label><input id="p_constraint"></div>
+          </div>
+          <div class="pgrid4">
+            <div class="pfield"><label>设计人员</label><input id="p_designer"></div>
+            <div class="pfield"><label>测试时间</label><input id="p_time" type="date"></div>
+            <div class="pfield"><label>测试人员</label><input id="p_tester" placeholder="必填"></div>
+            <div class="pfield"><label>监测人员</label><input id="p_monitor" placeholder="必填"></div>
+          </div>
+          <div class="p-note">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            正式版会记住上次填写的内容；测试人员、监测人员未填时不能生成文档。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 当前用例 -->
+    <div id="caseArea"></div>
+
+    <!-- 底部条 -->
+    <div class="actionbar">
+      <div class="in">
+        <div class="ab-progress">
+          <div class="txt"><span>核对进度</span><b id="progTxt">0 / 0</b></div>
+          <div class="bar"><i id="progBar" style="width:0"></i></div>
+        </div>
+        <button class="btn btn-tonal btn-sm" id="prevCase">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          上一条
+        </button>
+        <button class="btn btn-tonal btn-sm" id="nextCase">
+          下一条
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+        </button>
+        <div class="grow"></div>
+        <button class="btn btn-filled" id="genBtn">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+          生成文档
+        </button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ 第 3 屏：生成与下载 ============ -->
+<main id="s3" class="screen">
+  <div class="wrap">
+    <div class="s3-wrap" id="s3gen">
+      <div class="card card-pad">
+        <div class="gen-title">正在生成文档</div>
+        <div class="gen-row"><span id="genPhase">准备中</span><b id="genPct">0%</b></div>
+        <div class="bar gen-bar"><i id="genBar" style="width:0"></i></div>
+        <div id="logHome"><div class="logbox" id="genLog" aria-live="polite"></div></div>
+      </div>
+    </div>
+    <div class="s3-wrap" id="s3done" style="display:none">
+      <div class="done-badge">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+      </div>
+      <h1>生成完成</h1>
+      <p class="sub">两份文档已按模板渲染完成，章节顺序与大纲一致。</p>
+      <div class="card file-card">
+        <div class="file-row">
+          <div class="file-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg></div>
+          <div>
+            <div class="file-name">测试说明_示例测试大纲V1.0.docx</div>
+            <div class="file-meta">96.2 KB · 含 112 个用例的说明文档</div>
+          </div>
+          <button class="btn btn-tonal btn-sm" data-dl="测试说明">下载</button>
+        </div>
+        <div class="file-row">
+          <div class="file-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg></div>
+          <div>
+            <div class="file-name">测试记录_示例测试大纲V1.0.docx</div>
+            <div class="file-meta">128.7 KB · 含实际结果与结论栏的记录表</div>
+          </div>
+          <button class="btn btn-tonal btn-sm" data-dl="测试记录">下载</button>
+        </div>
+      </div>
+      <div id="doneLogWrap" style="display:none;margin-top:20px">
+        <button class="btn btn-text btn-sm" id="logToggle">查看生成日志</button>
+        <div id="doneLogSlot" style="display:none;margin-top:10px"></div>
+      </div>
+      <div class="s3-cta">
+        <button class="btn btn-tonal" id="backEdit">返回修改</button>
+        <button class="btn btn-text" id="restart">重新开始</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="snack" id="snack" role="status"></div>
+<input type="file" id="fileInput" accept=".docx" hidden>
+
+<script>
+"use strict";
+/* ================= 图标 ================= */
+const ICON = {
+  check:'M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z',
+  checkCircle:'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z',
+  warn:'M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-6h2v6z',
+  doc:'M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z',
+  edit:'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z',
+  dark:'M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z',
+  light:'M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z',
+  chev:'M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z',
+  shield:'M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 15-4-4 1.41-1.41L11 13.17l4.59-4.58L17 10l-6 6z'
+};
+const icon = (n,s=20)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor"><path d="${ICON[n]}"/></svg>`;
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+/* ================= 数据（大纲节选，字段与真实工具一致） ================= */
+const PARAMS = {
+  init:'外接设备或软件运行正常',
+  constraint:'软件正常工作，环境连接正常',
+  designer:'陈俊亦', time:'2026-09-30', tester:'', monitor:''
+};
+const DATA = [
+ {id:'dc1', type:'文档审查', group:null, item:'文档审查', chapter:'6.2.1.1', count:1,
+  itemId:'XQ_DC_DC001', caseId:'YL_DC_001', name:'软件文档审查',
+  summary:'对软件生存周期文档进行审查，检查文档的齐全性、一致性与可追溯性。',
+  steps:[
+   {action:'确认审查依据，包括软件需求规格说明、软件设计说明及软件测试大纲，明确审查范围与通过准则。',expect:'查看审查依据是否齐全，版本是否为受控版本；'},
+   {action:'逐条检查测试大纲中的测试项，确认每个测试项均可追溯到软件需求规格说明中的需求条目。',expect:'检查测试项与需求条目的追踪关系是否完整、一致；'},
+   {action:'检查测试方法描述，确认每个测试用例的输入、操作步骤与预期结果描述清晰、无二义性。',expect:'检查测试用例描述是否满足可测试性要求；'},
+   {action:'检查通过准则与充分性要求，确认其与测试项的测试目的相匹配。',expect:'查看通过准则是否能够判定测试项通过与否；'},
+   {action:'汇总审查中发现的问题，填写文档审查问题记录，形成审查结论。',expect:'检查问题记录是否完整，审查结论是否明确；'}
+  ]},
+ {id:'c1', type:'功能测试', group:'A星模板功能测试', item:'A星指令参数管理', chapter:'6.2.1.4.1.1', count:5,
+  itemId:'XQ_SU_ZLPA_SU01', caseId:'YL_SU_ZLPA_001', name:'参数查询正常功能',
+  summary:'验证软件对指令参数的查询功能是否正确实现。',
+  steps:[
+   {action:'启动A星指令参数管理软件，进入参数管理界面，确认参数列表正常显示。',expect:'查看参数列表是否正确显示数据库中的全部参数；'},
+   {action:'在参数列表下方的查询输入框中输入参数标识，点击查询按钮，',expect:'查看查询结果是否正确显示符合该参数标识的参数信息；'},
+   {action:'输入不存在的参数标识，点击查询按钮。',expect:'结果为空，软件给出相应提示。',suspect:'期望结果未以固定动词开头'},
+   {action:'清空查询输入框，点击查询按钮。',expect:'查看软件是否恢复显示全部参数信息；'}
+  ]},
+ {id:'c2', type:'功能测试', group:'A星模板功能测试', item:'A星指令参数管理', chapter:'6.2.1.4.1.1', count:5,
+  itemId:'XQ_SU_ZLPA_SU02', caseId:'YL_SU_ZLPA_002', name:'参数新增正常功能',
+  summary:'验证软件对指令参数的新增功能是否正确实现。',
+  steps:[
+   {action:'点击参数列表上方的新增按钮，在弹出的参数编辑窗口中输入参数标识、参数名称及参数默认值。',expect:'查看参数编辑窗口是否正确显示各输入项；'},
+   {action:'点击保存按钮。',expect:'查看新增的参数是否正确保存并显示在参数列表中；'},
+   {action:'重新查询该参数，确认参数各项属性与输入一致。',expect:'检查参数标识、参数名称及参数默认值是否与输入完全一致；'}
+  ]},
+ {id:'c3', type:'功能测试', group:'A星模板功能测试', item:'A星指令参数管理', chapter:'6.2.1.4.1.1', count:5,
+  itemId:'XQ_SU_ZLPA_SU03', caseId:'YL_SU_ZLPA_003', name:'参数修改正常功能',
+  summary:'验证软件对指令参数的修改功能是否正确实现。',
+  steps:[
+   {action:'在参数列表中选中一个参数，点击修改按钮。',expect:'查看参数编辑窗口是否正确显示该参数的当前属性值；'},
+   {action:'修改参数默认值，点击保存按钮。',expect:'查看修改后的参数默认值是否正确保存并刷新显示；'},
+   {action:'关闭软件后重新启动，查询该参数。',expect:'检查参数默认值是否保持为修改后的值；'}
+  ]},
+ {id:'m1', type:'功能测试', group:'A星模板功能测试', item:'A星遥控指令模版管理', chapter:'6.2.1.4.1.2', count:16,
+  itemId:'XQ_SU_ZLMB_SU01', caseId:'YL_SU_ZLMB_001', name:'遥控指令模版新增正常功能',
+  summary:'验证软件对遥控指令模版的新增功能是否正确实现。',
+  steps:[
+   {action:'进入遥控指令模版管理界面，点击新增模版按钮，输入模版名称并选择指令类型。',expect:'查看模版编辑界面是否正确显示各配置项；'},
+   {action:'逐条添加指令参数，设置参数代号、字节长度与偏移量，点击保存。',expect:'检查指令参数是否按输入顺序正确保存；'},
+   {action:'查询新增的模版并展开参数明细。',expect:'查看模版信息及参数明细是否与输入一致；'}
+  ]},
+ {id:'p1', type:'性能测试', group:null, item:'A星有效载荷控制指令生成准确率测试', chapter:'6.2.1.5.1', count:1,
+  itemId:'XQ_AC_SCZQ_SU01', caseId:'YL_AC_SCZQ_001', name:'指令生成准确率正常',
+  summary:'测试软件在规定时间内生成有效载荷控制指令的准确率是否满足指标要求。',
+  steps:[
+   {action:'按测试大纲规定的测试环境搭建测试平台，加载有效载荷控制指令测试用例集。',expect:'查看测试环境是否满足大纲规定的要求；'},
+   {action:'启动指令生成软件，连续生成 1000 条有效载荷控制指令，记录生成结果与用时。',expect:'检查生成的指令与期望结果比对是否全部正确；'},
+   {action:'统计指令生成准确率与平均生成时间。',expect:'查看准确率是否不低于 99.9%，平均生成时间是否满足指标要求；'}
+  ]}
+];
+
+/* ================= 状态 ================= */
+let cur = DATA[0].id;
+let screen = 1;
+const reviewed = new Set();
+const dismissed = new Set();          // `${caseId}:${no}` 已人工确认的可疑步
+const closedTypes = new Set();
+const closedItems = new Set();
+const PARAM_FIELDS = ['init','constraint','designer','time','tester','monitor'];
+
+/* ================= 顶栏 ================= */
+$('#mark').innerHTML = icon('shield',20);
+function renderTheme(){ $('#themeBtn').innerHTML = icon(document.documentElement.dataset.theme==='dark'?'light':'dark'); }
+$('#themeBtn').onclick = ()=>{
+  document.documentElement.dataset.theme = document.documentElement.dataset.theme==='dark'?'light':'dark';
+  renderTheme();
+};
+renderTheme();
+
+const STEPS = ['选择大纲','核对与编辑','生成文档'];
+let maxStep = 1;
+function renderStepper(){
+  $('#stepper').innerHTML = STEPS.map((t,i)=>{
+    const n = i+1;
+    const cls = n===screen?'active':(n<screen?'done':'');
+    const dot = n<screen ? icon('check',15) : n;
+    const link = i<2?'<span class="step-link"></span>':'';
+    return `<button class="step ${cls}" data-step="${n}" ${n>maxStep?'disabled':''}><span class="step-dot">${dot}</span><span class="step-label">${t}</span></button>${link}`;
+  }).join('');
+}
+$('#stepper').addEventListener('click',e=>{
+  const b = e.target.closest('.step'); if(!b||b.disabled) return;
+  go(+b.dataset.step);
+});
+
+/* ================= 屏幕切换 ================= */
+function go(n){
+  screen = n; maxStep = Math.max(maxStep,n); genRun++;
+  [1,2,3].forEach(i=>{
+    const el = $('#s'+i);
+    el.classList.remove('on');
+  });
+  const el = $('#s'+n);
+  void el.offsetWidth;           // 重新触发入场动画
+  el.classList.add('on');
+  if(n===2){ renderTree(); renderCase(); renderProgress(); }
+  renderStepper();
+  window.scrollTo({top:0});
+}
+
+/* ================= 第 1 屏 ================= */
+$('#heroBadge').innerHTML = icon('doc',36);
+const drop = $('#drop'), fileInput = $('#fileInput');
+let parsing = false;
+drop.onclick = ()=>{ if(!parsing) fileInput.click(); };
+drop.onkeydown = e=>{ if((e.key==='Enter'||e.key===' ')&&!parsing) fileInput.click(); };
+fileInput.onchange = ()=>{ if(fileInput.files[0]) startParse(fileInput.files[0].name); fileInput.value=''; };
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{ if(parsing) return;
+  const f = e.dataTransfer.files[0];
+  startParse(f? f.name : '示例_测试大纲V1.0.docx');
+});
+$('#rePick').onclick = ()=>{
+  $('#result').classList.remove('show');
+  $('#dropInner').style.display=''; $('#parseInner').style.display='none';
+  $('#parseBar').style.width='0'; parsing=false;
+};
+function startParse(name){
+  parsing = true;
+  $('#parseFile').textContent = name;
+  $('#dropInner').style.display='none';
+  $('#parseInner').style.display='';
+  $('#result').classList.remove('show');
+  drop.classList.add('parse');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ $('#parseBar').style.width='100%'; }));
+  setTimeout(()=>{
+    drop.classList.remove('parse');
+    $('#result').classList.add('show');
+    parsing=false;
+    toast('解析完成');
+  },1900);
+}
+$('#toStep2').onclick = ()=>go(2);
+
+/* ================= 第 2 屏：树导航 ================= */
+const groups = [];
+DATA.forEach(c=>{
+  let g = groups.find(x=>x.type===c.type);
+  if(!g){ g={type:c.type, items:[]}; groups.push(g); }
+  let it = g.items.find(x=>x.item===c.item);
+  if(!it){ it={item:c.item, chapter:c.chapter, count:c.count, cases:[]}; g.items.push(it); }
+  it.cases.push(c);
+});
+function treeFiltered(kw){
+  return groups.map(g=>{
+    const items = g.items.map(it=>{
+      const cases = kw
+        ? it.cases.filter(c=>(c.name+c.caseId+c.itemId).toLowerCase().includes(kw))
+        : it.cases;
+      return {...it, cases};
+    }).filter(it=>kw ? it.cases.length || it.item.toLowerCase().includes(kw) : true);
+    const typeHit = kw && g.type.toLowerCase().includes(kw);
+    return {type:g.type, items: typeHit ? g.items.map(it=>({...it,cases:it.cases})) : items};
+  }).filter(g=>g.items.length || (kw&&g.type.toLowerCase().includes(kw)) || !kw)
+    .filter(g=>!kw || g.items.length || g.type.toLowerCase().includes(kw));
+}
+function renderTree(){
+  const kw = $('#searchBox').value.trim().toLowerCase();
+  const gs = treeFiltered(kw);
+  $('#treeBody').innerHTML = gs.map(g=>{
+    const closed = !kw && closedTypes.has(g.type);
+    const items = g.items.map(it=>{
+      const ic = !kw && closedItems.has(g.type+'|'+it.item);
+      const cases = it.cases.map(c=>`
+        <button class="t-case ${c.id===cur?'cur':''}" data-case="${c.id}">
+          ${reviewed.has(c.id)?`<span class="ok-ic">${icon('check',13)}</span>`:'<span style="width:13px"></span>'}
+          <span>${esc(c.name)}</span>
+          <span class="cid mono">${esc(c.caseId)}</span>
+        </button>`).join('');
+      return `<div class="t-item">
+        <button class="t-item-row" data-item="${esc(g.type)}|${esc(it.item)}">
+          <svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="${ICON.chev}"/></svg>
+          <span>${esc(it.item)}</span><span class="cnt">${it.count}</span>
+        </button>
+        ${ic?'':`<div class="t-cases">${cases}</div>`}
+      </div>`;
+    }).join('');
+    return `<div class="t-type ${closed?'closed':''}">
+      <button class="t-type-row" data-type="${esc(g.type)}">
+        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="${ICON.chev}"/></svg>
+        <span>${esc(g.type)}</span><span class="cnt">${kw?'':g.items.reduce((s,i)=>s+i.cases.length,0)}</span>
+      </button>
+      <div class="t-sub">${items}</div>
+    </div>`;
+  }).join('') || '<div class="cap" style="padding:16px">没有匹配的用例</div>';
+}
+$('#treeBody').addEventListener('click',e=>{
+  const tc = e.target.closest('[data-case]');
+  if(tc){ cur = tc.dataset.case; renderTree(); renderCase(); window.scrollTo({top:0,behavior:'smooth'}); return; }
+  const ti = e.target.closest('[data-item]');
+  if(ti){ const k=ti.dataset.item; closedItems.has(k)?closedItems.delete(k):closedItems.add(k); renderTree(); return; }
+  const tt = e.target.closest('[data-type]');
+  if(tt){ const k=tt.dataset.type; closedTypes.has(k)?closedTypes.delete(k):closedTypes.add(k); renderTree(); }
+});
+$('#searchBox').addEventListener('input',renderTree);
+
+/* ================= 全局参数 ================= */
+$('#paramsToggle').onclick = ()=>$('#paramsCard').classList.toggle('open');
+$('#paramsToggle').onkeydown = e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();$('#paramsCard').classList.toggle('open');} };
+PARAM_FIELDS.forEach(k=>{
+  const el = $('#p_'+k);
+  el.value = PARAMS[k];
+  el.addEventListener('input',()=>{ PARAMS[k]=el.value; });
+});
+
+/* ================= 用例面板 ================= */
+function suspectOf(c){ return c.steps.filter(s=>s.suspect).length; }
+function renderCase(){
+  const c = DATA.find(x=>x.id===cur);
+  const path = [c.type, c.group, c.item].filter(Boolean);
+  const crumb = path.map((p,i)=>`${i?'<span class="sep">/</span>':''}<span>${esc(p)}</span>`).join('');
+  const isRev = reviewed.has(c.id);
+  const rows = c.steps.map((s,i)=>{
+    const sus = !!s.suspect, dis = dismissed.has(c.id+':'+(i+1));
+    const no = i+1;
+    const expectHtml = s.expect ? esc(s.expect) : '<i class="ph">（期望结果为空）</i>';
+    const susTag = sus && !dis ? `
+      <span class="sus-chip">${icon('warn',12)}切分可疑 · ${esc(s.suspect)}</span>
+      <button class="sus-fix" data-fix="${no}">确认无误，取消提示</button>` : '';
+    return `<tr class="${sus&&!dis?'suspect':''} ${dis?'dis':''}" data-no="${no}">
+      <td class="col-no">${no}</td>
+      <td class="edit" data-f="action">${esc(s.action)}<span class="edit-ic">${icon('edit',14)}</span></td>
+      <td class="edit" data-f="expect">${expectHtml}<span class="edit-ic">${icon('edit',14)}</span>${susTag}</td>
+    </tr>`;
+  }).join('');
+  const susCount = suspectOf(c) - c.steps.filter((s,i)=>s.suspect&&dismissed.has(c.id+':'+(i+1))).length;
+  $('#caseArea').innerHTML = `
+  <div class="case-head">
+    <div class="crumb">${crumb}</div>
+    <div class="case-title-row">
+      <h2>${esc(c.name)}</h2>
+      <button class="btn btn-sm ${isRev?'btn-success':'btn-tonal'}" id="revBtn">
+        ${icon('check',15)} ${isRev?'已核对':'标记已核对'}
+      </button>
+    </div>
+    <div class="chiprow">
+      <span class="chip id1"><span class="k">标识</span><span class="mono">${esc(c.caseId)}</span></span>
+      <span class="chip id2"><span class="k">测试需求标识</span><span class="mono">${esc(c.itemId)}</span></span>
+      <span class="chip ch"><span class="k">章节</span><span class="mono">${esc(c.chapter)}</span></span>
+      ${susCount?`<span class="chip ch" style="color:var(--amber);border-color:var(--amber)"><span class="k">可疑步骤</span>${susCount}</span>`:''}
+    </div>
+    <div class="case-summary"><b>用例综述：</b>${esc(c.summary)}</div>
+  </div>
+  <div class="card table-card">
+    <div class="steps-head">
+      <div class="sec-title">测试步骤</div>
+      <span class="cap">单击单元格即可修改，修改自动保存</span>
+    </div>
+    <table class="steps">
+      <colgroup><col class="col-no"><col class="col-act"><col></colgroup>
+      <thead><tr><th style="text-align:center">序号</th><th>输入及操作</th><th>期望结果与评估标准</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+
+  $('#revBtn').onclick = ()=>{
+    reviewed.has(c.id)?reviewed.delete(c.id):reviewed.add(c.id);
+    renderCase(); renderTree(); renderProgress();
+  };
+  document.querySelectorAll('#caseArea td.edit').forEach(td=>{
+    td.contentEditable = 'true';
+    td.addEventListener('focus',()=>{ if(td.dataset.f==='expect'&&td.querySelector('.ph')) td.textContent=''; });
+    td.addEventListener('blur',()=>{
+      s = td.textContent.trim();
+      c.steps[+td.closest('tr').dataset.no-1][td.dataset.f] = s;
+      // 编辑后重新判断可疑
+      const st = c.steps[+td.closest('tr').dataset.no-1];
+      st.suspect = (td.dataset.f==='expect' && s && !/^(查看|验证|确认|检查|观测|判定|确保|保证)/.test(s))
+        ? '期望结果未以固定动词开头'
+        : (s ? undefined : '期望结果为空');
+      renderCase();
+    });
+    td.addEventListener('paste',e=>{
+      e.preventDefault();
+      document.execCommand('insertText',false,(e.clipboardData||window.clipboardData).getData('text'));
+    });
+    td.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();td.blur();} });
+  });
+  document.querySelectorAll('[data-fix]').forEach(b=>{
+    b.onclick = ()=>{
+      dismissed.add(c.id+':'+b.dataset.fix);
+      toast(`第 ${b.dataset.fix} 步已确认为无误`);
+      renderCase();
+    };
+  });
+}
+
+/* ================= 进度与翻页 ================= */
+function renderProgress(){
+  $('#progTxt').textContent = `${reviewed.size} / ${DATA.length}`;
+  $('#progBar').style.width = (reviewed.size/DATA.length*100)+'%';
+}
+const idx = ()=>DATA.findIndex(x=>x.id===cur);
+$('#prevCase').onclick = ()=>{ if(idx()>0){ cur=DATA[idx()-1].id; renderTree(); renderCase(); } };
+$('#nextCase').onclick = ()=>{
+  if(idx()<DATA.length-1){ cur=DATA[idx()+1].id; renderTree(); renderCase(); window.scrollTo({top:0,behavior:'smooth'}); }
+  else toast('已是最后一个用例');
+};
+
+/* ================= 生成与下载 ================= */
+let genRun = 0;
+const sleep = ms=>new Promise(r=>setTimeout(r,ms));
+async function runGen(){
+  const id = ++genRun;
+  const alive = ()=>id===genRun;
+  const log = $('#genLog'); log.innerHTML='';
+  const bar = $('#genBar');
+  bar.style.transition='none'; bar.style.width='0%'; void bar.offsetWidth; bar.style.transition='';
+  const line = txt=>{
+    const d = document.createElement('div');
+    d.className = 'log-line cur';
+    d.innerHTML = '<span class="lt"></span><span class="lk">›</span><span></span>';
+    d.children[0].textContent = new Date().toLocaleTimeString('zh-CN',{hour12:false});
+    d.children[2].textContent = txt;
+    log.appendChild(d); log.scrollTop = log.scrollHeight;
+    return d;
+  };
+  const finishLine = el=>{
+    el.classList.remove('cur'); el.classList.add('ok');
+    const k = el.querySelector('.lk'); k.textContent='✓'; k.classList.add('ok');
+  };
+  const setBar = (pct,phase)=>{
+    if(!alive()) return;
+    bar.style.width = pct+'%';
+    $('#genPct').textContent = Math.round(pct)+'%';
+    if(phase) $('#genPhase').textContent = phase;
+  };
+  const items = [];
+  groups.forEach(g=>g.items.forEach(it=>items.push({name:it.item, ch:it.chapter, n:it.cases.length})));
+  const N = items.length;
+  const step = async (txt,ms)=>{ const l = line(txt); await sleep(ms); if(!alive()) return false; finishLine(l); return true; };
+
+  setBar(2,'准备中');
+  if(!await step('校验人员信息与模板变量…',420)) return;
+  if(!await step('初始化测试说明模板，写入全局参数…',460)) return;
+  for(let i=0;i<N;i++){
+    setBar(6+i/N*44,'正在生成测试说明');
+    if(!await step(`处理测试项表格 ${i+1}/${N}：${items[i].name}（${items[i].ch}），共 ${items[i].n} 个用例`,500)) return;
+  }
+  setBar(52,'正在生成测试记录');
+  if(!await step('测试说明渲染完成：96.2 KB',380)) return;
+  for(let i=0;i<N;i++){
+    setBar(54+i/N*40,'正在生成测试记录');
+    if(!await step(`处理测试项表格 ${i+1}/${N}：${items[i].name}（${items[i].ch}），共 ${items[i].n} 个用例`,500)) return;
+  }
+  setBar(100,'生成完毕');
+  if(!await step('测试记录渲染完成：128.7 KB',380)) return;
+}
+$('#genBtn').onclick = async ()=>{
+  if(!PARAMS.tester.trim()||!PARAMS.monitor.trim()){
+    toast('请先填写测试人员与监测人员'); return;
+  }
+  go(3);
+  $('#s3gen').style.display=''; $('#s3done').style.display='none';
+  $('#logHome').appendChild($('#genLog'));
+  await runGen();
+  $('#s3gen').style.display='none'; $('#s3done').style.display='';
+  $('#doneLogWrap').style.display='';
+  $('#doneLogSlot').style.display='none';
+  $('#logToggle').textContent='查看生成日志';
+  $('#doneLogSlot').appendChild($('#genLog'));
+  window.scrollTo({top:0});
+};
+$('#logToggle').onclick = ()=>{
+  const slot = $('#doneLogSlot');
+  const open = slot.style.display !== 'none';
+  slot.style.display = open ? 'none' : '';
+  $('#logToggle').textContent = open ? '查看生成日志' : '收起日志';
+};
+document.querySelectorAll('[data-dl]').forEach(b=>{
+  b.onclick = ()=>toast(`原型演示：正式版将直接下载「${b.dataset.dl}」文档`);
+});
+$('#backEdit').onclick = ()=>go(2);
+$('#restart').onclick = ()=>{ maxStep=1; go(1); $('#rePick').click(); };
+
+/* ================= Snackbar ================= */
+let snackT;
+function toast(msg){
+  const s = $('#snack'); s.textContent = msg; s.classList.add('show');
+  clearTimeout(snackT); snackT = setTimeout(()=>s.classList.remove('show'),2400);
+}
+
+/* ================= 初始 ================= */
+renderStepper();
+renderTree();
+renderCase();
+renderProgress();
+</script>
+</body>
+</html>
