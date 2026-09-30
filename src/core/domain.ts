@@ -33,6 +33,25 @@ export class IssueCollector {
   }
 }
 
+/** 界面全局参数（03 字段映射：默认值来自老工具写死值，界面可改并记住上次填写内容） */
+export interface GlobalParams {
+  init: string
+  constraint: string
+  designer: string
+  testTime: string
+  tester: string
+  monitor: string
+}
+
+export const DEFAULT_PARAMS: GlobalParams = {
+  init: '外接设备或软件运行正常',
+  constraint: '软件正常工作，环境连接正常',
+  designer: '陈俊亦',
+  testTime: new Date().toISOString().slice(0, 10),
+  tester: '',
+  monitor: ''
+}
+
 /** 解析层的步骤：仅承载段落合并后的原文，动作/期望拆分属转换层（03 第五节） */
 export interface RawStep {
   no: number
