@@ -132,6 +132,21 @@ export function currentCase(): CaseRow | null {
   return store.cases[store.currentIdx] ?? null
 }
 
+/** 可疑判定唯一入口（前后端语义一致）：
+ *  - 期望为空且有动作文本 → 可疑（含用户编辑时误删期望的情况）；
+ *  - 后端其他 suspect 标记（当前仅"期望结果为空"一种）——用户补写期望后自动解除；
+ *  - 用户点过"确认无误"（dismissedSuspects）不再标。
+ */
+export function stepSuspectActive(row: CaseRow, s: CaseRow['steps'][number]): boolean {
+  if (row.dismissedSuspects.includes(s.no)) return false
+  if (!s.expect.trim()) return s.action.trim() !== ''
+  return s.suspect !== undefined && s.suspect !== '' && s.suspect !== '期望结果为空'
+}
+
+export function activeSuspects(row: CaseRow): number {
+  return row.steps.filter(s => stepSuspectActive(row, s)).length
+}
+
 export function goCase(idx: number): void {
   if (idx >= 0 && idx < store.cases.length) store.currentIdx = idx
 }

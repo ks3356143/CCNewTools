@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { CaseRow } from '../types.ts'
-import { expectVerbOk } from '../../../src/core/parse/cases.ts'
+import { stepSuspectActive } from '../store.ts'
 
 const props = defineProps<{ row: CaseRow }>()
 const emit = defineEmits<{ changed: [] }>()
@@ -9,14 +9,13 @@ const emit = defineEmits<{ changed: [] }>()
 function isSuspect(idx: number): boolean {
   const s = props.row.steps[idx]
   if (props.row.dismissedSuspects.includes(s.no)) return false
-  if (!s.expect.trim()) return s.action.trim() !== '' || true
-  return !expectVerbOk(s.expect.trim())
+  return stepSuspectActive(props.row, s)
 }
 
 function suspectReason(idx: number): string {
   const s = props.row.steps[idx]
   if (!s.expect.trim()) return '期望结果为空'
-  return '期望结果未以固定动词开头'
+  return s.suspect ?? ''
 }
 
 function dismiss(idx: number): void {
@@ -107,16 +106,16 @@ function renumber(): void {
   border-bottom: 1px solid rgba(var(--v-theme-outline), 0.5);
   color: rgba(var(--v-theme-on-surface), 0.65);
 }
-.steps td { padding: 10px 12px; vertical-align: top; border-bottom: 1px solid rgba(var(--v-theme-outline), 0.35); font-size: 13.5px; line-height: 1.65; }
+.steps td { padding: 10px 12px; vertical-align: middle; border-bottom: 1px solid rgba(var(--v-theme-outline), 0.35); font-size: 13.5px; line-height: 1.65; }
 .steps tr:last-child td { border-bottom: none; }
 .c { text-align: center; }
 .c-no { width: 44px; color: rgba(var(--v-theme-on-surface), 0.6); font-variant-numeric: tabular-nums; }
 .c-act { width: 42%; }
 .c-ops { width: 92px; }
 td.editable, .edit { outline: none; cursor: text; min-height: 22px; }
-.edit { padding: 2px 4px; border-radius: 4px; }
-.edit:hover { background: rgba(var(--v-theme-primary), 0.07); }
-.edit:focus { box-shadow: 0 0 0 2px rgb(var(--v-theme-primary)); background: rgb(var(--v-theme-surface)); }
+.edit { padding: 2px 6px; border: 1px dashed rgba(var(--v-theme-outline), 0.45); border-radius: 6px; }
+.edit:hover { border-color: rgba(var(--v-theme-primary), 0.5); background: rgba(var(--v-theme-primary), 0.06); }
+.edit:focus { border: 1px solid rgb(var(--v-theme-primary)); box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.18); background: rgb(var(--v-theme-surface)); }
 tr.suspect td { background: rgba(var(--v-theme-warning), 0.1); }
 tr.suspect td:first-child { box-shadow: inset 3px 0 0 rgb(var(--v-theme-warning)); }
 .sus-tag {

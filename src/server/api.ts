@@ -6,7 +6,7 @@ import { convertToTemplateData } from '../core/convert/index.ts'
 import type { CaseRow } from '../core/convert/rows.ts'
 import { renderTemplate } from '../core/render/docx.ts'
 import { IssueCollector, DEFAULT_PARAMS, type GlobalParams } from '../core/domain.ts'
-import { sha132, editFileName, mergeRestored, type EditState, type StoredCase } from '../core/persistence.ts'
+import { sha132, editFileName, mergeRestored, EDIT_STATE_VERSION, type EditState, type StoredCase } from '../core/persistence.ts'
 import { loadSettings, saveSettings, loadEditState, saveEditState, type Settings } from './store.ts'
 import { appendLog } from './log.ts'
 
@@ -108,7 +108,7 @@ function apiEdits(req: Request): Response {
 
 export async function saveEdits(outline: { name: string; hash: string }, cases: CaseRow[]): Promise<void> {
   const state: EditState = {
-    version: 1,
+    version: EDIT_STATE_VERSION,
     outline: outline,
     savedAt: new Date().toISOString(),
     cases: storedCasesOf(cases)

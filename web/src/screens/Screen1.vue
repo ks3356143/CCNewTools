@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, useTemplateRef } from 'vue'
-import { store, doParse } from '../store.ts'
+import { store, doParse, activeSuspects } from '../store.ts'
 import type { Issue } from '../types.ts'
 
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
@@ -106,7 +106,7 @@ function jumpTo(issue: Issue): void {
           <div class="stat"><b>{{ store.stats.items }}</b><span>测试项</span></div>
           <div class="stat"><b>{{ store.stats.cases }}</b><span>测试用例</span></div>
           <div class="stat"><b>{{ store.stats.steps }}</b><span>测试步骤</span></div>
-          <div class="stat"><b>{{ store.cases.reduce((n, c) => n + c.suspectCount, 0) }}</b><span>切分可疑待核对</span></div>
+          <div class="stat"><b>{{ store.cases.reduce((n, c) => n + activeSuspects(c), 0) }}</b><span>切分可疑待核对</span></div>
         </div>
 
         <div class="cta">

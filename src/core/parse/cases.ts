@@ -21,14 +21,6 @@ export function matchCaseTitle(t: string): { name: string; itemId: string } | nu
 const STEP_START_RE = /^\d{1,3}\s*[）)]/
 
 /** 判断期望结果是否以固定动词开头（03 第五节可疑启发式） */
-export function expectVerbOk(text: string): boolean {
-  const verbs = ['查看', '验证', '确认', '检查', '观测', '判定', '确保', '保证']
-  for (const v of verbs) {
-    if (text.startsWith(v)) return true
-  }
-  return false
-}
-
 interface WorkingStep {
   text: string
   /** 以「：」结尾的段落开启的"步骤"，若最终没有内容并入则按 9.1 丢弃 */

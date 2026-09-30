@@ -59,11 +59,11 @@ describe('M2 动作/期望切分（2026-09-30 新写法）', () => {
   test('动作保留完整句子（去结尾标点），期望取关键词之后的内容', () => {
     const sp = splitStepText('在参数列表下方的查询输入框中输入参数标识，点击查询按钮，查看查询结果是否正确显示符合该参数标识的参数信息；')
     expect(sp.action).toBe('在参数列表下方的查询输入框中输入参数标识，点击查询按钮，查看查询结果是否正确显示符合该参数标识的参数信息')
-    expect(sp.expect).toBe('查询结果是否正确显示符合该参数标识的参数信息')
+    expect(sp.expect).toBe('查询结果正确显示符合该参数标识的参数信息')
     expect(sp.suspect).toBeUndefined()
   })
 
-  test('多个关键词取最后一个；剥"是否"前缀；去结尾标点', () => {
+  test('多个关键词取最后一个；期望删除"是否"字样；去结尾标点', () => {
     const sp = splitStepText('清空查询输入框，点击查询按钮，查看软件是否恢复显示全部参数信息；验证功能正确性。')
     expect(sp.action).toBe('清空查询输入框，点击查询按钮，查看软件是否恢复显示全部参数信息；验证功能正确性')
     expect(sp.expect).toBe('功能正确性')
@@ -77,7 +77,7 @@ describe('M2 动作/期望切分（2026-09-30 新写法）', () => {
 
     const b = splitStepText('查看查询结果是否为空。')
     expect(b.action).toBe('查看查询结果是否为空')
-    expect(b.expect).toBe('查询结果是否为空')
+    expect(b.expect).toBe('查询结果为空')
     expect(b.suspect).toBeUndefined()
   })
 })
@@ -115,7 +115,7 @@ describe('M2 模板数据组装（03 字段映射）', () => {
 
     // 纯操作步并入验证步：case1 = 1 步
     expect(rows[0].steps.length).toBe(1)
-    expect(rows[0].steps[0].expect).toBe('查询结果是否正确显示')
+    expect(rows[0].steps[0].expect).toBe('查询结果正确显示')
     expect(rows[0].init).toBe('外接设备或软件运行正常')
     expect(rows[0].designer).toBe('陈俊亦')
 

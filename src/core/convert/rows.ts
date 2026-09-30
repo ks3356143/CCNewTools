@@ -17,7 +17,7 @@ export interface CaseRow {
   summary: string
   init: string
   constraint: string
-  steps: Array<{ no: number; action: string; expect: string; actual: string; result: string }>
+  steps: Array<{ no: number; action: string; expect: string; actual: string; result: string; suspect?: string }>
   designer: string
   testTime: string
   tester: string

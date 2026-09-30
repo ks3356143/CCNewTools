@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { GlobalParams } from '../core/domain.ts'
-import type { EditState } from '../core/persistence.ts'
+import { EDIT_STATE_VERSION, type EditState } from '../core/persistence.ts'
 
 /** 数据目录（08）：exe 同目录 数据/；不可写回退 %USERPROFILE%/CCNewTools/ */
 
@@ -54,7 +54,7 @@ export function loadEditState(fileName: string): EditState | null {
   try {
     const raw = readFileSync(join(editsDir(), fileName), 'utf8')
     const st = JSON.parse(raw) as EditState
-    if (st && st.version === 1 && Array.isArray(st.cases)) return st
+    if (st && st.version === EDIT_STATE_VERSION && Array.isArray(st.cases)) return st
   } catch {
     // 损坏按无记录处理（06）
   }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { store, goCase } from '../store.ts'
+import { store, goCase, activeSuspects } from '../store.ts'
 import type { CaseRow } from '../types.ts'
 
 const keyword = ref('')
@@ -80,7 +80,7 @@ function reactiveTypeSet() {
                   >
                     <v-icon v-if="cn.row.reviewed" size="13" color="success">mdi-check</v-icon>
                     <span v-else class="dot-holder">
-                      <span v-if="cn.row.suspectCount > 0" class="dot" />
+                      <span v-if="activeSuspects(cn.row) > 0" class="dot" />
                     </span>
                     <span class="name" :class="{ excluded: cn.row.excluded }">{{ cn.row.mingcheng }}</span>
                     <span class="cid">{{ cn.row.caseId }}</span>

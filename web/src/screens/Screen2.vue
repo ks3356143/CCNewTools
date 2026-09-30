@@ -38,7 +38,7 @@ function gen(): void {
     <div class="actionbar">
       <div class="prog">
         <div class="txt"><span>核对进度</span><b>{{ reviewedCount }} / {{ store.cases.length }}</b></div>
-        <div class="bar"><i :style="{ width: (store.cases.length ? (reviewedCount / store.cases.length) * 100 : 0) + '%' }" /></div>
+        <div class="bar"><i :class="{ done: store.cases.length > 0 && reviewedCount === store.cases.length }" :style="{ width: (store.cases.length ? (reviewedCount / store.cases.length) * 100 : 0) + '%' }" /></div>
       </div>
       <v-btn size="small" rounded="pill" variant="tonal" :disabled="store.currentIdx === 0" @click="prev">
         <v-icon size="15" class="mr-1">mdi-arrow-left</v-icon>上一条
@@ -58,7 +58,7 @@ function gen(): void {
 <style scoped>
 .s2 { display: flex; align-items: flex-start; max-width: 1360px; margin: 0 auto; padding: 18px 20px 110px; gap: 18px; }
 .left {
-  width: 292px; flex: none; position: sticky; top: 74px; max-height: calc(100vh - 150px);
+  width: 336px; flex: none; position: sticky; top: 74px; max-height: calc(100vh - 150px);
   display: flex; flex-direction: column;
   background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.5);
   border-radius: 18px; overflow: hidden;
@@ -75,9 +75,14 @@ function gen(): void {
   display: flex; align-items: center; gap: 12px; padding: 11px 22px;
 }
 .prog { flex: 1; max-width: 300px; }
-.prog .txt { display: flex; justify-content: space-between; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.6); margin-bottom: 5px; }
-.bar { height: 5px; border-radius: 999px; background: rgba(var(--v-theme-outline), 0.5); overflow: hidden; }
+.prog .txt { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.6); margin-bottom: 6px; }
+.prog .txt b {
+  color: rgb(var(--v-theme-primary)); font-weight: 650; font-variant-numeric: tabular-nums;
+  background: rgba(var(--v-theme-primary), 0.12); border-radius: 999px; padding: 1px 10px;
+}
+.bar { height: 6px; border-radius: 999px; background: rgba(var(--v-theme-outline), 0.5); overflow: hidden; }
 .bar i { display: block; height: 100%; border-radius: inherit; background: rgb(var(--v-theme-primary)); transition: width 0.3s; }
+.bar i.done { background: rgb(var(--v-theme-success)); }
 .grow { flex: 1; }
 .err-dot { width: 8px; height: 8px; border-radius: 50%; background: rgb(var(--v-theme-error)); margin-left: 6px; }
 @media (max-width: 960px) {

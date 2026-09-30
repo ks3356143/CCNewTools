@@ -1,6 +1,6 @@
 /** 步骤文本 → 动作/期望（03 第五节，2026-09-30 用户确认的新写法）：
  *  - 动作 = 完整步骤文本（去结尾标点——用户要求步骤不以标点结尾）；
- *  - 期望 = 最后一个预期关键词之后的内容（剥"是否"前缀、去结尾标点）；
+ *  - 期望 = 最后一个预期关键词之后的内容（删除"是否"字样、去结尾标点）；
  *  - 期望允许与动作部分重复（"输入及操作文字多一点，期望重复点"）。
  */
 
@@ -41,8 +41,8 @@ export function splitStepText(text: string): SplitResult {
     return { action: clean, expect: '', suspect: '期望结果为空' }
   }
 
-  let expect = clean.slice(kw + kwLen).trim()
-  if (expect.startsWith('是否')) expect = expect.slice(2)
+  // 用户确认：期望中删除"是否"字样（"查看是否显示新增的参数信息"→"显示新增的参数信息"）
+  let expect = clean.slice(kw + kwLen).replace(/是否/g, '')
   expect = stripTrailingPunct(expect)
 
   if (expect === '') {
