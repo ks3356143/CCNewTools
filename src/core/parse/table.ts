@@ -8,6 +8,8 @@ export interface ItemTable {
   name: string
   /** 表格第 1 行第 4 格 = 测试项标识 */
   itemId: string
+  /** 追踪关系格的文本（需求追踪表用，如《…需求规格说明》4.3.1.2 A星指令参数管理） */
+  traceText: string
   /** 测试项描述格的段落 */
   description: CellParas
   /** 测试方法格的段落 */
@@ -65,6 +67,7 @@ export function extractItemTable(tbl: Element): ItemTable | null {
   return {
     name,
     itemId,
+    traceText: (byLabel.get('追踪关系') ?? []).map(p => p.text).join(' ').trim(),
     description: byLabel.get('测试项描述') ?? [],
     method: byLabel.get('测试方法') ?? [],
     criteria: byLabel.get('通过准则') ?? []

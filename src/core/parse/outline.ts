@@ -83,7 +83,7 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
 }
 
 function assembleItem(
-  t: { name: string; itemId: string; description: import('./table.ts').CellParas; method: import('./table.ts').CellParas; criteria: import('./table.ts').CellParas },
+  t: { name: string; itemId: string; traceText: string; description: import('./table.ts').CellParas; method: import('./table.ts').CellParas; criteria: import('./table.ts').CellParas },
   stack: HeadingRef[],
   issues: IssueCollector
 ): TestItem | null {
@@ -127,7 +127,8 @@ function assembleItem(
     itemName: head.text,
     description: desc,
     cases: cases,
-    criteriaCases: parseCriteriaCell(t.criteria, issues, ctx)
+    criteriaCases: parseCriteriaCell(t.criteria, issues, ctx),
+    traceSrs: parseSrsTrace(t.traceText)
   }
   resolveSummaries(item, issues)
 
@@ -147,4 +148,13 @@ function assembleItem(
   }
 
   return item
+}
+
+/** 追踪关系格 → 需求规格说明的章节号与描述（追踪表用）。"/"或空 → 两条斜杠。 */
+export function parseSrsTrace(text: string): { chapter: string; desc: string } {
+  const t = text.trim()
+  if (t === '' || t === '/' || t === '／') return { chapter: '/', desc: '/' }
+  const m = /》\s*([0-9][0-9.]*)\s*(.*)/.exec(t) ?? /^([0-9][0-9.]*)\s+(.*)$/.exec(t)
+  if (m === null) return { chapter: '/', desc: '/' }
+  return { chapter: m[1], desc: (m[2] ?? '').trim() !== '' ? m[2].trim() : '/' }
 }

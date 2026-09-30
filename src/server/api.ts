@@ -63,7 +63,8 @@ async function apiParse(req: Request): Promise<Response> {
   const parsed = extractOutline(office, issues)
 
   const settings = loadSettings()
-  const params: GlobalParams = settings.params ?? DEFAULT_PARAMS
+  // 老设置文件可能缺新字段（如 configName），合并默认值
+  const params: GlobalParams = { ...DEFAULT_PARAMS, ...(settings.params ?? {}) }
   const fresh = convertToTemplateData(parsed, params)
 
   const state = loadEditState(editFileName(name, hash))
@@ -117,13 +118,28 @@ export async function saveEdits(outline: { name: string; hash: string }, cases: 
 }
 
 async function apiGenerate(req: Request): Promise<Response> {
-  const body = (await req.json()) as { outline: { name: string }; cases: CaseRow[] }
+  const body = (await req.json()) as { outline: { name: string }; cases: CaseRow[]; params: GlobalParams }
   const cases = body.cases.filter(c => !c.excluded)
   if (cases.length === 0) {
     return Response.json({ ok: false, error: '没有可生成的用例（全部被排除？）' }, { status: 400 })
   }
-  const specBuf = renderTemplate(templateFile('测试说明模板.docx'), { cases: cases })
-  const recBuf = renderTemplate(templateFile('测试记录模板.docx'), { cases: cases })
+  // 用例清单 + 追踪表由送来的用例数据推导（保持与核对结果一致）
+  const caselist = cases.map((c, i) => ({ no: i + 1, mingcheng: c.mingcheng, caseId: c.caseId, summary: c.summary }))
+  const traceRows = cases.map((c, i) => ({
+    no: i + 1,
+    srsChapter: c.srsChapter,
+    srsDesc: c.srsDesc,
+    outlineChapter: c.chapter,
+    itemName: c.itemName,
+    itemItemId: c.itemItemId,
+    caseName: c.mingcheng,
+    caseId: c.caseId
+  }))
+  const configName = body.params?.configName ?? ''
+  const specBuf = renderTemplate(templateFile('测试说明模板.docx'), {
+    cases: cases, caselist: caselist, traceRows: traceRows, configName: configName
+  })
+  const recBuf = renderTemplate(templateFile('测试记录模板.docx'), { cases: cases, configName: configName })
   const base = body.outline.name.replace(/\.docx$/i, '')
   appendLog(`生成文档：${body.outline.name}，${cases.length} 例`)
   return Response.json({

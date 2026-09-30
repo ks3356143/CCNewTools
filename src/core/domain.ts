@@ -35,6 +35,8 @@ export class IssueCollector {
 
 /** 界面全局参数（03 字段映射：默认值来自老工具写死值，界面可改并记住上次填写内容） */
 export interface GlobalParams {
+  /** 软件配置项名称（"测试说明"/"需求追踪表"章的标题用，如"BCD星指令生成与发控软件配置项"） */
+  configName: string
   init: string
   constraint: string
   designer: string
@@ -44,6 +46,7 @@ export interface GlobalParams {
 }
 
 export const DEFAULT_PARAMS: GlobalParams = {
+  configName: '',
   init: '外接设备或软件运行正常',
   constraint: '软件正常工作，环境连接正常',
   designer: '陈俊亦',
@@ -98,6 +101,8 @@ export interface TestItem {
   cases: RawCase[]
   /** 通过准则格的逐用例准则（9.5，转换层按用例标识+条目序号配对） */
   criteriaCases: CriteriaEntry[]
+  /** 追踪关系格解析出的需求规格说明信息（追踪表用） */
+  traceSrs: { chapter: string; desc: string }
 }
 
 export interface ParsedOutline {

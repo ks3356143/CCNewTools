@@ -28,14 +28,16 @@ function makeOutline(): ParsedOutline {
   const item1: TestItem = {
     name: 'A星指令参数管理', itemId: 'XQ_SU_ZLPA', chapter: '6.2.1.4.1.1',
     typeName: '功能测试', groupName: 'A星模板功能测试', itemName: 'A星指令参数管理',
-    description: { shared: null, entries: [] }, cases: [c1, c2], criteriaCases: []
+    description: { shared: null, entries: [] }, cases: [c1, c2], criteriaCases: [],
+    traceSrs: { chapter: '4.3.1.2', desc: 'A星指令参数管理' }
   }
   const item2: TestItem = {
     name: '文档审查', itemId: 'XQ_DC', chapter: '6.2.1.1',
     typeName: '文档审查', groupName: null, itemName: '文档审查',
     description: { shared: '文档审查综述。', entries: [] },
     cases: [{ itemId: 'XQ_DC_DC001', name: '软件文档审查', summary: '文档审查综述。', steps: [{ no: 1, text: '审查内容是否完整；' }] }],
-    criteriaCases: []
+    criteriaCases: [],
+    traceSrs: { chapter: '/', desc: '/' }
   }
   return { items: [item1, item2], issues: [], stats: { items: 2, cases: 3, steps: 4 } }
 }
@@ -71,38 +73,43 @@ function headings(buf: Buffer): Array<{ level: string; text: string }> {
 
 describe('M3 渲染：测试说明模板', () => {
   const data = convertToTemplateData(makeOutline(), { ...DEFAULT_PARAMS, tester: '张三', monitor: '李四' })
-  const buf = renderTemplate(SPEC, data)
+  const buf = renderTemplate(SPEC, { ...data, configName: '某软件配置项' })
 
-  test('标题层级：类型/中间层/测试项，各只出现一次', () => {
+  test('标题层级：三章结构，类型/中间层/测试项各只出现一次', () => {
     const hs = headings(buf)
     expect(hs).toEqual([
+      { level: '1', text: '测试说明' },
+      { level: '2', text: '某软件配置项' },
       { level: '1', text: '测试用例' },
       { level: '2', text: '功能测试' },
       { level: '3', text: 'A星模板功能测试' },
       { level: '4', text: 'A星指令参数管理' },
       { level: '2', text: '文档审查' },
-      { level: '4', text: '文档审查' }
+      { level: '4', text: '文档审查' },
+      { level: '1', text: '需求的可追踪性' },
+      { level: '2', text: '某软件配置项需求追踪表' }
     ])
   })
 
-  test('用例表展开：标识、步骤、默认值进入正文，无残留占位符', () => {
+  test('用例清单与追踪表进入正文，无残留占位符', () => {
     const text = bodyText(buf)
+    expect(text).toContain('某软件配置项测试说明如下：')
+    expect(text).toContain('用例综述')
+    expect(text).toContain('需求规格说明章节号')
     expect(text).toContain('YL_SU_ZLPA_001')
     expect(text).toContain('YL_SU_ZLPA_002')
     expect(text).toContain('YL_DC_001')
-    expect(text).toContain('启动软件，进入参数管理界面。')
-    expect(text).toContain('查看查询结果是否正确显示；')
-    expect(text).toContain('外接设备或软件运行正常')
-    expect(text).toContain('陈俊亦')
+    expect(text).toContain('启动软件，进入参数管理界面，输入参数标识，点击查询按钮，查看查询结果是否正确显示')
+    expect(text).toContain('需求规格说明审查单')
     expect(text).not.toContain('{#cases')
-    expect(text).not.toContain('{itemName}')
-    expect(text).not.toContain('{groupName}')
+    expect(text).not.toContain('{#caselist')
+    expect(text).not.toContain('{configName}')
   })
 })
 
 describe('M3 渲染：测试记录模板', () => {
   const data = convertToTemplateData(makeOutline(), { ...DEFAULT_PARAMS, tester: '张三', monitor: '李四', testTime: '2026-09-30' })
-  const buf = renderTemplate(REC, data)
+  const buf = renderTemplate(REC, { cases: data.cases, configName: '某软件配置项' })
 
   test('记录表字段：实测结果为空、结论"通过"、执行信息、追踪关系三行', () => {
     const text = bodyText(buf)

@@ -59,6 +59,7 @@ function gen(): void {
 .s2 { display: flex; align-items: flex-start; max-width: 1360px; margin: 0 auto; padding: 18px 20px 110px; gap: 18px; }
 .left {
   width: 292px; flex: none; position: sticky; top: 74px; max-height: calc(100vh - 150px);
+  display: flex; flex-direction: column;
   background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.5);
   border-radius: 18px; overflow: hidden;
 }

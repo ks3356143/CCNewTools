@@ -97,7 +97,7 @@ function reactiveTypeSet() {
 </template>
 
 <style scoped>
-.tree { display: flex; flex-direction: column; height: 100%; }
+.tree { display: flex; flex-direction: column; flex: 1; min-height: 0; height: 100%; }
 .search {
   display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px;
   border: 1px solid rgba(var(--v-theme-outline), 0.4); border-radius: 8px; margin: 12px 12px 6px;

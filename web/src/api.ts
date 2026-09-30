@@ -29,8 +29,8 @@ export async function saveSettings(params: GlobalParams, theme: string): Promise
   await post('/api/settings', { params: params, theme: theme })
 }
 
-export async function generate(outline: { name: string; hash: string }, cases: CaseRow[]): Promise<GenerateResponse> {
-  return post<GenerateResponse>('/api/generate', { outline: outline, cases: cases })
+export async function generate(outline: { name: string; hash: string }, cases: CaseRow[], params: GlobalParams): Promise<GenerateResponse> {
+  return post<GenerateResponse>('/api/generate', { outline: outline, cases: cases, params: params })
 }
 
 /** base64 → 浏览器下载 */

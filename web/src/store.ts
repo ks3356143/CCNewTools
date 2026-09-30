@@ -96,7 +96,7 @@ export async function doGenerate(onLog: (lines: GenLogLine[], pct: number) => vo
 
   let genRes: Awaited<ReturnType<typeof generate>> | null = null
   let genError = ''
-  const request = generate(store.outline, store.cases)
+  const request = generate(store.outline, store.cases, store.params)
     .then(r => {
       if (!r.ok) genError = r.error ?? '生成失败'
       return r

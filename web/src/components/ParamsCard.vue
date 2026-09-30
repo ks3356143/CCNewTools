@@ -27,6 +27,7 @@ function onInput(): void {
       <v-icon class="chev" :class="{ closed: !open }">mdi-chevron-down</v-icon>
     </div>
     <div v-show="open" class="body">
+      <div class="f wide"><label>软件配置项名称（"测试说明"、"需求追踪表"章标题使用）</label><input :value="store.params.configName" placeholder="如：BCD星指令生成与发控软件配置项" @input="store.params.configName = ($event.target as HTMLInputElement).value; onInput()" /></div>
       <div class="grid2">
         <div class="f"><label>用例初始化</label><input :value="store.params.init" @input="store.params.init = ($event.target as HTMLInputElement).value; onInput()" /></div>
         <div class="f"><label>前提和约束</label><input :value="store.params.constraint" @input="store.params.constraint = ($event.target as HTMLInputElement).value; onInput()" /></div>
@@ -47,7 +48,9 @@ function onInput(): void {
 .head .sub { font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.55); }
 .chev { margin-left: auto; transition: transform 0.18s; }
 .chev.closed { transform: rotate(180deg); }
-.body { padding: 2px 18px 16px; border-top: 1px solid rgba(var(--v-theme-outline), 0.35); padding-top: 14px; }
+.body { padding: 14px 18px 16px; border-top: 1px solid rgba(var(--v-theme-outline), 0.35); }
+.f.wide { margin-bottom: 2px; }
+.f.wide input { margin-bottom: 4px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 16px; margin-top: 12px; }
 .f label { display: block; font-size: 12px; font-weight: 550; color: rgba(var(--v-theme-on-surface), 0.6); margin-bottom: 5px; }

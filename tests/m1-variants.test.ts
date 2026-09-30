@@ -31,7 +31,7 @@ function content(): Array<{ kind: 'p'; para: any } | { kind: 'tbl'; rows: Cell[]
       rows: itemTable('A星指令参数管理', 'XQ_SU_ZLPA', [
         [DESC, '1.参数查询正常功能（XQ_SU_ZLPA_SU01）\n查询综述。\n2.参数新增正常功能（XQ_SU_ZLPA_SU02）\n新增综述。'],
         [METHOD, '1.参数查询正常功能（XQ_SU_ZLPA_SU01）\n1）打开窗口。\n查询标识：\n2）输入参数标识，点击查询按钮，查看查询结果是否正确显示；\n2.参数新增正常功能（XQ_SU_ZLPA_SU02）\n1）点击新增按钮。\n2）保存参数，查看新增参数是否显示；'],
-        [CRITERIA, '1、参数查询正常功能（XQ_SU_ZLPA_SU01）\n不同检索类型（类型一、类型二）：\n1）打开窗口后界面元素完整；\n2）查询结果正确显示；\n2、参数新增正常功能（XQ_SU_ZLPA_SU02）\n1）新增窗口正常弹出；\n2）新增参数显示在列表中；']
+        [CRITERIA, '1、参数查询正常功能（XQ_SU_ZLPA_SU01）\n不同检索类型（类型一、类型二）：\n1）查询结果正确显示；\n2、参数新增正常功能（XQ_SU_ZLPA_SU02）\n1）新增参数显示在列表中；']
       ])
     },
     // 形态3：跳级 level-4 → level-6 + 缺分隔符标题 + 自动编号列表吸收 + 共用综述
@@ -74,7 +74,7 @@ describe('变种大杂烩：不同写法都要转换成功', () => {
     expect(errors).toEqual([])
   })
 
-  test('统计正确：4 项 6 例', () => {
+  test('统计正确：4 项 6 例（解析层 10 步）', () => {
     expect(parsed.stats).toEqual({ items: 4, cases: 6, steps: 10 })
   })
 
@@ -100,11 +100,13 @@ describe('变种大杂烩：不同写法都要转换成功', () => {
   test('准则格配对：期望取准则、动作保留原文', () => {
     const row = data.cases.find(c => c.caseId === 'YL_SU_ZLPA_001')!
     expect(row.expectSource).toBe('通过准则')
-    expect(row.steps[0].expect).toBe('打开窗口后界面元素完整；')
-    expect(row.steps[1].expect).toBe('查询结果正确显示；')
-    expect(row.steps[1].action).toBe('输入参数标识，点击查询按钮，查看查询结果是否正确显示；')
+    expect(row.steps.length).toBe(1)
+    expect(row.steps[0].expect).toBe('查询结果正确显示')
+    expect(row.steps[0].action).toContain('打开窗口')
+    expect(row.steps[0].action).toContain('输入参数标识，点击查询按钮，查看查询结果是否正确显示')
     const row2 = data.cases.find(c => c.caseId === 'YL_SU_ZLPA_002')!
     expect(row2.expectSource).toBe('通过准则')
-    expect(row2.steps[1].expect).toBe('新增参数显示在列表中；')
+    expect(row2.steps.length).toBe(1)
+    expect(row2.steps[0].expect).toBe('新增参数显示在列表中')
   })
 })
