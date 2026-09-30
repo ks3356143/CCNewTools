@@ -12,6 +12,9 @@ build/
 *.egg-info/
 .DS_Store
 Thumbs.db
+web/dist/
+数据/
+*.exe
 
 # 编辑器/IDE
 .vscode/

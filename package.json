@@ -1,0 +1,29 @@
+{
+  "name": "ccnewtools",
+  "version": "0.1.0",
+  "description": "测试大纲 → 测试说明/测试记录 转换工具",
+  "type": "module",
+  "module": "src/server/index.ts",
+  "scripts": {
+    "dev:server": "bun --watch src/server/index.ts",
+    "dev:web": "vite",
+    "build": "vite build",
+    "start": "bun run build && bun src/server/index.ts --open",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@mdi/font": "^7.4.47",
+    "@xmldom/xmldom": "^0.9.12",
+    "docxtemplater": "^3.71.0",
+    "fflate": "^0.8.3",
+    "pizzip": "^3.3.0",
+    "vue": "^3.5.43",
+    "vuetify": "^4.2.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1"
+  }
+}

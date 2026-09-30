@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "应用",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["src/server/index.ts"],
+      "port": 8300
+    },
+    {
       "name": "原型预览",
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/static-server.mjs"],
