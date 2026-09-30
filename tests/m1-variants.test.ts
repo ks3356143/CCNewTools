@@ -1,0 +1,110 @@
+import { describe, test, expect } from 'bun:test'
+import { buildDocx, itemTable, DESC, METHOD, CRITERIA, type Cell } from './helpers/ooxml.ts'
+import { extractOutline } from '../src/core/parse/outline.ts'
+import { convertToTemplateData } from '../src/core/convert/index.ts'
+import { IssueCollector, DEFAULT_PARAMS } from '../src/core/domain.ts'
+
+/**
+ * 变种大杂烩（用户 2026-09-30 要求：不同的写法都要转换成功）。
+ * 一份合成大纲同时包含全部已知变种形态，断言零错误转换。
+ */
+
+function content(): Array<{ kind: 'p'; para: any } | { kind: 'tbl'; rows: Cell[][] }> {
+  return [
+    { kind: 'p', para: { text: '测试依据', heading: 2, numId: 1, ilvl: 1 } },
+    { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+    // 形态1：level-4 直接挂表（文档审查式）+ 引导句
+    { kind: 'p', para: { text: '文档审查', heading: 4, numId: 1, ilvl: 3 } },
+    {
+      kind: 'tbl',
+      rows: itemTable('文档审查', 'XQ_DC', [
+        [DESC, '对软件文档进行审查。'],
+        [METHOD, '1.文档审查（XQ_DC_DC001）\n依据检查单开展审查：\n1）审查内容是否完整；\n2）审查描述是否准确。']
+      ])
+    },
+    // 形态2：level-4 → 5 → 6 正常三级 + 悬空小标题 + 准则格配对
+    { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+    { kind: 'p', para: { text: 'A星模板功能测试', heading: 5, numId: 1, ilvl: 4 } },
+    { kind: 'p', para: { text: 'A星指令参数管理', heading: 6, numId: 1, ilvl: 5 } },
+    {
+      kind: 'tbl',
+      rows: itemTable('A星指令参数管理', 'XQ_SU_ZLPA', [
+        [DESC, '1.参数查询正常功能（XQ_SU_ZLPA_SU01）\n查询综述。\n2.参数新增正常功能（XQ_SU_ZLPA_SU02）\n新增综述。'],
+        [METHOD, '1.参数查询正常功能（XQ_SU_ZLPA_SU01）\n1）打开窗口。\n查询标识：\n2）输入参数标识，点击查询按钮，查看查询结果是否正确显示；\n2.参数新增正常功能（XQ_SU_ZLPA_SU02）\n1）点击新增按钮。\n2）保存参数，查看新增参数是否显示；'],
+        [CRITERIA, '1、参数查询正常功能（XQ_SU_ZLPA_SU01）\n不同检索类型（类型一、类型二）：\n1）打开窗口后界面元素完整；\n2）查询结果正确显示；\n2、参数新增正常功能（XQ_SU_ZLPA_SU02）\n1）新增窗口正常弹出；\n2）新增参数显示在列表中；']
+      ])
+    },
+    // 形态3：跳级 level-4 → level-6 + 缺分隔符标题 + 自动编号列表吸收 + 共用综述
+    { kind: 'p', para: { text: '性能测试', heading: 4, numId: 1, ilvl: 3 } },
+    { kind: 'p', para: { text: 'BCD星指令生成准确率测试', heading: 6, numId: 1, ilvl: 5 } },
+    {
+      kind: 'tbl',
+      rows: itemTable('BCD星指令生成准确率测试', 'XQ_AC_SCZQ', [
+        [DESC, '验证指令生成准确率满足指标要求。'],
+        [METHOD, [
+          { text: '1指令生成准确率测试（XQ_AC_SCZQL_AC01）' },
+          { text: '按大纲要求搭建测试环境：' },
+          { text: '检查测试环境与大纲一致；', numId: 1, ilvl: 0 },
+          { text: '检查测试数据已加载；', numId: 1, ilvl: 0 },
+          { text: '生成指令并统计准确率，查看准确率是否达标。' }
+        ]]
+      ])
+    },
+    // 形态4：描述格子项数与测试方法不一致（多一个子项）
+    { kind: 'p', para: { text: '接口测试', heading: 4, numId: 1, ilvl: 3 } },
+    { kind: 'p', para: { text: '与控制计划编制软件接口', heading: 6, numId: 1, ilvl: 5 } },
+    {
+      kind: 'tbl',
+      rows: itemTable('与控制计划编制软件接口', 'XQ_IO_JHBZ', [
+        [DESC, '1.接口查询（XQ_IO_JHBZ_SU01）\n查询综述。\n2.接口发送（XQ_IO_JHBZ_SU02）\n发送综述。\n3.多出来的子项（XQ_IO_JHBZ_SU03）\n多余综述。'],
+        [METHOD, '1.接口查询（XQ_IO_JHBZ_SU01）\n1）查询接口数据，查看返回是否正确；\n2.接口发送（XQ_IO_JHBZ_SU02）\n1）发送接口数据，查看发送是否成功；']
+      ])
+    }
+  ]
+}
+
+describe('变种大杂烩：不同写法都要转换成功', () => {
+  const issues = new IssueCollector()
+  const office = buildDocx({ content: content() })
+  const parsed = extractOutline(office, issues)
+  const data = convertToTemplateData(parsed, DEFAULT_PARAMS)
+
+  test('全部用例零错误转换', () => {
+    const errors = parsed.issues.filter(i => i.level === 'error')
+    expect(errors).toEqual([])
+  })
+
+  test('统计正确：4 项 6 例', () => {
+    expect(parsed.stats).toEqual({ items: 4, cases: 6, steps: 10 })
+  })
+
+  test('形态细节全部按规则处理', () => {
+    // 缺分隔符的标题被识别
+    const acc = parsed.items.find(i => i.name === 'BCD星指令生成准确率测试')!
+    expect(acc.cases[0].name).toBe('指令生成准确率测试')
+    expect(acc.cases[0].itemId).toBe('XQ_AC_SCZQL_AC01')
+    // 自动编号吸收 + 引导句：准确率用例 2 步
+    expect(acc.cases[0].steps.length).toBe(2)
+    expect(acc.cases[0].steps[0].text).toContain('按大纲要求搭建测试环境：')
+    // 悬空小标题丢弃并提示
+    expect(parsed.issues.filter(i => i.code === 'DANGLING_LABEL').length).toBe(1)
+    // 多余描述子项告警
+    expect(parsed.issues.some(i => i.code === 'DESC_ENTRY_UNUSED')).toBe(true)
+    // 标识笔误告警（XQ_AC_SCZQ vs XQ_AC_SCZQL）
+    expect(parsed.issues.some(i => i.code === 'ID_MISMATCH')).toBe(true)
+    // 综述共用 + 逐条匹配
+    expect(acc.cases[0].summary).toBe('验证指令生成准确率满足指标要求。')
+    expect(parsed.items[0].cases[0].summary).toBe('对软件文档进行审查。')
+  })
+
+  test('准则格配对：期望取准则、动作保留原文', () => {
+    const row = data.cases.find(c => c.caseId === 'YL_SU_ZLPA_001')!
+    expect(row.expectSource).toBe('通过准则')
+    expect(row.steps[0].expect).toBe('打开窗口后界面元素完整；')
+    expect(row.steps[1].expect).toBe('查询结果正确显示；')
+    expect(row.steps[1].action).toBe('输入参数标识，点击查询按钮，查看查询结果是否正确显示；')
+    const row2 = data.cases.find(c => c.caseId === 'YL_SU_ZLPA_002')!
+    expect(row2.expectSource).toBe('通过准则')
+    expect(row2.steps[1].expect).toBe('新增参数显示在列表中；')
+  })
+})
