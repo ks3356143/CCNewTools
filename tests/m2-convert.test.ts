@@ -23,14 +23,14 @@ function makeOutline(): ParsedOutline {
   const item1: TestItem = {
     name: 'A星指令参数管理', itemId: 'XQ_SU_ZLPA', chapter: '6.2.1.4.1.1',
     typeName: '功能测试', groupName: 'A星模板功能测试', itemName: 'A星指令参数管理',
-    description: { shared: null, entries: [] }, cases: [case1, case2], criteria: []
+    description: { shared: null, entries: [] }, cases: [case1, case2], criteriaCases: []
   }
   const item2: TestItem = {
     name: '文档审查', itemId: 'XQ_DC', chapter: '6.2.1.1',
     typeName: '文档审查', groupName: null, itemName: '文档审查',
     description: { shared: '文档审查综述。', entries: [] },
     cases: [{ itemId: 'XQ_DC_DC001', name: '软件文档审查', summary: '', steps: [{ no: 1, text: '审查文档内容是否完整；' }] }],
-    criteria: []
+    criteriaCases: []
   }
   return {
     items: [item1, item2],
@@ -123,13 +123,11 @@ describe('M2 模板数据组装（03 字段映射）', () => {
     expect(data.cases[0].steps[3].action).toBe('输入不存在的参数标识。')
   })
 
-  test('通过准则格逐条对应 → 期望结果取准则（9.5）', () => {
+  test('准则格对应用例 → 期望结果取准则，动作保留完整原文（9.5 实测变种）', () => {
     const outline = makeOutline()
     const item = outline.items[0]
-    item.criteria = [
-      { text: '1）准则一；', numId: null },
-      { text: '2）准则二；', numId: null },
-      { text: '3）准则三；', numId: null }
+    item.criteriaCases = [
+      { itemId: 'XQ_SU_ZLPA_SU01', items: ['准则一；', '准则二；', '准则三；'] }
     ]
     const data = convertToTemplateData(outline, DEFAULT_PARAMS)
     const row = data.cases[0]
@@ -137,13 +135,24 @@ describe('M2 模板数据组装（03 字段映射）', () => {
     expect(row.steps[0].expect).toBe('准则一；')
     expect(row.steps[1].expect).toBe('准则二；')
     expect(row.steps[2].expect).toBe('准则三；')
-    // 动作保留完整原文
     expect(row.steps[0].action).toBe('启动软件，进入参数管理界面。')
   })
 
-  test('条数不对齐且无编号 → 准则不可用，回退关键词切分（9.5）', () => {
+  test('准则条数与步骤数不一致 → 回退关键词切分并告警（9.5）', () => {
     const outline = makeOutline()
-    outline.items[0].criteria = [{ text: '总结论。', numId: null }]
+    outline.items[0].criteriaCases = [
+      { itemId: 'XQ_SU_ZLPA_SU01', items: ['总结论。'] }
+    ]
+    const data = convertToTemplateData(outline, DEFAULT_PARAMS)
+    expect(data.cases[0].expectSource).toBe('方法切分')
+    expect(data.issues.some(i => i.code === 'CRITERIA_COUNT_MISMATCH')).toBe(true)
+  })
+
+  test('方法用例在准则格无对应条目 → 正常回退，不告警', () => {
+    const outline = makeOutline()
+    outline.items[0].criteriaCases = [
+      { itemId: 'XQ_SU_ZLPA_SU01', items: ['准则一；'] }
+    ]
     const data = convertToTemplateData(outline, DEFAULT_PARAMS)
     expect(data.cases[0].expectSource).toBe('方法切分')
   })

@@ -355,20 +355,25 @@ describe('M1 综述与标识（9.2/9.3/9.4、02 第八节）', () => {
   })
 })
 
-describe('M1 通过准则格与统计（9.5）', () => {
-  test('通过准则格段落透传给转换层', () => {
-    const { result } = parse([
+describe('M1 通过准则格解析（9.5 实测变种）', () => {
+  test('准则格按用例标题分桶、丢弃小标题行、条目剥离编号', () => {
+    const { result, issues } = parse([
       { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
       { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
       {
         kind: 'tbl',
-        rows: itemTable('某测试项', 'XQ_C_R', [
-          [METHOD, '1.某用例（XQ_C_R001）\n1）操作，查看结果；'],
-          [CRITERIA, '1）步骤一判定准则；\n2）步骤二判定准则；']
+        rows: itemTable('检索测试', 'XQ_SU_JSWQ', [
+          [METHOD, '1.界面元素测试（XQ_SU_JSWQ_SU01）\n1）打开界面，查看元素是否正确显示；'],
+          [CRITERIA, '1、界面元素测试（XQ_SU_JSWQ_SU01）\n不同检索类型（类型一、类型二、类型三）：\n1）软件展示页面层级信息、搜索栏和搜索按钮、检索结果统计栏、信息列表；\n2、正常检索功能（XQ_SU_JSWQ_SU02）\n1）展示统计检索结果数量，数量与库中数量一致；']
         ])
       }
     ])
-    expect(result.items[0].criteria.length).toBe(2)
-    expect(result.items[0].criteria[0].text).toBe('1）步骤一判定准则；')
+    const cc = result.items[0].criteriaCases
+    expect(cc.length).toBe(2)
+    expect(cc[0].itemId).toBe('XQ_SU_JSWQ_SU01')
+    expect(cc[0].items).toEqual(['软件展示页面层级信息、搜索栏和搜索按钮、检索结果统计栏、信息列表；'])
+    expect(cc[1].itemId).toBe('XQ_SU_JSWQ_SU02')
+    expect(cc[1].items).toEqual(['展示统计检索结果数量，数量与库中数量一致；'])
+    expect(issues.issues.some(i => i.code === 'CRITERIA_LABEL' && i.message.includes('不同检索类型'))).toBe(true)
   })
 })

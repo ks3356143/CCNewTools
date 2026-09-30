@@ -1,7 +1,6 @@
-import type { TestItem, RawCase, GlobalParams } from '../domain.ts'
+import type { TestItem, RawCase, GlobalParams, IssueCollector } from '../domain.ts'
 import { makeCaseId } from './caseId.ts'
 import { splitStepText } from './split.ts'
-import { criteriaFor } from './criteria.ts'
 
 /** 模板数据行（04 变量清单：说明/记录两模板共用一套字段） */
 export interface CaseRow {
@@ -44,14 +43,26 @@ export function traceOf(item: TestItem, c: RawCase): string {
   )
 }
 
-/** 单个用例 → 模板数据行 */
-export function buildRow(item: TestItem, c: RawCase, params: GlobalParams): CaseRow {
-  const criteria = criteriaFor(item, c.steps.length)
+/** 单个用例 → 模板数据行（9.5：准则格有对应用例且条数一致时期望取准则，否则关键词切分） */
+export function buildRow(item: TestItem, c: RawCase, params: GlobalParams, issues?: IssueCollector): CaseRow {
+  const entry = item.criteriaCases.find(e => e.itemId.toUpperCase() === c.itemId.toUpperCase())
+  let criteria: string[] | null = null
+  if (entry !== undefined && entry.items.length > 0) {
+    if (entry.items.length === c.steps.length) {
+      criteria = entry.items
+    } else if (issues) {
+      issues.warning(
+        'CRITERIA_COUNT_MISMATCH',
+        '通过准则条目 ' + entry.items.length + ' 条与步骤 ' + c.steps.length + ' 条不一致，该用例回退关键词切分',
+        item.name
+      )
+    }
+  }
   const expectSource = criteria !== null ? '通过准则' : '方法切分'
 
   const steps = c.steps.map(function (s: { no: number; text: string }) {
     if (criteria !== null) {
-      return { no: s.no, action: s.text, expect: criteria[s.no - 1], actual: '', result: '通过', suspect: undefined as string | undefined }
+      return { no: s.no, action: s.text, expect: criteria![s.no - 1], actual: '', result: '通过', suspect: undefined as string | undefined }
     }
     const sp = splitStepText(s.text)
     return { no: s.no, action: sp.action, expect: sp.expect, actual: '', result: '通过', suspect: sp.suspect }

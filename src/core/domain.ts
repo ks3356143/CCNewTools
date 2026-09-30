@@ -72,6 +72,12 @@ export interface DescriptionEntry {
   summary: string
 }
 
+/** 通过准则格解析出的逐用例准则（9.5：方法=输入，准则=预期） */
+export interface CriteriaEntry {
+  itemId: string
+  items: string[]
+}
+
 export interface TestItem {
   /** 测试项名称（表格第 1 行第 2 格） */
   name: string
@@ -90,8 +96,8 @@ export interface TestItem {
     entries: DescriptionEntry[]
   }
   cases: RawCase[]
-  /** 通过准则格的原始段落（9.5，转换层决定是否采用） */
-  criteria: { text: string; numId: string | null }[]
+  /** 通过准则格的逐用例准则（9.5，转换层按用例标识+条目序号配对） */
+  criteriaCases: CriteriaEntry[]
 }
 
 export interface ParsedOutline {

@@ -28,14 +28,14 @@ function makeOutline(): ParsedOutline {
   const item1: TestItem = {
     name: 'A星指令参数管理', itemId: 'XQ_SU_ZLPA', chapter: '6.2.1.4.1.1',
     typeName: '功能测试', groupName: 'A星模板功能测试', itemName: 'A星指令参数管理',
-    description: { shared: null, entries: [] }, cases: [c1, c2], criteria: []
+    description: { shared: null, entries: [] }, cases: [c1, c2], criteriaCases: []
   }
   const item2: TestItem = {
     name: '文档审查', itemId: 'XQ_DC', chapter: '6.2.1.1',
     typeName: '文档审查', groupName: null, itemName: '文档审查',
     description: { shared: '文档审查综述。', entries: [] },
     cases: [{ itemId: 'XQ_DC_DC001', name: '软件文档审查', summary: '文档审查综述。', steps: [{ no: 1, text: '审查内容是否完整；' }] }],
-    criteria: []
+    criteriaCases: []
   }
   return { items: [item1, item2], issues: [], stats: { items: 2, cases: 3, steps: 4 } }
 }

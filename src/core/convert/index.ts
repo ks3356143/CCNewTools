@@ -1,4 +1,5 @@
 import type { ParsedOutline, GlobalParams } from '../domain.ts'
+import { IssueCollector } from '../domain.ts'
 import { buildRow, type CaseRow } from './rows.ts'
 
 /**
@@ -11,11 +12,12 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
   let lastType = ''
   let lastGroupKey = ''
   let lastItemKey = ''
+  const issues = new IssueCollector()
 
   for (const item of parsed.items) {
     for (let i = 0; i < item.cases.length; i++) {
       const c = item.cases[i]
-      const row = buildRow(item, c, params)
+      const row = buildRow(item, c, params, issues)
 
       if (item.typeName !== lastType) {
         row.showType = item.typeName
@@ -34,5 +36,5 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
       cases.push(row)
     }
   }
-  return { cases: cases }
+  return { cases: cases, issues: issues.issues }
 }

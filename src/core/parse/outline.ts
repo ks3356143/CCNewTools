@@ -4,6 +4,7 @@ import { parseStyles, headingLevel } from './styles.ts'
 import { extractItemTable } from './table.ts'
 import { parseMethod } from './cases.ts'
 import { parseDescription, resolveSummaries } from './describe.ts'
+import { parseCriteriaCell } from './criteria.ts'
 import { IssueCollector, type ParsedOutline, type TestItem } from '../domain.ts'
 
 export interface HeadingRef {
@@ -126,9 +127,7 @@ function assembleItem(
     itemName: head.text,
     description: desc,
     cases: cases,
-    criteria: t.criteria.map(function (p) {
-      return { text: p.text, numId: p.numId }
-    })
+    criteriaCases: parseCriteriaCell(t.criteria, issues, ctx)
   }
   resolveSummaries(item, issues)
 
