@@ -93,7 +93,9 @@ function stepClick(n: number): void {
 }
 .app-title { font-size: 16px; font-weight: 600; color: #fff; margin-left: 4px; }
 .spacer { flex: 1; }
-.stepper { display: flex; align-items: center; }
+/* 三屏导航绝对居中（2026-10-01 用户反馈）：左右两侧内容宽度不等（左标题长、右仅一个按钮），
+   两个等宽 spacer 会把导航推偏；改为相对整个顶栏居中，不受两侧宽度影响 */
+.stepper { display: flex; align-items: center; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .step { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 999px; color: rgba(255, 255, 255, 0.75); }
 .dot {
   width: 24px; height: 24px; border-radius: 50%; flex: none;

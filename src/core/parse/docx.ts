@@ -12,7 +12,9 @@ export interface OfficeFile {
 
 function xmlParse(xml: string, what: string): Document {
   try {
-    const doc = new DOMParser().parseFromString(xml, 'application/xml')
+    // xmldom 自声明了一套 Document/Element 接口，与 lib.dom 全局类型互不兼容；
+    // 在此边界一次性断言到全局 DOM 类型（运行时 xmldom 提供下游用到的全部 API）
+    const doc = new DOMParser().parseFromString(xml, 'application/xml') as unknown as Document
     if (!doc.documentElement) throw new Error('empty')
     return doc
   } catch {
@@ -77,9 +79,7 @@ export function children(parent: Node, ns: string, name: string): Element[] {
 /** 后代元素中按命名空间+名称筛选 */
 export function deep(parent: Node, ns: string, name: string): Element[] {
   const out: Element[] = []
-  const list = (parent as Element).getElementsByTagNameNS
-    ? (parent as Element).getElementsByTagNameNS(ns, name)
-    : []
+  const list = (parent as Element).getElementsByTagNameNS(ns, name)
   for (let i = 0; i < list.length; i++) out.push(list.item(i)!)
   return out
 }

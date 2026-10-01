@@ -20,7 +20,7 @@ function openBrowser(url: string) {
   }
 }
 
-let started: Bun.Server | null = null
+let started: ReturnType<typeof Bun.serve> | null = null
 for (let port = BASE_PORT; port < BASE_PORT + MAX_TRIES; port++) {
   try {
     started = Bun.serve({ port, fetch: handle })

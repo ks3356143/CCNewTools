@@ -52,7 +52,7 @@ function makeOutline(): ParsedOutline {
 
 function bodyText(buf: Buffer): string {
   const zip = new PizZip(buf)
-  const xml = zip.file('word/document.xml').asText()
+  const xml = zip.file('word/document.xml')!.asText()
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
   const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
   let out = ''
@@ -63,7 +63,7 @@ function bodyText(buf: Buffer): string {
 /** 输出文档的标题序列（style 2/3/4 + 文本） */
 function headings(buf: Buffer): Array<{ level: string; text: string }> {
   const zip = new PizZip(buf)
-  const xml = zip.file('word/document.xml').asText()
+  const xml = zip.file('word/document.xml')!.asText()
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
   const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
   const out: Array<{ level: string; text: string }> = []

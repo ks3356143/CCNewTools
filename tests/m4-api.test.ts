@@ -150,7 +150,7 @@ describe('M4 /api/generate', () => {
     })
     const data = await res.json()
     expect(data.ok).toBe(true)
-    expect(data.specName).toBe('测试说明_测试大纲A.docx')
+    expect(data.specName).toBe('测试说明-生成.docx')
 
     const spec = Buffer.from(data.spec, 'base64')
     expect(spec.subarray(0, 2).toString()).toBe('PK')

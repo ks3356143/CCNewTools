@@ -64,7 +64,7 @@ describe('M0 冒烟', () => {
         { no: 2, name: '参数新增正常功能' }
       ]
     })
-    const out = doc.getZip().file('word/document.xml').asText()
+    const out = doc.getZip().file('word/document.xml')!.asText()
     expect(out).toContain('标题：M0 冒烟')
     expect(out).toContain('1 - 参数查询正常功能')
     expect(out).toContain('2 - 参数新增正常功能')

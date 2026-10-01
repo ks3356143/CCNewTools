@@ -180,7 +180,6 @@ async function apiGenerate(req: Request): Promise<Response> {
     cases: cases, caselist: caselist, traceRows: traceRows, configName: configName
   })
   const recBuf = renderTemplate(templateFile('测试记录模板.docx'), { cases: cases, configName: configName })
-  const base = body.outline.name.replace(/\.docx$/i, '')
   appendLog(`生成文档：${body.outline.name}，${cases.length} 例`)
   // 生成成功后更新项目元信息（09）：文档本体不落盘
   if (body.outline.hash) recordGenerated(body.outline.hash)
@@ -188,7 +187,8 @@ async function apiGenerate(req: Request): Promise<Response> {
     ok: true,
     spec: specBuf.toString('base64'),
     rec: recBuf.toString('base64'),
-    specName: '测试说明_' + base + '.docx',
-    recName: '测试记录_' + base + '.docx'
+    // 固定文件名（2026-10-01 用户定稿）：与模板名区分的短名，不带大纲名前缀
+    specName: '测试说明-生成.docx',
+    recName: '测试记录-生成.docx'
   })
 }

@@ -1,7 +1,8 @@
 import { children, attr, W } from './docx.ts'
 
 export interface NumInfo {
-  start: number[][]
+  /** numId → 该编号各 ilvl 的起始值（index 2 是数据起始位，其后的 numId 依序落位） */
+  start: Array<number[] | undefined>
 }
 
 /**
@@ -9,7 +10,7 @@ export interface NumInfo {
  * 大纲标题编号全部为 decimal（02 已验证），numFmt 在此不区分；只取 start。
  */
 export function parseNumbering(doc: Document | null): NumInfo {
-  const start: number[][] = []
+  const start: Array<number[] | undefined> = []
   if (!doc) return { start }
 
   const root = doc.documentElement
@@ -38,7 +39,7 @@ export function parseNumbering(doc: Document | null): NumInfo {
     if (ref == null) continue
     const info = abstractById.get(ref)
     if (!info) continue
-    start[Number(numId)] = info.start
+    start[Number(numId)] = info
   }
   return { start }
 }
