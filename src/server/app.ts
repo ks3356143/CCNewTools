@@ -33,15 +33,21 @@ async function serveStatic(url: URL): Promise<Response> {
 
   const target = Bun.file(file)
   if (await target.exists()) {
+    // 带内容哈希的 assets 可永久缓存；其余（尤其 index.html）必须每次回源，
+    // 否则浏览器启发式缓存会让构建升级后用户仍看到旧版页面（2026-10-01 实测踩坑）
+    const immutable = p.startsWith('/assets/')
     return new Response(target, {
-      headers: { 'content-type': MIME[extname(file).toLowerCase()] ?? 'application/octet-stream' }
+      headers: {
+        'content-type': MIME[extname(file).toLowerCase()] ?? 'application/octet-stream',
+        'cache-control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache'
+      }
     })
   }
 
   // 单页应用兜底 & 未构建提示
   const index = Bun.file(join(DIST_DIR, 'index.html'))
   if (await index.exists()) {
-    return new Response(index, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+    return new Response(index, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } })
   }
   return new Response(
     '<body style="font-family:sans-serif;padding:40px"><h2>前端尚未构建</h2><p>先运行 <code>bun run build</code>，或开发模式 <code>bun run dev:web</code>。</p></body>',
