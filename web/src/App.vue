@@ -50,6 +50,7 @@ function stepClick(n: number): void {
     <v-app-bar color="appbar" elevation="0">
       <div class="mark"><v-icon size="19">mdi-file-word-box</v-icon></div>
       <span class="app-title">测试文档生成工具</span>
+      <span class="ver">v1.0.0</span>
       <div class="spacer" />
       <nav class="stepper">
         <template v-for="(t, i) in STEPS" :key="t">
@@ -92,6 +93,12 @@ function stepClick(n: number): void {
   display: flex; align-items: center; justify-content: center;
 }
 .app-title { font-size: 16px; font-weight: 600; color: #fff; margin-left: 4px; }
+/* 版本徽标（08：版本号三处可见之一）；写死在模板里避免给顶栏加运行时依赖 */
+.ver {
+  font-size: 11px; color: rgba(255, 255, 255, 0.72); margin-left: 8px;
+  font-family: Consolas, monospace; letter-spacing: 0.4px;
+  background: rgba(255, 255, 255, 0.14); border-radius: 999px; padding: 1px 8px;
+}
 .spacer { flex: 1; }
 /* 三屏导航绝对居中（2026-10-01 用户反馈）：左右两侧内容宽度不等（左标题长、右仅一个按钮），
    两个等宽 spacer 会把导航推偏；改为相对整个顶栏居中，不受两侧宽度影响 */

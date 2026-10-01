@@ -21,3 +21,6 @@ web/dist/
 .idea/
 web/public/_test.docx
 .playwright-mcp/
+
+# 发布产物（编译输出不入库；源图标 资源/app.ico 需要提交）
+dist/

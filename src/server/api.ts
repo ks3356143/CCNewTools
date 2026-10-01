@@ -13,8 +13,13 @@ import {
   loadProjectEdits, saveProjectEdits, projectId, sourceFileOf
 } from './projects.ts'
 import { appendLog } from './log.ts'
+import { EMBEDDED_TEMPLATES } from './assets.ts'
+import { VERSION } from './app.ts'
 
 function templateFile(name: string): Buffer {
+  // 单文件编译形态：嵌入模板优先（M6）；开发形态回退磁盘 模板/ 目录
+  const embedded = EMBEDDED_TEMPLATES[name]
+  if (embedded !== undefined) return readFileSync(embedded)
   return readFileSync(join(process.cwd(), '模板', name))
 }
 
@@ -63,7 +68,7 @@ function parseAndRestore(name: string, hash: string, bytes: Uint8Array) {
 export async function handleApi(req: Request, url: URL): Promise<Response> {
   try {
     if (url.pathname === '/api/ping') {
-      return Response.json({ ok: true, version: '0.1.0', ts: Date.now() })
+      return Response.json({ ok: true, version: VERSION, ts: Date.now() })
     }
     if (url.pathname === '/api/settings' && req.method === 'GET') {
       return Response.json({ ok: true, ...loadSettings() })

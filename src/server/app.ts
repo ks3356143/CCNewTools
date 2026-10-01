@@ -1,9 +1,12 @@
 import { extname, join, normalize, resolve } from 'node:path'
 import { handleApi } from './api.ts'
+import { EMBEDDED_ASSETS } from './assets.ts'
+import pkg from '../../package.json' with { type: 'json' }
 
-/** 前端构建产物目录 */
+/** 前端构建产物目录（开发形态回退；单文件编译形态走嵌入资产，见 assets.ts） */
 export const DIST_DIR = resolve(import.meta.dir, '../../web/dist')
-export const VERSION = '0.1.0'
+/** 版本号唯一来源：package.json（08 发版检查单：界面/横幅/接口三处一致） */
+export const VERSION = pkg.version as string
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -28,6 +31,21 @@ export async function handle(req: Request): Promise<Response> {
 async function serveStatic(url: URL): Promise<Response> {
   let p = decodeURIComponent(url.pathname)
   if (p === '/') p = '/index.html'
+  // 单文件编译形态：先查嵌入资产（M6，08 一：全部资源打进二进制）
+  const embedded = EMBEDDED_ASSETS[p]
+  if (embedded !== undefined) {
+    const file = Bun.file(embedded)
+    if (await file.exists()) {
+      const immutable = p.startsWith('/assets/')
+      return new Response(file, {
+        headers: {
+          'content-type': MIME[extname(p).toLowerCase()] ?? 'application/octet-stream',
+          'cache-control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache'
+        }
+      })
+    }
+  }
+  // 开发/磁盘形态回退
   const file = normalize(join(DIST_DIR, p))
   if (!file.startsWith(DIST_DIR)) return new Response('Forbidden', { status: 403 })
 

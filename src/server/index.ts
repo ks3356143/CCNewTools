@@ -1,4 +1,5 @@
 import { handle } from './app.ts'
+import { VERSION } from './app.ts'
 import { migrateLegacyEdits } from './projects.ts'
 import { appendLog } from './log.ts'
 
@@ -25,7 +26,7 @@ for (let port = BASE_PORT; port < BASE_PORT + MAX_TRIES; port++) {
   try {
     started = Bun.serve({ port, fetch: handle })
     const url = `http://127.0.0.1:${port}`
-    console.log('测试文档生成工具 v0.1.0')
+    console.log(`测试文档生成工具 v${VERSION}`)
     console.log(`服务已启动：${url}`)
     console.log('关闭此窗口即退出。')
     if (process.argv.includes('--open')) openBrowser(url)

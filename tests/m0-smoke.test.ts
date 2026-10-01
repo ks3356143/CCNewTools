@@ -77,7 +77,7 @@ describe('M0 冒烟', () => {
       const res = await fetch(new URL('/api/ping', server.url))
       const data = await res.json()
       expect(data.ok).toBe(true)
-      expect(data.version).toBe('0.1.0')
+      expect(data.version).toBe('1.0.0')
     } finally {
       server.stop(true)
     }
