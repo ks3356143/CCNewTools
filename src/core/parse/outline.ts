@@ -15,6 +15,19 @@ export interface HeadingRef {
   sawTable?: boolean
   /** 本标题之下出现过更深层标题（容器形态：配置项/功能测试等） */
   hasChild?: boolean
+  /** 本标题为栈顶时出现过表格（含未能识别为测试项表格的） */
+  sawTblAny?: boolean
+}
+
+/** 被顶掉/残留的标题裁决：无表无子标题 = 悬空；有表但表不是测试项表格 = 另一种告警 */
+function warnIfDropped(h: HeadingRef, issues: IssueCollector): void {
+  if (h.sawTable || h.hasChild) return
+  const label = '「' + (h.num !== '' ? h.num + ' ' : '') + h.text + '」'
+  if (h.sawTblAny) {
+    issues.warning('TABLE_NOT_ITEM', '标题' + label + '下的表格不是测试项表格（首行应为「测试项名称」），已忽略', '测试项及方法')
+  } else {
+    issues.warning('HEADING_NO_TABLE', '标题' + label + '下没有测试项表格（可能写漏），该标题无测试项产出', '测试项及方法')
+  }
 }
 
 /**
@@ -34,6 +47,7 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
   let inSection = false
   let sectionLevel = 0
   let sawTable = false
+  let manualChapterCount = 0
 
   const kids: Element[] = []
   for (let i = 0; i < body.childNodes.length; i++) {
@@ -47,9 +61,24 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
       const lvl = headingLevel(node, styles)
       if (lvl === null) continue
       const text = textOf(node).trim()
+      // 空标题（只挂编号没写文字）不进栈：进栈会以空名参与类型/组判定
+      if (text === '') continue
       // 编号可能在段落直接格式或标题样式定义里（真实大纲：heading1-9 样式各带 numId+ilvl）
       const np = numPrOf(node) ?? styleNumPr(node, styles)
-      const num = np !== null ? counters.advance(np.numId, np.ilvl) : ''
+      let num = ''
+      let hText = text
+      if (np !== null) {
+        num = counters.advance(np.numId, np.ilvl)
+      } else {
+        // 手打编号回退（2026-10-01）：标题无自动编号而正文自带「6.2.1.4.1 名称」式编号 →
+        // 编号还原为章节号、文字剥掉编号前缀；有自动编号的正常大纲不受影响
+        const m = /^(\d{1,3}(?:\.\d{1,3})+)[\s　]?(.*)$/.exec(text)
+        if (m !== null) {
+          num = m[1]
+          hText = m[2].trim()
+          manualChapterCount++
+        }
+      }
 
       if (!inSection) {
         if (text.replace(/\s+/g, '').includes('测试项及方法')) {
@@ -62,19 +91,17 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
       // 被顶掉的标题若无表也无子标题 = 悬空（用户写漏测试项表，2026-10-01 用户要求显式告警）。
       // 先弹栈检查再判节终止：本节最后一个悬空标题由终结本节的同级标题顶掉，不能漏
       while (stack.length > 0 && stack[stack.length - 1].level >= lvl) {
-        const dropped = stack.pop()!
-        if (!dropped.sawTable && !dropped.hasChild) {
-          issues.warning('HEADING_NO_TABLE', '标题「' + (dropped.num !== '' ? dropped.num + ' ' : '') + dropped.text + '」下没有测试项表格（可能写漏），该标题无测试项产出', '测试项及方法')
-        }
+        warnIfDropped(stack.pop()!, issues)
       }
       if (lvl <= sectionLevel) break
       for (const h of stack) h.hasChild = true
-      stack.push({ level: lvl, num: num, text: text })
+      stack.push({ level: lvl, num: num, text: hText })
     } else if (tag === 'tbl' && inSection) {
+      const top = stack[stack.length - 1]
+      if (top) top.sawTblAny = true
       const t = extractItemTable(node)
       if (t === null) continue
       sawTable = true
-      const top = stack[stack.length - 1]
       if (top) top.sawTable = true
       const item = assembleItem(t, stack, issues)
       if (item !== null) items.push(item)
@@ -85,11 +112,9 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
     throw new Error('未找到「测试项及方法」章节，请确认导入的是测试大纲')
   }
   // 文档在节内直接结束（无同级标题终结）的兜底：栈里残留的悬空标题也要告警
-  while (stack.length > 0) {
-    const dropped = stack.pop()!
-    if (!dropped.sawTable && !dropped.hasChild) {
-      issues.warning('HEADING_NO_TABLE', '标题「' + (dropped.num !== '' ? dropped.num + ' ' : '') + dropped.text + '」下没有测试项表格（可能写漏），该标题无测试项产出', '测试项及方法')
-    }
+  while (stack.length > 0) warnIfDropped(stack.pop()!, issues)
+  if (manualChapterCount > 0) {
+    issues.info('MANUAL_CHAPTER_NUM', manualChapterCount + ' 个标题没有自动编号，已按正文手打编号还原章节号', '测试项及方法')
   }
   if (!sawTable) {
     issues.error('NO_TABLES', '「测试项及方法」章节内没有测试项表格')
@@ -142,6 +167,7 @@ function assembleItem(
 
   const cases = parseMethod(t.method, issues, ctx)
   const desc = parseDescription(t.description, issues, ctx)
+  const critCell = parseCriteriaCell(t.criteria, issues, ctx)
   const item: TestItem = {
     name: t.name,
     itemId: t.itemId,
@@ -151,7 +177,8 @@ function assembleItem(
     itemName: head.text,
     description: desc,
     cases: cases,
-    criteriaCases: parseCriteriaCell(t.criteria, issues, ctx),
+    criteriaCases: critCell.entries,
+    criteriaOrphans: critCell.orphanItems,
     traceSrs: parseSrsTrace(t.traceText)
   }
   resolveCriteria(item, issues)

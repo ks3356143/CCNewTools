@@ -57,7 +57,9 @@ function parseAndRestore(name: string, hash: string, bytes: Uint8Array) {
   return {
     outline: { name: name, hash: hash },
     stats: parsed.stats,
-    issues: parsed.issues,
+    // 解析层 + 转换层告警都要上界面（2026-10-01 对抗审查：此前 fresh.issues 被丢弃，
+    // 准则条数不等/一句话共用/用例标识撞号等转换层告警在界面不可见）
+    issues: parsed.issues.concat(fresh.issues),
     cases: cases,
     params: params,
     theme: settings.theme,

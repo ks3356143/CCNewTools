@@ -109,6 +109,8 @@ export interface TestItem {
   cases: RawCase[]
   /** 通过准则格的逐用例准则（9.5，转换层按用例标识+条目序号配对） */
   criteriaCases: CriteriaEntry[]
+  /** 准则格无标题的编号条目（单用例时按唯一用例整体配对，见 criteria.ts） */
+  criteriaOrphans?: string[]
   /** 追踪关系格解析出的需求规格说明信息（追踪表用） */
   traceSrs: { chapter: string; desc: string }
 }

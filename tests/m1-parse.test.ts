@@ -95,6 +95,66 @@ describe('M1 标题与章节号（02 第二节）', () => {
     for (const d of dangling) expect(d.message).not.toContain('正常测试项')
   })
 
+  test('手打章节号回退（2026-10-01）：标题无自动编号而正文带编号 → 编号入章节号、剥掉前缀', () => {
+    const content: any[] = [
+      { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+      { kind: 'p', para: { text: '6.2.1.4.1 手打编号项', heading: 6 } },
+      {
+        kind: 'tbl',
+        rows: itemTable('手打编号项', 'XQ_M_01', [
+          [METHOD, '1.手打用例（XQ_M_01_01）\n1）操作，查看结果是否正确；']
+        ])
+      },
+      { kind: 'p', para: { text: '测试内容充分性分析', heading: 2, numId: 1, ilvl: 1 } }
+    ]
+    const { result, issues } = parse(content)
+    expect(result.stats.items).toBe(1)
+    const item = result.items[0]
+    expect(item.chapter).toBe('6.2.1.4.1')
+    expect(item.itemName).toBe('手打编号项')
+    expect(issues.issues.some(i => i.code === 'MANUAL_CHAPTER_NUM')).toBe(true)
+  })
+
+  test('非测试项表格（2026-10-01）：标题下有表但首格不是「测试项名称」→ TABLE_NOT_ITEM 告警', () => {
+    const content: any[] = [
+      { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+      { kind: 'p', para: { text: '普通表格测试项', heading: 4, numId: 1, ilvl: 3 } },
+      { kind: 'tbl', rows: [[{ text: '普通列' }, { text: '普通值' }]] },
+      { kind: 'p', para: { text: '测试内容充分性分析', heading: 2, numId: 1, ilvl: 1 } }
+    ]
+    const { result, issues } = parse(content)
+    expect(result.stats.items).toBe(0)
+    const warn = issues.issues.filter(i => i.code === 'TABLE_NOT_ITEM')
+    expect(warn.length).toBe(1)
+    expect(warn[0].message).toContain('普通表格测试项')
+    expect(warn[0].message).toContain('不是测试项表格')
+  })
+
+  test('准则格无标题的编号条目（2026-10-01）：单用例按唯一用例配对、多用例告警忽略', () => {
+    const mk = (method: string, criteria: string): any[] => [
+      { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+      { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+      { kind: 'p', para: { text: '丙项', heading: 6, numId: 1, ilvl: 5 } },
+      {
+        kind: 'tbl',
+        rows: itemTable('丙项', 'XQ_C_01', [
+          [METHOD, method],
+          [CRITERIA, criteria]
+        ])
+      },
+      { kind: 'p', para: { text: '测试内容充分性分析', heading: 2, numId: 1, ilvl: 1 } }
+    ]
+    // 单用例：无标题编号条目按唯一用例整体配对（作者写了逐条预期却没写标题）
+    const single = parse(mk('1.丙用例（XQ_C_01_01）\n1）步骤一；\n2）步骤二；', '1）预期一；\n2）预期二。'))
+    const c1 = single.result.items[0].cases[0]
+    expect(c1.criteria).toEqual(['预期一；', '预期二。'])
+    expect(single.issues.issues.some(i => i.code === 'CRITERIA_NOTITLED')).toBe(true)
+    // 多用例：无法归属 → 告警不静默，不配对
+    const multi = parse(mk('1.丙一（XQ_C_01_01）\n1）步骤；\n2.丙二（XQ_C_01_02）\n1）步骤；', '1）预期一；\n2）预期二。'))
+    expect(multi.result.items[0].cases[0].criteria).toBeFalsy()
+    expect(multi.issues.issues.some(i => i.code === 'CRITERIA_ORPHAN_ITEMS')).toBe(true)
+  })
+
   test('表格挂在 level-4 上（文档审查形态）：类型与测试项同名', () => {
     const { result } = parse([
       { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },

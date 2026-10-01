@@ -14,10 +14,21 @@ function incomplete(s: string): boolean {
   return !(s.endsWith('。') || s.endsWith('；') || s.endsWith(';'))
 }
 
-export function parseCriteriaCell(paras: ParaInfo[], issues: IssueCollector, ctx: string): CriteriaEntry[] {
+export interface CriteriaCell {
+  entries: CriteriaEntry[]
+  /**
+   * 有编号（n）…）但没有任何用例标题归属的准则条目（2026-10-01 对抗审查新增）：
+   * 单用例的表格可按唯一用例整体配对；多用例无法归属 → 告警。
+   * 散文段落不在此列（真实大纲准则格全是散文句子，不参与配对，维持静默）。
+   */
+  orphanItems: string[]
+}
+
+export function parseCriteriaCell(paras: ParaInfo[], issues: IssueCollector, ctx: string): CriteriaCell {
   const entries: CriteriaEntry[] = []
   let cur: CriteriaEntry | null = null
-  const orphans: string[] = []
+  const orphanItems: string[] = []
+  const orphanProse: string[] = []
 
   for (const para of paras) {
     const t = para.text.trim()
@@ -38,7 +49,7 @@ export function parseCriteriaCell(paras: ParaInfo[], issues: IssueCollector, ctx
 
     if (/^\d{1,3}\s*[）)]/.test(t)) {
       if (cur === null) {
-        orphans.push(t)
+        orphanItems.push(t.replace(/^\d{1,3}\s*[）)]\s*/, ''))
         continue
       }
       cur.items.push(t.replace(/^\d{1,3}\s*[）)]\s*/, ''))
@@ -55,16 +66,16 @@ export function parseCriteriaCell(paras: ParaInfo[], issues: IssueCollector, ctx
       cur.items.push(t)
       continue
     }
-    orphans.push(t)
+    orphanProse.push(t)
   }
 
-  // 格内没有用例结构（如整格只是一句结论）→ 内容本就不参与配对，静默忽略
+  // 格内没有用例结构（如整格只是一句结论）→ 散文不参与配对，维持静默
   if (entries.length > 0) {
-    for (const o of orphans) {
+    for (const o of orphanProse) {
       issues.info('CRITERIA_ORPHAN_TEXT', '通过准则格中有未归属用例的段落，已忽略：' + o.slice(0, 30), ctx)
     }
   }
-  return entries
+  return { entries: entries, orphanItems: orphanItems }
 }
 
 /**
@@ -90,6 +101,19 @@ export function resolveCriteria(item: TestItem, issues: IssueCollector): void {
   for (const e of entries) {
     if (!used.has(e)) {
       issues.info('CRITERIA_ENTRY_UNUSED', '通过准则格子项 ' + e.itemId + ' 没有对应用例，已忽略', item.name)
+    }
+  }
+
+  // 无标题的编号准则条目（2026-10-01 对抗审查）：单用例时按唯一用例整体配对（作者
+  // 写了逐条预期却没写标题——与 9.9 一问一答同语义）；多用例无法归属 → 告警不静默
+  const orphanItems = item.criteriaOrphans ?? []
+  if (orphanItems.length > 0) {
+    const only = item.cases.length === 1 ? item.cases[0] : null
+    if (only !== null && (only.criteria === null || only.criteria === undefined)) {
+      only.criteria = orphanItems
+      issues.warning('CRITERIA_NOTITLED', '通过准则格条目没有用例标题，已按唯一用例配对（条数 ' + orphanItems.length + ' 条）', item.name)
+    } else {
+      issues.warning('CRITERIA_ORPHAN_ITEMS', '通过准则格有 ' + orphanItems.length + ' 条没有用例标题的条目，无法归属用例，已忽略', item.name)
     }
   }
 
