@@ -116,12 +116,12 @@ td.editable, .edit { outline: none; cursor: text; min-height: 22px; }
 .edit { padding: 2px 6px; border: 1px dashed rgba(var(--v-theme-outline), 0.45); border-radius: 6px; }
 .edit:hover { border-color: rgba(var(--v-theme-primary), 0.5); background: rgba(var(--v-theme-primary), 0.06); }
 .edit:focus { border: 1px solid rgb(var(--v-theme-primary)); box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.18); background: rgb(var(--v-theme-surface)); }
-tr.suspect td { background: rgba(var(--v-theme-warning), 0.1); }
-tr.suspect td:first-child { box-shadow: inset 3px 0 0 rgb(var(--v-theme-warning)); }
+tr.suspect td { background: rgba(var(--v-theme-error), 0.08); }
+tr.suspect td:first-child { box-shadow: inset 3px 0 0 rgb(var(--v-theme-error)); }
 .sus-tag {
   display: inline-flex; align-items: center; gap: 4px; margin-top: 5px;
-  font-size: 11.5px; color: rgb(var(--v-theme-warning));
-  background: rgba(var(--v-theme-warning), 0.14); border-radius: 999px; padding: 2px 9px;
+  font-size: 11.5px; color: rgb(var(--v-theme-error));
+  background: rgba(var(--v-theme-error), 0.14); border-radius: 999px; padding: 2px 9px;
 }
 .fix { margin-left: 4px; text-decoration: underline; text-underline-offset: 3px; font-size: 11.5px; color: rgb(var(--v-theme-primary)); }
 .ops { width: 104px; }
@@ -132,5 +132,7 @@ tr.suspect td:first-child { box-shadow: inset 3px 0 0 rgb(var(--v-theme-warning)
 }
 .ops button:hover:not(:disabled) { color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.14); }
 .ops button:disabled { opacity: 0.3; cursor: default; }
-.sus-note { font-size: 12px; color: rgb(var(--v-theme-warning)); padding: 8px 14px; border-top: 1px dashed rgba(var(--v-theme-warning), 0.4); }
+.sus-note { font-size: 12px; color: rgb(var(--v-theme-error)); padding: 8px 14px; border-top: 1px dashed rgba(var(--v-theme-error), 0.4); }
+tr.suspect.flash td { animation: sus-flash 1.6s ease-out; }
+@keyframes sus-flash { 0% { box-shadow: inset 0 0 0 2px rgb(var(--v-theme-error)); } 100% { box-shadow: inset 0 0 0 2px transparent; } }
 </style>

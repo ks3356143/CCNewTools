@@ -107,7 +107,9 @@ function assembleItem(
   if (typeIdx < 0) {
     issues.warning('NO_TYPE_HEADING', '表格之前没有 level-4 测试类型标题，已用「' + typeName + '」充当', ctx)
   }
-  // 中间层 = level-4 之后的 level-5 标题（跳级形态下不存在）
+  // 中间层 = level-4 之后的 level-5 标题（跳级形态下不存在）。
+  // 表格直接挂在 level-5 标题上时（head 就是该标题），它是测试项本身而非中间层——
+  // 否则组名与项名相同，生成文档/树里会多出一层重复标题（2026-10-01 用户反馈）
   let groupIdx = -1
   for (let i = stack.length - 1; i > typeIdx; i--) {
     if (stack[i].level === 5) {
@@ -115,7 +117,7 @@ function assembleItem(
       break
     }
   }
-  const groupName = groupIdx >= 0 ? stack[groupIdx].text : null
+  const groupName = groupIdx >= 0 && groupIdx < stack.length - 1 ? stack[groupIdx].text : null
 
   const cases = parseMethod(t.method, issues, ctx)
   const desc = parseDescription(t.description, issues, ctx)

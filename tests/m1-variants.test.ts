@@ -59,6 +59,17 @@ function content(): Array<{ kind: 'p'; para: any } | { kind: 'tbl'; rows: Cell[]
         [DESC, '1.接口查询（XQ_IO_JHBZ_SU01）\n查询综述。\n2.接口发送（XQ_IO_JHBZ_SU02）\n发送综述。\n3.多出来的子项（XQ_IO_JHBZ_SU03）\n多余综述。'],
         [METHOD, '1.接口查询（XQ_IO_JHBZ_SU01）\n1）查询接口数据，查看返回是否正确；\n2.接口发送（XQ_IO_JHBZ_SU02）\n1）发送接口数据，查看发送是否成功；']
       ])
+    },
+    // 形态5：表格直接挂在 level-5 标题上（真实大纲接口/边界类形态，2026-10-01）——
+    // 该标题是测试项本身，组必须为空（否则组名=项名，文档/树里多出一层重复标题）
+    { kind: 'p', para: { text: '边界测试', heading: 4, numId: 1, ilvl: 3 } },
+    { kind: 'p', para: { text: '指令边界测试', heading: 5, numId: 1, ilvl: 4 } },
+    {
+      kind: 'tbl',
+      rows: itemTable('指令边界测试', 'XQ_BJ_ZL', [
+        [DESC, '验证指令边界处理正确。'],
+        [METHOD, '1.指令边界测试（XQ_BJ_ZL_BJ01）\n1）输入边界指令，查看是否正确处理；']
+      ])
     }
   ]
 }
@@ -74,8 +85,8 @@ describe('变种大杂烩：不同写法都要转换成功', () => {
     expect(errors).toEqual([])
   })
 
-  test('统计正确：4 项 6 例（解析层 10 步）', () => {
-    expect(parsed.stats).toEqual({ items: 4, cases: 6, steps: 10 })
+  test('统计正确：5 项 7 例（解析层 11 步）', () => {
+    expect(parsed.stats).toEqual({ items: 5, cases: 7, steps: 11 })
   })
 
   test('形态细节全部按规则处理', () => {
@@ -95,6 +106,11 @@ describe('变种大杂烩：不同写法都要转换成功', () => {
     // 综述共用 + 逐条匹配
     expect(acc.cases[0].summary).toBe('验证指令生成准确率满足指标要求。')
     expect(parsed.items[0].cases[0].summary).toBe('对软件文档进行审查。')
+    // 形态5：表格挂 level-5 标题 → 该标题就是测试项，组为空（不与项名重复）
+    const bj = parsed.items.find(i => i.name === '指令边界测试')!
+    expect(bj.groupName).toBeNull()
+    expect(bj.itemName).toBe('指令边界测试')
+    expect(bj.chapter).not.toBe('')
   })
 
   test('准则格配对：期望取准则、动作保留原文', () => {

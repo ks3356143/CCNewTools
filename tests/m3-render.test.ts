@@ -39,7 +39,15 @@ function makeOutline(): ParsedOutline {
     criteriaCases: [],
     traceSrs: { chapter: '/', desc: '/' }
   }
-  return { items: [item1, item2], issues: [], stats: { items: 2, cases: 3, steps: 4 } }
+  const item3: TestItem = {
+    name: '指令边界测试', itemId: 'XQ_BJ_ZL', chapter: '6.2.1.7.1.1',
+    typeName: '边界测试', groupName: null, itemName: '指令边界测试',
+    description: { shared: null, entries: [] },
+    cases: [{ itemId: 'XQ_BJ_ZL001', name: '指令边界测试用例', summary: '边界综述。', steps: [{ no: 1, text: '输入超长指令，查看是否正确拦截；' }] }],
+    criteriaCases: [],
+    traceSrs: { chapter: '4.3.2', desc: '指令边界测试' }
+  }
+  return { items: [item1, item2, item3], issues: [], stats: { items: 3, cases: 4, steps: 5 } }
 }
 
 function bodyText(buf: Buffer): string {
@@ -84,6 +92,8 @@ describe('M3 渲染：测试说明模板', () => {
       { level: '3', text: 'A星模板功能测试' },
       { level: '4', text: 'A星指令参数管理' },
       { level: '2', text: '文档审查' },
+      { level: '2', text: '边界测试' },
+      { level: '3', text: '指令边界测试' },
       { level: '1', text: '需求的可追踪性' },
       { level: '2', text: '某软件配置项需求追踪表' }
     ])

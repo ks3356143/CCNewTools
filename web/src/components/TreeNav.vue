@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { store, goCase, activeSuspects } from '../store.ts'
 import type { CaseRow } from '../types.ts'
 
 const keyword = ref('')
+const bodyEl = ref<HTMLElement | null>(null)
 
 interface CaseNode { row: CaseRow; idx: number }
 interface ItemNode { name: string; cases: CaseNode[] }
@@ -48,6 +49,20 @@ function reactiveTypeSet() {
     }
   }
 }
+
+// 当前用例变化（徽章跳转/上下条按钮）时：展开当前用例所属类型并滚动树到当前用例
+watch(() => store.currentIdx, async () => {
+  const c = store.cases[store.currentIdx]
+  if (!c) return
+  if (!opened.isOpen(c.typeName)) {
+    const next = new Set(opened.s.value)
+    next.delete(c.typeName)
+    opened.s.value = next
+  }
+  await nextTick()
+  bodyEl.value?.querySelector<HTMLElement>(`[data-idx="${store.currentIdx}"]`)
+    ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+})
 </script>
 
 <template>
@@ -57,7 +72,7 @@ function reactiveTypeSet() {
       <input v-model="keyword" placeholder="搜索用例名称或标识" />
     </div>
     <div class="note">数字为大纲中的实际用例数</div>
-    <div class="body">
+    <div ref="bodyEl" class="body">
       <div v-for="t in tree" :key="t.name" class="type">
         <button class="row type-row" @click="opened.toggle(t.name)">
           <v-icon size="16" class="chev" :class="{ closed: !opened.isOpen(t.name) }">mdi-chevron-down</v-icon>
@@ -75,6 +90,7 @@ function reactiveTypeSet() {
                     v-for="cn in it.cases"
                     :key="cn.row.caseId"
                     class="row case-row"
+                    :data-idx="cn.idx"
                     :class="{ cur: cn.idx === store.currentIdx }"
                     @click="goCase(cn.idx)"
                   >

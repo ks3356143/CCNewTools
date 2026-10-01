@@ -53,15 +53,22 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
         lastType = item.typeName
       }
       const gk = item.typeName + '\u0000' + (item.groupName ?? '')
-      if (item.groupName !== null && gk !== lastGroupKey) {
-        row.showGroup = item.groupName
-        lastGroupKey = gk
-      }
       const ik = item.chapter + '\u0000' + item.itemName
-      // 无中间层且测试项与测试类型同名（静态三类型等）：标题完全重复，
-      // 跳过测试项标题，避免"2.1 文档审查"下再出现"2.1.1.1 文档审查"（用户反馈）
-      if (ik !== lastItemKey && !(item.groupName === null && item.itemName === item.typeName)) {
-        row.showItem = item.itemName
+      // 标题槽位（2026-10-01 用户反馈：无中间层的类型在生成文档里多出一层级）：
+      // - 有中间层（功能测试）：h3=组、h4=测试项，编号 2.4.1 / 2.4.1.1 与大纲一致；
+      // - 无中间层（接口/性能/边界等，大纲 L4 直接挂 L6 项）：测试项标题上浮到 h3
+      //   槽位（编号 2.6.1 与大纲一致），不再落 h4 出 2.6.1.1 四段幻影编号；
+      // - 静态三类型（项名=类型名）：不输出额外标题，表格直接挂 h2 下。
+      if (item.groupName !== null) {
+        if (gk !== lastGroupKey) {
+          row.showGroup = item.groupName
+          lastGroupKey = gk
+        }
+        if (ik !== lastItemKey) {
+          row.showItem = item.itemName
+        }
+      } else if (item.itemName !== item.typeName && ik !== lastItemKey) {
+        row.showGroup = item.itemName
       }
       lastItemKey = ik
       cases.push(row)

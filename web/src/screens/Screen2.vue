@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick } from 'vue'
 import { store, goCase, showToast, scheduleSave, activeSuspects } from '../store.ts'
 import TreeNav from '../components/TreeNav.vue'
 import ParamsCard from '../components/ParamsCard.vue'
@@ -8,6 +8,21 @@ import CasePanel from '../components/CasePanel.vue'
 const reviewedCount = computed(() => store.cases.filter(c => c.reviewed).length)
 const suspectTotal = computed(() => store.cases.reduce((n, c) => n + activeSuspects(c), 0))
 const errorCount = computed(() => store.issues.filter(i => i.level === 'error').length)
+
+async function jumpSuspect(): Promise<void> {
+  const list: number[] = []
+  store.cases.forEach((c, i) => { if (activeSuspects(c) > 0) list.push(i) })
+  if (list.length === 0) return
+  const pos = list.indexOf(store.currentIdx)
+  goCase(list[(pos + 1) % list.length])
+  await nextTick()
+  const row = document.querySelector('.main tr.suspect')
+  if (row) {
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    row.classList.add('flash')
+    setTimeout(() => row.classList.remove('flash'), 1600)
+  }
+}
 
 function markAllReviewed(): void {
   for (const c of store.cases) {
@@ -51,10 +66,10 @@ function gen(): void {
         <div class="txt">
           <span>核对进度</span>
           <b>{{ reviewedCount }} / {{ store.cases.length }}</b>
-          <span class="sus" :class="{ zero: suspectTotal === 0 }" :title="suspectTotal > 0 ? '还有切分可疑步骤待确认' : '切分可疑已全部处理'">
+          <button type="button" class="sus" :class="{ zero: suspectTotal === 0 }" :title="suspectTotal > 0 ? '还有 ' + suspectTotal + ' 处切分可疑待确认，点击逐条跳转' : '切分可疑已全部处理'" @click="jumpSuspect">
             <v-icon size="12">mdi-alert-circle-outline</v-icon>
             可疑 {{ suspectTotal }}
-          </span>
+          </button>
         </div>
         <div class="bar"><i :class="{ done: store.cases.length > 0 && reviewedCount === store.cases.length }" :style="{ width: (store.cases.length ? (reviewedCount / store.cases.length) * 100 : 0) + '%' }" /></div>
       </div>
@@ -110,10 +125,11 @@ function gen(): void {
 }
 .prog .txt .sus {
   display: inline-flex; align-items: center; gap: 3px;
-  color: rgb(var(--v-theme-warning)); background: rgba(var(--v-theme-warning), 0.14);
-  border-radius: 999px; padding: 1px 10px; cursor: default;
+  color: rgb(var(--v-theme-error)); background: rgba(var(--v-theme-error), 0.12);
+  border: none; font: inherit; cursor: pointer;
+  border-radius: 999px; padding: 1px 10px;
 }
-.prog .txt .sus.zero { color: rgb(var(--v-theme-success)); background: rgba(var(--v-theme-success), 0.13); }
+.prog .txt .sus.zero { color: rgb(var(--v-theme-success)); background: rgba(var(--v-theme-success), 0.13); cursor: default; }
 .bar { height: 6px; border-radius: 999px; background: rgba(var(--v-theme-outline), 0.5); overflow: hidden; }
 .bar i { display: block; height: 100%; border-radius: inherit; background: rgb(var(--v-theme-primary)); transition: width 0.3s; }
 .bar i.done { background: rgb(var(--v-theme-success)); }

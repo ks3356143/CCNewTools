@@ -283,7 +283,7 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 .p-main { flex: 1; min-width: 0; }
 .p-name { font-size: 13.5px; font-weight: 550; color: rgb(var(--v-theme-on-surface)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-meta { margin-top: 2px; font-size: 12.5px; color: rgba(var(--v-theme-on-surface), 0.6); font-variant-numeric: tabular-nums; }
-.p-suspect { color: rgb(var(--v-theme-warning)); }
+.p-suspect { color: rgb(var(--v-theme-error)); }
 .p-nosource { color: rgba(var(--v-theme-on-surface), 0.4); }
 .p-acts { display: flex; align-items: center; gap: 2px; flex: none; }
 </style>
