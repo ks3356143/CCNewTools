@@ -70,6 +70,31 @@ function content(): Array<{ kind: 'p'; para: any } | { kind: 'tbl'; rows: Cell[]
         [DESC, '验证指令边界处理正确。'],
         [METHOD, '1.指令边界测试（XQ_BJ_ZL_BJ01）\n1）输入边界指令，查看是否正确处理；']
       ])
+    },
+    // 形态6（2026-10-01 用户样例"1.test测试大纲"）：准则一问一答式——
+    // 重名标识（两个子项同 XQ_SU_BZXF_SU01）+ 方法格子项标题下写综述（子项2忘了写）
+    // + 步骤与准则原样一一对应（不做关键词切分）
+    { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+    { kind: 'p', para: { text: '变种写法中间层', heading: 5, numId: 1, ilvl: 4 } },
+    { kind: 'p', para: { text: '变种写法测试项', heading: 6, numId: 1, ilvl: 5 } },
+    {
+      kind: 'tbl',
+      rows: itemTable('变种写法测试项', 'XQ_SU_BZXF', [
+        [DESC, '变种写法中这里只有一段描述。'],
+        [METHOD, '1.变种写法测试子项1号（XQ_SU_BZXF_SU01）\n我是子项1的描述，应放进用例综述。\n1）子项步骤1；\n2）子项步骤2；\n3）子项步骤3；\n2.变种写法测试子项2号（XQ_SU_BZXF_SU01）\n1）子项2步骤1；\n2）子项2步骤2；\n3）子项2步骤3'],
+        [CRITERIA, '1.变种写法测试子项1号（XQ_SU_BZXF_SU01）\n1）子项预期1；\n2）子项预期2；\n3）子项预期3。\n2.变种写法测试子项2号（XQ_SU_BZXF_SU01）\n1）子项2预期1；\n2）子项2预期2；\n3）子项2预期3。']
+      ])
+    },
+    // 形态7：无准则 + 方法格标题下普通段 → 退回第 1 步（旧解析行为不变，
+    // 黄金基线保障——真实大纲静态分析等此形态段落仍是步骤）
+    { kind: 'p', para: { text: '恢复性测试', heading: 4, numId: 1, ilvl: 3 } },
+    { kind: 'p', para: { text: '指令恢复测试', heading: 6, numId: 1, ilvl: 5 } },
+    {
+      kind: 'tbl',
+      rows: itemTable('指令恢复测试', 'XQ_HF_ZL', [
+        [DESC, '1.指令恢复测试（XQ_HF_ZL_HF01）\n恢复综述。'],
+        [METHOD, '1.指令恢复测试（XQ_HF_ZL_HF01）\n先做准备工作，检查环境正常。\n1）执行恢复操作；\n2）查看恢复结果是否正确；']
+      ])
     }
   ]
 }
@@ -85,8 +110,8 @@ describe('变种大杂烩：不同写法都要转换成功', () => {
     expect(errors).toEqual([])
   })
 
-  test('统计正确：5 项 7 例（解析层 11 步）', () => {
-    expect(parsed.stats).toEqual({ items: 5, cases: 7, steps: 11 })
+  test('统计正确：7 项 10 例（解析层 20 步）', () => {
+    expect(parsed.stats).toEqual({ items: 7, cases: 10, steps: 20 })
   })
 
   test('形态细节全部按规则处理', () => {
@@ -124,5 +149,35 @@ describe('变种大杂烩：不同写法都要转换成功', () => {
     expect(row2.expectSource).toBe('通过准则')
     expect(row2.steps.length).toBe(1)
     expect(row2.steps[0].expect).toBe('新增参数显示在列表中')
+  })
+
+  test('形态6：准则一问一答式——重名标识轮转、方法格综述、步骤准则一一对应不切分', () => {
+    const v = parsed.items.find(i => i.name === '变种写法测试项')!
+    expect(v.cases.length).toBe(2)
+    // 重名标识按出现顺序轮转：两个用例各配到自己的准则，而不是都配第一个
+    expect(v.cases[0].criteria).toEqual(['子项预期1；', '子项预期2；', '子项预期3。'])
+    expect(v.cases[1].criteria).toEqual(['子项2预期1；', '子项2预期2；', '子项2预期3。'])
+    // 方法格综述：写了的转正为用例综述；忘了写的回退描述格共用综述
+    expect(v.cases[0].summary).toBe('我是子项1的描述，应放进用例综述。')
+    expect(v.cases[1].summary).toBe('变种写法中这里只有一段描述。')
+    // 有准则不切分：步骤原文原样、期望逐条取准则、零可疑
+    const r1 = data.cases.find(c => c.caseId === 'YL_SU_BZXF_001')!
+    expect(r1.expectSource).toBe('通过准则')
+    expect(r1.steps.map(s => s.action)).toEqual(['子项步骤1', '子项步骤2', '子项步骤3'])
+    expect(r1.steps.map(s => s.expect)).toEqual(['子项预期1', '子项预期2', '子项预期3'])
+    expect(r1.suspectCount).toBe(0)
+    const r2 = data.cases.find(c => c.caseId === 'YL_SU_BZXF_002')!
+    expect(r2.steps.map(s => s.action)).toEqual(['子项2步骤1', '子项2步骤2', '子项2步骤3'])
+    expect(r2.steps.map(s => s.expect)).toEqual(['子项2预期1', '子项2预期2', '子项2预期3'])
+    expect(r2.suspectCount).toBe(0)
+  })
+
+  test('形态7：无准则时方法格标题下普通段退回第 1 步（旧行为，黄金基线保障）', () => {
+    const hf = parsed.items.find(i => i.name === '指令恢复测试')!
+    expect(hf.cases[0].steps.length).toBe(3)
+    expect(hf.cases[0].steps[0].text).toBe('先做准备工作，检查环境正常。')
+    expect(hf.cases[0].summary).toBe('恢复综述。')
+    const r = data.cases.find(c => c.itemId === 'XQ_HF_ZL_HF01')!
+    expect(r.expectSource).toBe('方法切分')
   })
 })

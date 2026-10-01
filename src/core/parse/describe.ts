@@ -44,19 +44,33 @@ export function parseDescription(paras: ParaInfo[], issues: IssueCollector, ctx:
   return { shared: shared, entries: entries }
 }
 
-/** 综述匹配（9.2 共用 / 9.3 以方法为准 / 9.4 标识笔误按顺序推断） */
+/** 综述匹配（9.2 共用 / 9.3 以方法为准 / 9.4 标识笔误按顺序推断；
+ *  2026-10-01：方法格综述（子项标题下）优先，描述格只补缺，不覆盖） */
 export function resolveSummaries(item: TestItem, issues: IssueCollector): void {
   const entries = item.description.entries
 
-  // 9.2：描述格没有子项标题 → 整段为全部用例共用综述（正常形态，不提示）
+  // 9.2：描述格没有子项标题 → 整段为全部用例共用综述（正常形态，不提示；
+  // 已有方法格综述的用例不覆盖）
   if (entries.length === 0 && item.description.shared !== null) {
-    for (const c of item.cases) c.summary = item.description.shared
+    for (const c of item.cases) {
+      if (c.summary === '') c.summary = item.description.shared
+    }
     return
   }
 
   const used = new Set<DescriptionEntry>()
 
   for (const c of item.cases) {
+    if (c.summary !== '') {
+      // 已有方法格综述：同标识的描述格条目视为已消费（方法格优先，不覆盖、不告未用）
+      for (const e of entries) {
+        if (!used.has(e) && e.itemId.toUpperCase() === c.itemId.toUpperCase()) {
+          used.add(e)
+          break
+        }
+      }
+      continue
+    }
     for (const e of entries) {
       if (used.has(e)) continue
       if (e.itemId.toUpperCase() === c.itemId.toUpperCase()) {

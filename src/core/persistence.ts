@@ -8,9 +8,10 @@ import type { GlobalParams } from './domain.ts'
  * 编辑存档版本。切分/模板等转换语义变化时递增：
  * 旧版本存档在恢复时整体作废（loadEditState 返回 null），
  * 避免旧规则产出的步骤文本/可疑标记盖掉新规则的转换结果。
- * =1 初版；=2 新切分语义 + 静态三类型模板（2026-09-30）
+ * =1 初版；=2 新切分语义 + 静态三类型模板（2026-09-30）；
+ * =3 通过准则配对模式 + 方法格综述（2026-10-01，准则式大纲的步骤文本变化）
  */
-export const EDIT_STATE_VERSION = 2
+export const EDIT_STATE_VERSION = 3
 
 export function sha132(data: Uint8Array): string {
   return createHash('sha1').update(data).digest('hex')

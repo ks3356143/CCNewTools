@@ -40,16 +40,36 @@ interface MethodState {
   leadIn: string | null
   prevText: string
   firstPara: boolean
+  /**
+   * 用例标题后、首个步骤前的普通段落 → 暂记为综述（02 变种规则：方法格子项标题下
+   * 可直接写用例综述，也可能省略）。首个步骤内容出现时提交进 cur.methodSummary，
+   * 最终归宿（综述 or 退回第 1 步）由 resolveCriteria 按是否配上通过准则裁决。
+   */
+  pendingSummary: string | null
   /** 首个用例标题之前的段落（整格无标题时整体作为单个用例） */
   preBuffer: ParaInfo[]
 }
 
 function newState(): MethodState {
-  return { cases: [], cur: null, working: [], leadIn: null, prevText: '', firstPara: true, preBuffer: [] }
+  return { cases: [], cur: null, working: [], leadIn: null, prevText: '', firstPara: true, pendingSummary: null, preBuffer: [] }
+}
+
+/** 首个步骤内容进入 working 时，把标题后暂存的普通段落定为本用例的方法格综述 */
+function commitPendingSummary(st: MethodState): void {
+  if (st.pendingSummary !== null && st.working.length === 0 && st.cur !== null) {
+    st.cur.methodSummary = st.pendingSummary
+    st.pendingSummary = null
+  }
 }
 
 function finishCase(st: MethodState, issues: IssueCollector, ctx: string): void {
   if (st.cur === null) return
+  if (st.working.length === 0 && st.pendingSummary !== null) {
+    // 整个用例只有这一段、没有任何步骤：无从判综述，退回为唯一步骤（旧行为）。
+    // 多段拼接去换行——旧规则 5 的并入是无分隔符直接相连
+    st.working.push({ text: st.pendingSummary.replace(/\n/g, ''), fromLabel: false, listColon: false })
+    st.pendingSummary = null
+  }
   for (const s of st.working) {
     if (s.fromLabel && s.text.endsWith('：')) {
       issues.info('DANGLING_LABEL', '已忽略小标题行：' + s.text, ctx)
@@ -74,6 +94,7 @@ function finishCase(st: MethodState, issues: IssueCollector, ctx: string): void 
 }
 
 function addStep(st: MethodState, text: string, fromLabel: boolean): void {
+  commitPendingSummary(st)
   if (st.leadIn !== null && st.working.length === 0 && !fromLabel) {
     text = st.leadIn + text
     st.leadIn = null
@@ -120,6 +141,7 @@ function feedPara(st: MethodState, para: ParaInfo, issues: IssueCollector, ctx: 
       // 列表项以「：」结尾后，其后的列表项并入同一步骤
       last.text = last.text + t
     } else if (t.endsWith('：')) {
+      commitPendingSummary(st)
       st.working.push({ text: t, fromLabel: false, listColon: true })
     } else {
       addStep(st, t, false)
@@ -147,6 +169,15 @@ function feedPara(st: MethodState, para: ParaInfo, issues: IssueCollector, ctx: 
   if (t.endsWith('：')) {
     // 规则 4：以「：」结尾 → 新步骤，后续非编号段落并入（无并入则按 9.1 丢弃）
     st.working.push({ text: t, fromLabel: true, listColon: false })
+    st.prevText = t
+    st.firstPara = false
+    return
+  }
+
+  // 用例标题后、首个步骤前的普通段落 → 暂记为综述（连续普通段落拼接；
+  // 步骤/引导句/小标题（：结尾）不会走到这里，各自的分支在上方已 return）
+  if (st.working.length === 0 && st.leadIn === null) {
+    st.pendingSummary = st.pendingSummary === null ? t : st.pendingSummary + '\n' + t
     st.prevText = t
     st.firstPara = false
     return

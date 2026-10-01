@@ -67,6 +67,14 @@ export interface RawCase {
   itemId: string
   name: string
   summary: string
+  /**
+   * 方法格内紧跟用例标题的普通段落（变种写法：综述写在子项标题下）。
+   * 由 resolveCriteria 裁决归宿：本用例配上通过准则 → 转正为 summary；
+   * 没配上 → 退回为第 1 步（与旧解析行为一致，保护无准则大纲的基线）。
+   */
+  methodSummary?: string
+  /** 通过准则格配到本用例的条目（undefined/null = 未配上，转换层走关键词切分） */
+  criteria?: string[] | null
   steps: RawStep[]
 }
 

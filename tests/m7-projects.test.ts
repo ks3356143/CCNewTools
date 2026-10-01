@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+import { EDIT_STATE_VERSION } from '../src/core/persistence.ts'
 import { buildDocxBuffer, itemTable, DESC, METHOD } from './helpers/ooxml.ts'
 import { handle } from '../src/server/app.ts'
 import { setDataRootForTests } from '../src/server/store.ts'
@@ -197,7 +198,8 @@ describe('M7 无副本项目（09）', () => {
 describe('M7 旧数据迁移（09）', () => {
   test('编辑记录/*.json → 建档（无副本、编辑保留）、旧文件删除', async () => {
     const outline = { name: '旧版大纲.docx', hash: createHash('sha1').update('m7-legacy').digest('hex') }
-    const state = { version: 2, outline: outline, savedAt: '2025-12-31T00:00:00.000Z', cases: [] }
+    // 版本闸：非当前版本的旧存档按设计作废留存（不迁移不删除），这里用当前版本验证迁移路径
+    const state = { version: EDIT_STATE_VERSION, outline: outline, savedAt: '2025-12-31T00:00:00.000Z', cases: [] }
     const legacyDir = join(DATA, '编辑记录')
     mkdirSync(legacyDir, { recursive: true })
     const legacyFile = join(legacyDir, '旧版大纲_abcdef12.json')
@@ -213,7 +215,7 @@ describe('M7 旧数据迁移（09）', () => {
     // 编辑保留进项目文件
     const f = JSON.parse(readFileSync(join(DATA, '项目', outline.hash.slice(0, 12), '项目.json'), 'utf8'))
     expect(f.edits).not.toBeNull()
-    expect(f.edits.version).toBe(2)
+    expect(f.edits.version).toBe(EDIT_STATE_VERSION)
     expect(f.edits.outline.name).toBe('旧版大纲.docx')
 
     // 旧文件已删除

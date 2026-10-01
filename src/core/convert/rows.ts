@@ -110,34 +110,63 @@ function pendingSplit(pending: string): string[] {
   return t === '' ? [] : [t]
 }
 
-/** 单个用例 → 模板数据行（9.5：先合并纯操作步，准则条数与合并后步骤一致时期望取准则） */
+/**
+ * 单个用例 → 模板数据行。
+ * 期望来源三模式（2026-10-01 用户定稿的判定顺序）：
+ *  1. 静态三类型 → 固定模板步；
+ *  2. 通过准则格已给本用例写预期 → 步骤是纯输入，**不做关键词切分**，
+ *     期望逐条取准则（等数 1:1；一句话准则全步骤共用；不等数按序配，
+ *     多余步骤期望留空待补/多余准则并入末步并告警）；
+ *  3. 其余 → 纯操作步合并 + 关键词切分（旧行为）。
+ * 准则模式的步骤清单：条数等于合并后步骤数 → 用合并（A星 9.5 形态，
+ * 纯操作步并入验证步后一一配对）；等于原始步骤数 → 用原始（变种新写法，
+ * 步骤与准则原样一一对应）；都不等 → 用原始按序配对。
+ */
 export function buildRow(item: TestItem, c: RawCase, params: GlobalParams, issues?: IssueCollector): CaseRow {
-  const merged = mergePureOps(c.steps)
-  const entry = item.criteriaCases.find(e => e.itemId.toUpperCase() === c.itemId.toUpperCase())
-  let criteria: string[] | null = null
-  if (entry !== undefined && entry.items.length > 0) {
-    if (entry.items.length === merged.length) {
-      criteria = entry.items
-    } else if (issues) {
-      issues.warning(
-        'CRITERIA_COUNT_MISMATCH',
-        '通过准则条目 ' + entry.items.length + ' 条与步骤 ' + merged.length + ' 条不一致，该用例回退关键词切分',
-        item.name
-      )
-    }
+  const staticTpl = STATIC_TEMPLATES[item.typeName]
+  const crit = c.criteria ?? null
+  const useCriteria = staticTpl === undefined && crit !== null && crit.length > 0
+  const expectSource = staticTpl !== undefined ? '静态模板' : useCriteria ? '通过准则' : '方法切分'
+
+  interface OutStep { no: number; action: string; expect: string; actual: string; result: string; suspect: string | undefined }
+  const pair = function (s: RawStep, i: number, expect: string): OutStep {
+    return { no: i + 1, action: stripTrailingPunct(s.text), expect: stripTrailingPunct(expect), actual: '', result: '通过', suspect: undefined }
   }
 
-  const staticTpl = STATIC_TEMPLATES[item.typeName]
-  const expectSource = staticTpl !== undefined ? '静态模板' : criteria !== null ? '通过准则' : '方法切分'
-
-  let steps: Array<{ no: number; action: string; expect: string; actual: string; result: string; suspect: string | undefined }>
+  let steps: OutStep[]
   if (staticTpl !== undefined) {
-    steps = staticTpl.map((t, i) => ({ no: i + 1, action: t.action, expect: t.expect, actual: '', result: '通过', suspect: undefined }))
+    steps = staticTpl.map(function (t, i) {
+      return { no: i + 1, action: t.action, expect: t.expect, actual: '', result: '通过', suspect: undefined }
+    })
+  } else if (useCriteria) {
+    const merged = mergePureOps(c.steps)
+    // 步骤清单选择：步骤含预期关键词 = 拆分式写法（A星 9.5 形态，纯操作步并入
+    // 验证步后与准则配对）；不含 = 纯输入写法（新变种，步骤与准则原样一一对应，
+    // 合并会破坏 1:1）。都不满足配对数时用原始按序配对。
+    const splitStyle = c.steps.some(function (s) { return hasExpectKeyword(s.text) })
+    const list = splitStyle && crit!.length === merged.length && merged.length !== c.steps.length ? merged : c.steps
+    if (crit!.length === list.length) {
+      steps = list.map(function (s, i) { return pair(s, i, crit![i]) })
+    } else if (crit!.length === 1) {
+      // 一句话准则：全部步骤共用（用户确认"通过准则可能是一句话"）
+      issues?.info('CRITERIA_SINGLE_SHARED', '通过准则仅 1 条，已应用到全部 ' + list.length + ' 个步骤', item.name)
+      steps = list.map(function (s, i) { return pair(s, i, crit![0]) })
+    } else if (crit!.length < list.length) {
+      issues?.warning('CRITERIA_COUNT_MISMATCH', '通过准则 ' + crit!.length + ' 条少于步骤 ' + list.length + ' 条，多出的步骤期望留空待补', item.name)
+      steps = list.map(function (s, i) {
+        if (i < crit!.length) return pair(s, i, crit![i])
+        return { no: i + 1, action: stripTrailingPunct(s.text), expect: '', actual: '', result: '通过', suspect: '期望结果为空' }
+      })
+    } else {
+      issues?.warning('CRITERIA_COUNT_MISMATCH', '通过准则 ' + crit!.length + ' 条多于步骤 ' + list.length + ' 条，多余条目并入最后一步', item.name)
+      steps = list.map(function (s, i) {
+        if (i < list.length - 1) return pair(s, i, crit![i])
+        return { no: i + 1, action: stripTrailingPunct(s.text), expect: crit!.slice(i).map(stripTrailingPunct).join('；'), actual: '', result: '通过', suspect: undefined }
+      })
+    }
   } else {
+    const merged = mergePureOps(c.steps)
     steps = merged.map(function (s, i) {
-      if (criteria !== null) {
-        return { no: i + 1, action: stripTrailingPunct(s.text), expect: stripTrailingPunct(criteria![i]), actual: '', result: '通过', suspect: undefined as string | undefined }
-      }
       const sp = splitStepText(s.text)
       return { no: i + 1, action: sp.action, expect: sp.expect, actual: '', result: '通过', suspect: sp.suspect }
     })

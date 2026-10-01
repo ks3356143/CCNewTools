@@ -160,12 +160,13 @@ describe('M2 模板数据组装（03 字段映射）', () => {
   })
 })
 
-describe('M2 准则格配对（9.5 实测变种）', () => {
-  test('准则格对应用例 → 期望结果取准则，动作保留完整原文', () => {
+describe('M2 准则格配对（9.5 实测变种 + 2026-10-01 不切分定稿）', () => {
+  test('准则格对应用例 → 期望结果取准则，动作保留完整原文（合并后等数 → 用合并步骤）', () => {
     const outline = makeOutline()
     const item = outline.items[0]
-    // 合并后 case1 = 1 步，准则 1 条与之配对
+    // 模拟 resolveCriteria 配对后的形态：准则挂在用例上
     item.criteriaCases = [{ itemId: 'XQ_SU_ZLPA_SU01', items: ['准则一；'] }]
+    item.cases[0].criteria = ['准则一；']
     const data = convertToTemplateData(outline, DEFAULT_PARAMS)
     const row = data.cases[0]
     expect(row.expectSource).toBe('通过准则')
@@ -173,13 +174,66 @@ describe('M2 准则格配对（9.5 实测变种）', () => {
     expect(row.steps[0].action).toBe('启动软件，进入参数管理界面，在查询输入框中输入参数标识，点击查询按钮，查看查询结果是否正确显示')
   })
 
-  test('准则条数与步骤数不一致 → 回退关键词切分并告警', () => {
+  test('准则条数等于原始步骤数 → 原样一一配对，不合并不切分（新变种写法）', () => {
     const outline = makeOutline()
-    // 合并后 case1 = 1 步，准则 2 条 → 不一致
-    outline.items[0].criteriaCases = [{ itemId: 'XQ_SU_ZLPA_SU01', items: ['准则一；', '准则二；'] }]
+    const c = outline.items[0].cases[0]
+    c.criteria = ['准则一；', '准则二；']
     const data = convertToTemplateData(outline, DEFAULT_PARAMS)
-    expect(data.cases[0].expectSource).toBe('方法切分')
+    const row = data.cases[0]
+    expect(row.expectSource).toBe('通过准则')
+    expect(row.steps.length).toBe(2)
+    expect(row.steps[0].action).toBe('启动软件，进入参数管理界面')
+    expect(row.steps[0].expect).toBe('准则一')
+    expect(row.steps[1].expect).toBe('准则二')
+    // 旧口径会先合并（1 步）导致"条数不一致回退切分"；新规则下这正是合法配对
+    expect(data.issues.some(i => i.code === 'CRITERIA_COUNT_MISMATCH')).toBe(false)
+  })
+
+  test('一句话准则 → 全部步骤共用', () => {
+    const outline = makeOutline()
+    const c = outline.items[0].cases[0]
+    c.steps = [
+      { no: 1, text: '子项步骤1；' },
+      { no: 2, text: '子项步骤2；' },
+      { no: 3, text: '子项步骤3。' }
+    ]
+    c.criteria = ['软件功能正确。']
+    const data = convertToTemplateData(outline, DEFAULT_PARAMS)
+    const row = data.cases[0]
+    expect(row.expectSource).toBe('通过准则')
+    expect(row.steps.length).toBe(3)
+    for (const s of row.steps) expect(s.expect).toBe('软件功能正确')
+    expect(row.suspectCount).toBe(0)
+    expect(data.issues.some(i => i.code === 'CRITERIA_SINGLE_SHARED')).toBe(true)
+  })
+
+  test('准则条数与步骤数均不配 → 不切分，按序配对：多余步骤留空可疑、多余准则并入末步并告警', () => {
+    const outline = makeOutline()
+    const c = outline.items[0].cases[0]
+    c.steps = [
+      { no: 1, text: '子项步骤1；' },
+      { no: 2, text: '子项步骤2；' },
+      { no: 3, text: '子项步骤3；' },
+      { no: 4, text: '子项步骤4。' }
+    ]
+    c.criteria = ['准则一；', '准则二；', '准则三']
+    const data = convertToTemplateData(outline, DEFAULT_PARAMS)
+    const row = data.cases[0]
+    expect(row.expectSource).toBe('通过准则')
+    expect(row.steps.length).toBe(4)
+    expect(row.steps[0].expect).toBe('准则一')
+    expect(row.steps[1].expect).toBe('准则二')
+    expect(row.steps[2].expect).toBe('准则三')
+    expect(row.steps[3].expect).toBe('')
+    expect(row.steps[3].suspect).toBe('期望结果为空')
+    expect(row.suspectCount).toBe(1)
     expect(data.issues.some(i => i.code === 'CRITERIA_COUNT_MISMATCH')).toBe(true)
+  })
+
+  test('无准则 → 关键词切分不受影响（旧行为回归）', () => {
+    const data = convertToTemplateData(makeOutline(), DEFAULT_PARAMS)
+    expect(data.cases[0].expectSource).toBe('方法切分')
+    expect(data.cases[0].steps[0].expect).toBe('查询结果正确显示')
   })
 
   test('buildRow 不依赖组名', () => {
