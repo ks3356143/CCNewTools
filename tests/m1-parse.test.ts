@@ -58,7 +58,41 @@ describe('M1 标题与章节号（02 第二节）', () => {
     // 综述逐条匹配
     expect(item.cases[0].summary).toBe('验证参数查询功能是否正确。')
     expect(item.cases[1].summary).toBe('验证参数新增功能是否正确。')
-    expect(issues.issues.length).toBe(0)
+    // fixture 里 文档审查/静态分析/代码审查 三个 level-4 标题无表也无子标题（仅为推进编号）→ 悬空告警 3 条
+    const dangling = issues.issues.filter(i => i.code === 'HEADING_NO_TABLE')
+    expect(dangling.length).toBe(3)
+    expect(issues.issues.length).toBe(3)
+  })
+
+  test('悬空标题告警：无表无子标题才告警，容器与有表标题不告警（2026-10-01）', () => {
+    const content: any[] = [
+      { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+      // 容器：有子标题 → 不告警
+      { kind: 'p', para: { text: '某配置项测试', heading: 3, numId: 1, ilvl: 2 } },
+      { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+      // 悬空 level-5：无表无子标题 → 告警（用户写漏测试项表）
+      { kind: 'p', para: { text: '写漏的测试项', heading: 5, numId: 1, ilvl: 4 } },
+      // 正常测试项：有表 → 不告警
+      { kind: 'p', para: { text: '正常测试项', heading: 5, numId: 1, ilvl: 4 } },
+      {
+        kind: 'tbl',
+        rows: itemTable('正常测试项', 'XQ_T_ZC', [
+          [METHOD, '1.正常测试（XQ_T_ZC_C01）\n1）操作，查看结果是否正确；']
+        ])
+      },
+      // 节末悬空：由终结本节的同级标题顶掉 → 也要告警
+      { kind: 'p', para: { text: '节末写漏', heading: 4, numId: 1, ilvl: 3 } },
+      { kind: 'p', para: { text: '测试内容充分性分析', heading: 2, numId: 1, ilvl: 1 } }
+    ]
+    const { result, issues } = parse(content)
+    expect(result.stats.items).toBe(1)
+    const dangling = issues.issues.filter(i => i.code === 'HEADING_NO_TABLE')
+    expect(dangling.length).toBe(2)
+    expect(dangling[0].message).toContain('写漏的测试项')
+    expect(dangling[1].message).toContain('节末写漏')
+    // 容器（某配置项测试、功能测试）与有表标题（正常测试项）都不在告警里
+    for (const d of dangling) expect(d.message).not.toContain('配置项')
+    for (const d of dangling) expect(d.message).not.toContain('正常测试项')
   })
 
   test('表格挂在 level-4 上（文档审查形态）：类型与测试项同名', () => {

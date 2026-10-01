@@ -9,6 +9,9 @@ import CasePanel from '../components/CasePanel.vue'
 const reviewedCount = computed(() => store.cases.filter(c => c.reviewed).length)
 const suspectTotal = computed(() => store.cases.reduce((n, c) => n + activeSuspects(c), 0))
 const errorCount = computed(() => store.issues.filter(i => i.level === 'error').length)
+/** 解析告警（悬空标题、标识不一致等）：重开项目直接进第二屏，第一屏问题清单看不到，这里兜底可见 */
+const warnCount = computed(() => store.issues.filter(i => i.level === 'warning').length)
+const warningList = computed(() => store.issues.filter(i => i.level === 'warning'))
 
 async function jumpSuspect(): Promise<void> {
   const list: number[] = []
@@ -73,6 +76,20 @@ function gen(): void {
             <v-icon size="12">mdi-alert-circle-outline</v-icon>
             可疑 {{ suspectTotal }}
           </button>
+          <v-menu v-if="warnCount > 0" location="top start" origin="bottom start" :close-on-content-click="false">
+            <template #activator="{ props: menuProps }">
+              <button type="button" class="sus warn" v-bind="menuProps" :title="warnCount + ' 条解析告警（标题悬空、标识不一致等），点击查看'">
+                <v-icon size="12">mdi-alert-outline</v-icon>
+                告警 {{ warnCount }}
+              </button>
+            </template>
+            <div class="isslist">
+              <div v-for="(w, i) in warningList" :key="i" class="iss-row">
+                <span class="iss-tag">{{ w.context ? '【' + w.context + '】' : '' }}</span>
+                <span>{{ w.message }}</span>
+              </div>
+            </div>
+          </v-menu>
         </div>
         <div class="bar"><i :class="{ done: store.cases.length > 0 && reviewedCount === store.cases.length }" :style="{ width: (store.cases.length ? (reviewedCount / store.cases.length) * 100 : 0) + '%' }" /></div>
       </div>
@@ -133,6 +150,17 @@ function gen(): void {
   border-radius: 999px; padding: 1px 10px;
 }
 .prog .txt .sus.zero { color: rgb(var(--v-theme-success)); background: rgba(var(--v-theme-success), 0.13); cursor: default; }
+.prog .txt .sus.warn { color: rgb(var(--v-theme-warning)); background: rgba(var(--v-theme-warning), 0.14); }
+/* 告警胶囊的弹出清单（重开项目路径的问题可见性，2026-10-01） */
+.isslist {
+  max-width: 560px; max-height: 320px; overflow-y: auto;
+  background: rgb(var(--v-theme-surface)); color: rgba(var(--v-theme-on-surface), 0.85);
+  border-radius: 10px; padding: 6px 4px; font-size: 12.5px; line-height: 1.6;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.16);
+}
+.iss-row { display: flex; gap: 6px; padding: 4px 10px; text-align: left; align-items: flex-start; }
+.iss-row + .iss-row { border-top: 1px solid rgba(var(--v-theme-outline), 0.25); }
+.iss-tag { color: rgb(var(--v-theme-warning)); flex: none; font-weight: 550; }
 .bar { height: 6px; border-radius: 999px; background: rgba(var(--v-theme-outline), 0.5); overflow: hidden; }
 .bar i { display: block; height: 100%; border-radius: inherit; background: rgb(var(--v-theme-primary)); transition: width 0.3s; }
 .bar i.done { background: rgb(var(--v-theme-success)); }

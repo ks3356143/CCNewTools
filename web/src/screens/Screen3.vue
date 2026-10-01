@@ -117,6 +117,7 @@ const recKB = computed(() => (store.genResult ? base64KB(store.genResult.rec) : 
   margin-top: 16px; height: 210px; overflow-y: auto; border-radius: 12px;
   background: #10141d; color: #c4ccdc; padding: 10px 14px;
   font-family: Consolas, monospace; font-size: 12px; line-height: 2;
+  text-align: left; /* 完成页容器 .done 设了居中，日志文本必须左对齐（2026-10-01 用户反馈） */
 }
 .line { display: flex; align-items: flex-start; gap: 8px; }
 .lk { flex: none; width: 13px; color: #e8c36a; }

@@ -11,6 +11,10 @@ export interface HeadingRef {
   level: number
   num: string
   text: string
+  /** 本标题为栈顶时挂过测试项表格 */
+  sawTable?: boolean
+  /** 本标题之下出现过更深层标题（容器形态：配置项/功能测试等） */
+  hasChild?: boolean
 }
 
 /**
@@ -55,13 +59,23 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
         }
         continue
       }
+      // 被顶掉的标题若无表也无子标题 = 悬空（用户写漏测试项表，2026-10-01 用户要求显式告警）。
+      // 先弹栈检查再判节终止：本节最后一个悬空标题由终结本节的同级标题顶掉，不能漏
+      while (stack.length > 0 && stack[stack.length - 1].level >= lvl) {
+        const dropped = stack.pop()!
+        if (!dropped.sawTable && !dropped.hasChild) {
+          issues.warning('HEADING_NO_TABLE', '标题「' + (dropped.num !== '' ? dropped.num + ' ' : '') + dropped.text + '」下没有测试项表格（可能写漏），该标题无测试项产出', '测试项及方法')
+        }
+      }
       if (lvl <= sectionLevel) break
-      while (stack.length > 0 && stack[stack.length - 1].level >= lvl) stack.pop()
+      for (const h of stack) h.hasChild = true
       stack.push({ level: lvl, num: num, text: text })
     } else if (tag === 'tbl' && inSection) {
       const t = extractItemTable(node)
       if (t === null) continue
       sawTable = true
+      const top = stack[stack.length - 1]
+      if (top) top.sawTable = true
       const item = assembleItem(t, stack, issues)
       if (item !== null) items.push(item)
     }
@@ -69,6 +83,13 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
 
   if (!inSection) {
     throw new Error('未找到「测试项及方法」章节，请确认导入的是测试大纲')
+  }
+  // 文档在节内直接结束（无同级标题终结）的兜底：栈里残留的悬空标题也要告警
+  while (stack.length > 0) {
+    const dropped = stack.pop()!
+    if (!dropped.sawTable && !dropped.hasChild) {
+      issues.warning('HEADING_NO_TABLE', '标题「' + (dropped.num !== '' ? dropped.num + ' ' : '') + dropped.text + '」下没有测试项表格（可能写漏），该标题无测试项产出', '测试项及方法')
+    }
   }
   if (!sawTable) {
     issues.error('NO_TABLES', '「测试项及方法」章节内没有测试项表格')
