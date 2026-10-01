@@ -112,6 +112,20 @@ describe('M4 编辑持久化（05）', () => {
     expect(data.cases[0].steps[0].action).not.toBe('手工改过的操作步骤。')
   })
 
+  test('用户手动新增的步骤重开后保留（超出解析数的存档步骤不丢）', async () => {
+    const first = await parse('测试大纲A.docx', sampleDocx())
+    const cases = first.cases
+    cases[0].steps.push({ no: 3, action: '手动新增的步骤甲。', expect: '手动新增的期望甲。' })
+    cases[0].steps.push({ no: 4, action: '手动新增的步骤乙。', expect: '手动新增的期望乙。' })
+    await fetch(URL0 + '/api/edits', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ outline: first.outline, cases: cases }) })
+    const second = await parse('测试大纲A.docx', sampleDocx())
+    expect(second.cases[0].steps.length).toBe(3)
+    expect(second.cases[0].steps[1].action).toBe('手动新增的步骤甲。')
+    expect(second.cases[0].steps[2].action).toBe('手动新增的步骤乙。')
+    expect(second.cases[0].steps[2].result).toBe('通过')
+    expect(second.cases[0].steps[2].actual).toBe('')
+  })
+
   test('损坏的编辑记录 JSON → 按无记录处理，解析不受影响（06）', async () => {
     const { createHash } = await import('node:crypto')
     const hash = createHash('sha1').update(new Uint8Array(sampleDocx())).digest('hex')

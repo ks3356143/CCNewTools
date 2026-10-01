@@ -47,7 +47,7 @@ export interface RestoreResult {
  * 把已存的编辑套回新解析的数据：
  * - 按用例标识（caseId）找到对应用例；
  * - 按步骤序号逐条套用已存文本，与当前不同的计入"恢复"；
- * - 步骤数变化时，多出/不足的部分以新解析为准，该用例计入部分恢复。
+ * - 步骤数变化时：用户手动新增的步骤（存档多出的部分）原样保留；存档不足（删除过）的部分以新解析补足，该用例计入恢复。
  * 存档里找不到对应用例的（大纲删了用例）计入 skipped。
  */
 export function mergeRestored(fresh: CaseRow[], storedCases: StoredCase[]): RestoreResult {
@@ -67,6 +67,12 @@ export function mergeRestored(fresh: CaseRow[], storedCases: StoredCase[]): Rest
       if (saved.action !== step.action || saved.expect !== step.expect) restoredSteps++
       return { ...step, action: saved.action, expect: saved.expect }
     })
+    // 用户在界面上手动新增的步骤（存档超出新解析数的部分）必须原样保留，
+    // 否则重新打开项目时会被静默丢弃（2026-10-01 QA 实测发现）
+    for (let i = row.steps.length; i < s.steps.length; i++) {
+      steps.push({ no: i + 1, action: s.steps[i].action, expect: s.steps[i].expect, actual: '', result: '通过' })
+      restoredSteps++
+    }
     if (
       s.reviewed !== row.reviewed ||
       s.excluded !== row.excluded ||
