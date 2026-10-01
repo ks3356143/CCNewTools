@@ -15,12 +15,11 @@ interface TypeNode { name: string; groups: GroupNode[]; caseCount: number }
 const tree = computed<TypeNode[]>(() => {
   const kw = keyword.value.trim().toLowerCase()
   const types: TypeNode[] = []
-  const idxByName = new Map<string, number>()
-  store.cases.forEach((c, i) => idxByName.set(c.caseId, i))
 
-  for (const c of store.cases) {
+  // idx 直接用 store.cases 的真实下标（2026-10-01 撞号 bug：此前按 caseId 建 Map，
+  // 撞号用例的 idx 被末位覆盖 → 树上 4 行同名齐高亮、其余 3 例永远点不到）
+  for (const [i, c] of store.cases.entries()) {
     if (kw && !(c.mingcheng + c.caseId + c.itemId).toLowerCase().includes(kw)) continue
-    const idx = idxByName.get(c.caseId) ?? 0
     let t = types.find(x => x.name === c.typeName)
     if (!t) { t = { name: c.typeName, groups: [], caseCount: 0 }; types.push(t) }
     t.caseCount++
@@ -28,7 +27,7 @@ const tree = computed<TypeNode[]>(() => {
     if (!g) { g = { name: c.groupName ?? '', items: [] }; t.groups.push(g) }
     let it = g.items.find(x => x.name === c.itemName)
     if (!it) { it = { name: c.itemName, cases: [] }; g.items.push(it) }
-    it.cases.push({ row: c, idx: idx })
+    it.cases.push({ row: c, idx: i })
   }
   return types
 })
@@ -68,10 +67,13 @@ watch(() => store.currentIdx, async () => {
 
 <template>
   <div class="tree">
-    <div class="search">
-      <v-icon size="16">mdi-magnify</v-icon>
-      <input v-model="keyword" placeholder="搜索用例名称或标识" />
-    </div>
+    <v-text-field
+      v-model="keyword"
+      placeholder="搜索用例名称或标识"
+      prepend-inner-icon="mdi-magnify"
+      variant="outlined" density="compact" hide-details
+      class="search"
+    />
     <div class="note">数字为大纲中的实际用例数</div>
     <div ref="bodyEl" class="body">
       <div v-for="t in tree" :key="t.name" class="type">
@@ -115,12 +117,8 @@ watch(() => store.currentIdx, async () => {
 
 <style scoped>
 .tree { display: flex; flex-direction: column; flex: 1; min-height: 0; height: 100%; }
-.search {
-  display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px;
-  border: 1px solid rgba(var(--v-theme-outline), 0.4); border-radius: 8px; margin: 12px 12px 6px;
-  color: rgba(var(--v-theme-on-surface), 0.6);
-}
-.search input { border: none; outline: none; background: none; font: inherit; font-size: 13px; width: 100%; color: inherit; }
+/* v-input 自带 flex:1 1 auto，在纵向 flex 容器 .tree 里会被平分拉伸（实测 364px）——显式关掉 */
+.search { margin: 12px 12px 6px; flex: none; }
 .note { font-size: 11.5px; color: rgba(var(--v-theme-on-surface), 0.55); padding: 2px 14px 8px; border-bottom: 1px solid rgba(var(--v-theme-outline), 0.3); }
 .body { overflow-y: auto; flex: 1; padding: 6px; }
 .row { width: 100%; display: flex; align-items: center; gap: 6px; border-radius: 8px; text-align: left; cursor: pointer; }

@@ -87,10 +87,10 @@ function renumber(): void {
         </td>
         <td class="c ops">
           <div class="ops-box">
-            <button title="上移" :disabled="i === 0" @click="moveRow(i, -1)"><v-icon size="14">mdi-arrow-up</v-icon></button>
-            <button title="下移" :disabled="i === row.steps.length - 1" @click="moveRow(i, 1)"><v-icon size="14">mdi-arrow-down</v-icon></button>
-            <button title="在下方插入" @click="addRow(i)"><v-icon size="14">mdi-plus</v-icon></button>
-            <button title="删除本行" :disabled="row.steps.length <= 1" @click="delRow(i)"><v-icon size="14">mdi-delete-outline</v-icon></button>
+            <v-btn icon size="x-small" variant="text" title="上移" :disabled="i === 0" @click="moveRow(i, -1)"><v-icon size="14">mdi-arrow-up</v-icon></v-btn>
+            <v-btn icon size="x-small" variant="text" title="下移" :disabled="i === row.steps.length - 1" @click="moveRow(i, 1)"><v-icon size="14">mdi-arrow-down</v-icon></v-btn>
+            <v-btn icon size="x-small" variant="text" title="在下方插入" @click="addRow(i)"><v-icon size="14">mdi-plus</v-icon></v-btn>
+            <v-btn icon size="x-small" variant="text" title="删除本行" :disabled="row.steps.length <= 1" @click="delRow(i)"><v-icon size="14">mdi-delete-outline</v-icon></v-btn>
           </div>
         </td>
       </tr>
@@ -127,12 +127,7 @@ tr.suspect td:first-child { box-shadow: inset 3px 0 0 rgb(var(--v-theme-error));
 .fix { margin-left: 4px; text-decoration: underline; text-underline-offset: 3px; font-size: 11.5px; color: rgb(var(--v-theme-primary)); }
 .ops { width: 104px; }
 .ops .ops-box { display: inline-flex; gap: 2px; background: rgba(var(--v-theme-primary), 0.06); border-radius: 8px; padding: 3px; }
-.ops button {
-  width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 6px; color: rgba(var(--v-theme-on-surface), 0.55); transition: all 0.12s;
-}
-.ops button:hover:not(:disabled) { color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.14); }
-.ops button:disabled { opacity: 0.3; cursor: default; }
+.ops .ops-box .v-btn { --v-btn-size: 24px; color: rgba(var(--v-theme-on-surface), 0.55); }
 .sus-note { font-size: 12px; color: rgb(var(--v-theme-error)); padding: 8px 14px; border-top: 1px dashed rgba(var(--v-theme-error), 0.4); }
 tr.suspect.flash td { animation: sus-flash 1.6s ease-out; }
 @keyframes sus-flash { 0% { box-shadow: inset 0 0 0 2px rgb(var(--v-theme-error)); } 100% { box-shadow: inset 0 0 0 2px transparent; } }

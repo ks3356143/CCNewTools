@@ -61,13 +61,10 @@ const recKB = computed(() => (store.genResult ? base64KB(store.genResult.rec) : 
       <div class="badge"><v-icon size="38">mdi-check</v-icon></div>
       <h1>生成完成</h1>
       <p class="sub">两份文档已按模板渲染完成，章节顺序与大纲一致。<span v-if="excludedCount">（已排除 {{ excludedCount }} 个用例）</span></p>
-      <div v-if="store.genWarnings.length" class="warnbox">
-        <v-icon size="18">mdi-alert</v-icon>
-        <div class="wt">
-          <template v-for="w in store.genWarnings" :key="w">{{ w }}。</template>
-          建议返回核对后再出正式文档。
-        </div>
-      </div>
+      <v-alert v-if="store.genWarnings.length" type="warning" variant="tonal" rounded="lg" density="compact" class="gen-warn">
+        <template v-for="w in store.genWarnings" :key="w">{{ w }}。<br /></template>
+        建议返回核对后再出正式文档。
+      </v-alert>
       <v-card rounded="lg" elevation="1" class="files">
         <div class="frow">
           <v-icon size="21" color="primary">mdi-file-word-box</v-icon>
@@ -140,13 +137,6 @@ h1 { font-size: 22px; font-weight: 650; }
 .fm { font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.55); }
 .logtoggle { margin-top: 14px; }
 .done .log { max-height: 220px; }
-.warnbox {
-  margin: 16px auto 0; max-width: 620px;
-  display: flex; align-items: flex-start; gap: 10px; text-align: left;
-  padding: 12px 16px; border-radius: 12px;
-  background: rgba(var(--v-theme-warning), 0.14); color: rgb(var(--v-theme-warning));
-  font-size: 13.5px; line-height: 1.7;
-}
-.warnbox .wt { flex: 1; min-width: 0; }
+.gen-warn { margin: 16px auto 0; max-width: 620px; font-size: 13.5px; text-align: left; }
 .cta { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
 </style>

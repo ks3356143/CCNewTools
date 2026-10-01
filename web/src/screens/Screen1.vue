@@ -195,13 +195,12 @@ function jumpTo(issue: Issue): void {
 
     <template v-if="phase === 'done'">
       <div class="result">
-        <div class="alert ok">
-          <v-icon size="19">mdi-check-circle</v-icon>
+        <v-alert type="success" variant="tonal" rounded="lg" density="compact" class="ok-alert">
           <span>
             解析完成，共 <b>{{ store.stats.items }}</b> 个测试项、<b>{{ store.stats.cases }}</b> 个测试用例、<b>{{ store.stats.steps }}</b> 个测试步骤{{ issueCounts() }}
             <span v-if="store.restored.cases > 0">；已恢复上次编辑 {{ store.restored.cases }} 处</span>
           </span>
-        </div>
+        </v-alert>
         <button v-for="(iss, i) in store.issues" :key="i" class="alert row-alert" :class="iss.level" @click="jumpTo(iss)">
           <v-icon size="17">{{ issueIcon(iss.level) }}</v-icon>
           <span class="iss-text">{{ iss.context ? '【' + iss.context + '】' : '' }}{{ iss.message }}</span>
@@ -254,7 +253,7 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
   font-size: 13.5px; text-align: left; width: 100%;
 }
 .alert b { font-weight: 650; }
-.alert.ok { background: rgba(var(--v-theme-success), 0.13); color: rgb(var(--v-theme-success)); }
+.ok-alert { font-size: 13.5px; text-align: left; }
 .row-alert { background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.6); color: rgb(var(--v-theme-on-surface)); cursor: pointer; }
 .row-alert:hover { border-color: rgb(var(--v-theme-primary)); }
 .row-alert.error { color: rgb(var(--v-theme-error)); }

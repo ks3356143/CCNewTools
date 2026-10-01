@@ -3,16 +3,6 @@ import { ref } from 'vue'
 import { store, scheduleSettingsSave } from '../store.ts'
 
 const open = ref(true)
-const fields = [
-  { key: 'init', label: '用例初始化' },
-  { key: 'constraint', label: '前提和约束' }
-] as const
-const fields4 = [
-  { key: 'designer', label: '设计人员' },
-  { key: 'testTime', label: '测试时间', type: 'date' },
-  { key: 'tester', label: '测试人员', required: true },
-  { key: 'monitor', label: '监测人员', required: true }
-] as const
 
 function onInput(): void {
   scheduleSettingsSave()
@@ -27,16 +17,22 @@ function onInput(): void {
       <v-icon class="chev" :class="{ closed: !open }">mdi-chevron-down</v-icon>
     </div>
     <div v-show="open" class="body">
-      <div class="f wide"><label>软件配置项名称（"测试说明"、"需求追踪表"章标题使用）</label><input :value="store.params.configName" placeholder="如：BCD星指令生成与发控软件配置项" @input="store.params.configName = ($event.target as HTMLInputElement).value; onInput()" /></div>
+      <v-text-field
+        v-model="store.params.configName"
+        label='软件配置项名称（"测试说明"、"需求追踪表"章标题使用）'
+        placeholder="如：BCD星指令生成与发控软件配置项"
+        variant="outlined" density="compact" hide-details class="f wide"
+        @update:model-value="onInput"
+      />
       <div class="grid2">
-        <div class="f"><label>用例初始化</label><input :value="store.params.init" @input="store.params.init = ($event.target as HTMLInputElement).value; onInput()" /></div>
-        <div class="f"><label>前提和约束</label><input :value="store.params.constraint" @input="store.params.constraint = ($event.target as HTMLInputElement).value; onInput()" /></div>
+        <v-text-field v-model="store.params.init" label="用例初始化" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+        <v-text-field v-model="store.params.constraint" label="前提和约束" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
       </div>
       <div class="grid4">
-        <div class="f"><label>设计人员</label><input :value="store.params.designer" @input="store.params.designer = ($event.target as HTMLInputElement).value; onInput()" /></div>
-        <div class="f"><label>测试时间</label><input type="date" :value="store.params.testTime" @input="store.params.testTime = ($event.target as HTMLInputElement).value; onInput()" /></div>
-        <div class="f"><label>测试人员</label><input :value="store.params.tester" placeholder="必填" @input="store.params.tester = ($event.target as HTMLInputElement).value; onInput()" /></div>
-        <div class="f"><label>监测人员</label><input :value="store.params.monitor" placeholder="必填" @input="store.params.monitor = ($event.target as HTMLInputElement).value; onInput()" /></div>
+        <v-text-field v-model="store.params.designer" label="设计人员" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+        <v-text-field v-model="store.params.testTime" label="测试时间" type="date" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+        <v-text-field v-model="store.params.tester" label="测试人员 *" placeholder="必填" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+        <v-text-field v-model="store.params.monitor" label="监测人员 *" placeholder="必填" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
       </div>
     </div>
   </v-card>
@@ -49,16 +45,7 @@ function onInput(): void {
 .chev { margin-left: auto; transition: transform 0.18s; }
 .chev.closed { transform: rotate(180deg); }
 .body { padding: 14px 18px 16px; border-top: 1px solid rgba(var(--v-theme-outline), 0.35); }
-.f.wide { margin-bottom: 2px; }
-.f.wide input { margin-bottom: 4px; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-top: 12px; }
 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 16px; margin-top: 12px; }
-.f label { display: block; font-size: 12px; font-weight: 550; color: rgba(var(--v-theme-on-surface), 0.6); margin-bottom: 5px; }
-.f input {
-  width: 100%; height: 38px; padding: 0 12px; font: inherit; font-size: 13.5px;
-  border: 1px solid rgba(var(--v-theme-outline), 0.9); border-radius: 8px;
-  background: rgb(var(--v-theme-surface)); color: rgb(var(--v-theme-on-surface));
-}
-.f input:focus { border-color: rgb(var(--v-theme-primary)); outline: 2px solid rgb(var(--v-theme-primary)); outline-offset: -1px; }
 @media (max-width: 960px) { .grid2, .grid4 { grid-template-columns: 1fr; } }
 </style>
