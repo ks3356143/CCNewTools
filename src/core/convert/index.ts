@@ -24,8 +24,10 @@ export interface TraceRow {
 
 /**
  * 领域模型 → 模板数据（01 数据流第 2 步）。
- * showType/showGroup/showItem 挂在每个类型/中间层/测试项的第一条用例上，
- * 模板里 {#showType} 等段落条件块据此只输出一次标题（04 变量清单）。
+ * 标题槽位 head2~head6 挂在每个用例行上（2026-10-01 层级镜像改造）：
+ * 按测试项的 path（大纲路径）序号逐级映射模板标题层级（path[0]→h2 … 项标题→最深槽），
+ * 槽的路径前缀与上一行不同才输出——分系统/容器等任意嵌套天然正确，
+ * 跳级自动压缩（无组上浮行为保留），相邻同名层去重（静态类型不重复出标题）。
  * caselist = "测试说明"章用例清单；traceRows = "需求的可追踪性"章追踪表。
  * 被排除（不生成）的用例不进入任何表。
  */
@@ -38,10 +40,10 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
   const cases: CaseRow[] = []
   const caselist: CaseListRow[] = []
   const traceRows: TraceRow[] = []
-  let lastType = ''
-  let lastGroupKey = ''
-  let lastItemKey = ''
   const issues = new IssueCollector()
+  // 各槽（head2~head6）上一行输出过的路径前缀；空串 = 尚未出现过任何标题
+  const prevPrefix: string[] = ['', '', '', '', '']
+  let warnedDeepPath = ''
 
   for (const item of parsed.items) {
     for (let i = 0; i < item.cases.length; i++) {
@@ -50,32 +52,29 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
       // 标识写重复（多配置项复制粘贴同 XQ → 同 YL 号）：按用户决定（2026-10-01）
       // 照原样生成、不告警——用户看生成文档自行修改
 
-      if (item.typeName !== lastType) {
-        row.showType = item.typeName
-        lastType = item.typeName
-      }
-      const gk = item.typeName + '\u0000' + (item.groupName ?? '')
-      const ik = item.chapter + '\u0000' + item.itemName
-      // 标题槽位（2026-10-01 用户反馈：无中间层的类型在生成文档里多出一层级）：
-      // - 有中间层（功能测试）：h3=组、h4=测试项，编号 2.4.1 / 2.4.1.1 与大纲一致；
-      // - 无中间层（接口/性能/边界等，大纲 L4 直接挂 L6 项）：测试项标题上浮到 h3
-      //   槽位（编号 2.6.1 与大纲一致），不再落 h4 出 2.6.1.1 四段幻影编号；
-      // - 静态三类型（项名=类型名）：不输出额外标题，表格直接挂 h2 下。
-      if (item.groupName !== null) {
-        if (gk !== lastGroupKey) {
-          row.showGroup = item.groupName
-          lastGroupKey = gk
+      // 标题槽位分配：path 超过 5 层时丢弃最浅的容器层（项标题必须落在 h6 内）
+      let path = item.path
+      if (path.length > 5) {
+        path = path.slice(path.length - 5)
+        if (item.path[0].text !== warnedDeepPath) {
+          warnedDeepPath = item.path[0].text
+          issues.warning('PATH_TOO_DEEP', '测试项「' + item.name + '」的标题层级超过 5 层，最浅的「' + item.path[0].text + '」层未在生成文档中体现', item.name)
         }
-        if (ik !== lastItemKey) {
-          row.showItem = item.itemName
-        }
-      } else if (item.itemName !== item.typeName && ik !== lastItemKey) {
-        // 无组项上浮 h3 后必须刷新 lastGroupKey：同类型内若再回到带组形态
-        // （组项→无组项→组项 的混合嵌套），组标题要重新输出，否则会错挂在无组项的 h3 下
-        row.showGroup = item.itemName
-        lastGroupKey = gk
       }
-      lastItemKey = ik
+      for (let s = 0; s < path.length; s++) {
+        // 相邻同名层去重：静态类型（项名=类型名）不出深层标题，表格直接挂类型层下
+        if (s > 0 && path[s].text === path[s - 1].text) continue
+        const prefix = path.slice(0, s + 1).map(p => p.text).join('\u0000')
+        if (prefix !== prevPrefix[s]) {
+          if (s === 0) row.head2 = path[s].text
+          else if (s === 1) row.head3 = path[s].text
+          else if (s === 2) row.head4 = path[s].text
+          else if (s === 3) row.head5 = path[s].text
+          else row.head6 = path[s].text
+          prevPrefix[s] = prefix
+        }
+      }
+
       cases.push(row)
 
       if (!row.excluded) {

@@ -21,12 +21,18 @@ function makeOutline(): ParsedOutline {
   }
   const item1: TestItem = {
     name: 'A星指令参数管理', itemId: 'XQ_SU_ZLPA', chapter: '6.2.1.4.1.1',
+    path: [
+      { level: 4, text: '功能测试' },
+      { level: 5, text: 'A星模板功能测试' },
+      { level: 6, text: 'A星指令参数管理' }
+    ],
     typeName: '功能测试', groupName: 'A星模板功能测试', itemName: 'A星指令参数管理',
     description: { shared: null, entries: [] }, cases: [case1, case2], criteriaCases: [],
     traceSrs: { chapter: '4.3.1.2', desc: 'A星指令参数管理' }
   }
   const item2: TestItem = {
     name: '文档审查', itemId: 'XQ_DC', chapter: '6.2.1.1',
+    path: [{ level: 4, text: '文档审查' }],
     typeName: '文档审查', groupName: null, itemName: '文档审查',
     description: { shared: '文档审查综述。', entries: [] },
     cases: [{ itemId: 'XQ_DC_DC001', name: '软件文档审查', summary: '', steps: [{ no: 1, text: '审查文档内容是否完整；' }] }],
@@ -106,12 +112,12 @@ describe('M2 模板数据组装（03 字段映射）', () => {
     const data = convertToTemplateData(makeOutline(), { ...DEFAULT_PARAMS, tester: '张三', monitor: '李四' })
     const rows = data.cases
 
-    expect(rows[0].showType).toBe('功能测试')
-    expect(rows[0].showGroup).toBe('A星模板功能测试')
-    expect(rows[0].showItem).toBe('A星指令参数管理')
-    expect(rows[1].showType).toBeNull()
-    expect(rows[2].showType).toBe('文档审查')
-    expect(rows[2].showItem).toBeNull()
+    expect(rows[0].head2).toBe('功能测试')
+    expect(rows[0].head3).toBe('A星模板功能测试')
+    expect(rows[0].head4).toBe('A星指令参数管理')
+    expect(rows[1].head2).toBeNull()
+    expect(rows[2].head2).toBe('文档审查')
+    expect(rows[2].head3).toBeNull()
 
     // 纯操作步并入验证步：case1 = 1 步
     expect(rows[0].steps.length).toBe(1)
@@ -240,6 +246,11 @@ describe('M2 准则格配对（9.5 实测变种 + 2026-10-01 不切分定稿）'
     const outline = makeOutline()
     const dup: TestItem = {
       name: '撞号项', itemId: 'XQ_SU_ZLPA', chapter: '6.2.1.4.1.2',
+      path: [
+        { level: 4, text: '功能测试' },
+        { level: 5, text: 'A星模板功能测试' },
+        { level: 6, text: '撞号项' }
+      ],
       typeName: '功能测试', groupName: 'A星模板功能测试', itemName: '撞号项',
       description: { shared: null, entries: [] },
       cases: [{ itemId: 'XQ_SU_ZLPA_SU01', name: '撞号用例', summary: '', steps: [{ no: 1, text: '操作，查看结果是否正确；' }] }],
@@ -263,20 +274,26 @@ describe('M2 准则格配对（9.5 实测变种 + 2026-10-01 不切分定稿）'
   })
 })
 
-describe('M2 标题槽位（2026-10-01：混合嵌套回归，code-review 发现）', () => {
-  /** 同一类型内 组项→无组项→组项 交错：无组项上浮 h3 后组标题必须重新输出 */
+describe('M2 标题槽位（2026-10-01 层级镜像改造）', () => {
+  /** 同一类型内 组项→无组项→组项 交错：无组项上浮后组标题必须重新输出 */
   function mixedOutline(): ParsedOutline {
-    const mk = (name: string, id: string, chapter: string, group: string | null, item: string): TestItem => ({
-      name: name, itemId: id, chapter: chapter, typeName: '功能测试', groupName: group, itemName: item,
+    const mk = (name: string, id: string, chapter: string, path: Array<{ level: number; text: string }>, group: string | null, item: string): TestItem => ({
+      name: name, itemId: id, chapter: chapter, path: path, typeName: '功能测试', groupName: group, itemName: item,
       description: { shared: null, entries: [] },
       cases: [{ itemId: id + '_01', name: name + '用例', summary: '', steps: [{ no: 1, text: '操作，查看结果是否正确；' }] }],
       criteriaCases: [], traceSrs: { chapter: '/', desc: '/' }
     })
     return {
       items: [
-        mk('组项甲', 'XQ_M_A', '6.2.1.4.1.1', '某中间层', '组项甲'),
-        mk('无组项乙', 'XQ_M_B', '6.2.1.4.2', null, '无组项乙'),
-        mk('组项丙', 'XQ_M_C', '6.2.1.4.1.2', '某中间层', '组项丙')
+        mk('组项甲', 'XQ_M_A', '6.2.1.4.1.1', [
+          { level: 4, text: '功能测试' }, { level: 5, text: '某中间层' }, { level: 6, text: '组项甲' }
+        ], '某中间层', '组项甲'),
+        mk('无组项乙', 'XQ_M_B', '6.2.1.4.2', [
+          { level: 4, text: '功能测试' }, { level: 5, text: '无组项乙' }
+        ], null, '无组项乙'),
+        mk('组项丙', 'XQ_M_C', '6.2.1.4.1.2', [
+          { level: 4, text: '功能测试' }, { level: 5, text: '某中间层' }, { level: 6, text: '组项丙' }
+        ], '某中间层', '组项丙')
       ],
       issues: [], stats: { items: 3, cases: 3, steps: 3 }
     }
@@ -284,11 +301,84 @@ describe('M2 标题槽位（2026-10-01：混合嵌套回归，code-review 发现
 
   test('无组项后回到组形态：组标题重新输出，不错挂在无组项 h3 之下', () => {
     const data = convertToTemplateData(mixedOutline(), DEFAULT_PARAMS)
-    const heads = data.cases.map(c => [c.showGroup, c.showItem])
+    const heads = data.cases.map(c => [c.head3, c.head4])
     expect(heads).toEqual([
       ['某中间层', '组项甲'],   // 组→项 正常
       ['无组项乙', null],       // 无组项上浮 h3
       ['某中间层', '组项丙']    // 回到组：组标题必须再次出现
     ])
+  })
+
+  test('层级镜像（2026-10-01 XXX分系统变种）：五层路径逐级映射 h2~h6，超深丢弃最浅层并告警', () => {
+    // 五层：分系统/容器/类型/组/项 → h2~h6 全用上
+    const five: TestItem = {
+      name: '五层项', itemId: 'XQ_F', chapter: '6.2.1.2.4.1.1',
+      path: [
+        { level: 3, text: 'XXX分系统' },
+        { level: 4, text: 'BCD配置项测试' },
+        { level: 5, text: '功能测试' },
+        { level: 6, text: '某组' },
+        { level: 7, text: '五层项' }
+      ],
+      typeName: '功能测试', groupName: '某组', itemName: '五层项',
+      description: { shared: null, entries: [] },
+      cases: [{ itemId: 'XQ_F_01', name: '五层用例', summary: '', steps: [{ no: 1, text: '操作，查看结果是否正确；' }] }],
+      criteriaCases: [], traceSrs: { chapter: '/', desc: '/' }
+    }
+    const data = convertToTemplateData({ items: [five], issues: [], stats: { items: 1, cases: 1, steps: 1 } }, DEFAULT_PARAMS)
+    const r = data.cases[0]
+    expect(r.head2).toBe('XXX分系统')
+    expect(r.head3).toBe('BCD配置项测试')
+    expect(r.head4).toBe('功能测试')
+    expect(r.head5).toBe('某组')
+    expect(r.head6).toBe('五层项')
+
+    // 六层：丢最浅的容器层，项标题仍落 h6，PATH_TOO_DEEP 告警一次
+    const six: TestItem = {
+      ...five, name: '六层项', itemName: '六层项', chapter: '6.2.1.2.3.4.1.1',
+      path: [
+        { level: 2, text: '超浅容器' }, { level: 3, text: 'XXX分系统' }, { level: 4, text: 'BCD配置项测试' },
+        { level: 5, text: '功能测试' }, { level: 6, text: '某组' }, { level: 7, text: '六层项' }
+      ],
+      cases: [{ itemId: 'XQ_F_01', name: '六层用例', summary: '', steps: [{ no: 1, text: '操作，查看结果是否正确；' }] }]
+    }
+    const d2 = convertToTemplateData({ items: [six], issues: [], stats: { items: 1, cases: 1, steps: 1 } }, DEFAULT_PARAMS)
+    const r2 = d2.cases[0]
+    expect(r2.head2).toBe('XXX分系统')      // 超浅容器被丢弃
+    expect(r2.head6).toBe('六层项')
+    expect(d2.issues.filter(i => i.code === 'PATH_TOO_DEEP').length).toBe(1)
+  })
+
+  test('相邻同名层去重：静态类型项（老式大纲 类型L4→项L5 同名）不重复出标题', () => {
+    // 老式大纲：功能测试(L4)/文档审查(L5 标题即项) 与 类型层同名 → 只出一次
+    const st: TestItem = {
+      name: '文档审查', itemId: 'XQ_DC', chapter: '6.2.1.1',
+      path: [
+        { level: 4, text: '文档审查' },
+        { level: 5, text: '文档审查' }
+      ],
+      typeName: '文档审查', groupName: null, itemName: '文档审查',
+      description: { shared: null, entries: [] },
+      cases: [{ itemId: 'XQ_DC_01', name: '文档审查用例', summary: '', steps: [{ no: 1, text: '审查内容是否完整；' }] }],
+      criteriaCases: [], traceSrs: { chapter: '/', desc: '/' }
+    }
+    // 新变种：XXX分系统/BCD容器/文档审查（项与类型同层的场景不存在额外重复层）
+    const st2: TestItem = {
+      ...st, chapter: '6.2.1.2.1',
+      path: [
+        { level: 3, text: 'XXX分系统' },
+        { level: 4, text: 'BCD配置项测试' },
+        { level: 5, text: '文档审查' }
+      ]
+    }
+    const data = convertToTemplateData({ items: [st, st2], issues: [], stats: { items: 2, cases: 2, steps: 2 } }, DEFAULT_PARAMS)
+    const r1 = data.cases[0]
+    expect(r1.head2).toBe('文档审查')
+    expect(r1.head3).toBeNull()            // 项标题与类型层同名 → 去重不输出
+    const r2 = data.cases[1]
+    expect(r2.head2).toBe('XXX分系统')
+    expect(r2.head3).toBe('BCD配置项测试')
+    expect(r2.head4).toBe('文档审查')      // 三层路径各就各位，无重复层
+    expect(r2.head5).toBeNull()
   })
 })

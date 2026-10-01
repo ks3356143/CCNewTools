@@ -4,11 +4,14 @@ import { splitStepText, stripTrailingPunct, hasExpectKeyword } from './split.ts'
 
 /** 模板数据行（04 变量清单：说明/记录两模板共用一套字段） */
 export interface CaseRow {
-  showType: string | null
+  /** 生成文档第 1~5 层标题（h2~h6，按大纲路径序号映射；本行需要输出该层时非空，由转换层槽位分配填充） */
+  head2: string | null
+  head3: string | null
+  head4: string | null
+  head5: string | null
+  head6: string | null
   typeName: string
-  showGroup: string | null
   groupName: string | null
-  showItem: string | null
   itemName: string
   chapter: string
   itemId: string
@@ -178,7 +181,7 @@ export function buildRow(item: TestItem, c: RawCase, params: GlobalParams, issue
   }
 
   return {
-    showType: null, showGroup: null, showItem: null, // 由 assemble 填充
+    head2: null, head3: null, head4: null, head5: null, head6: null, // 由 convertToTemplateData 槽位分配填充
     typeName: item.typeName,
     groupName: item.groupName,
     itemName: item.itemName,

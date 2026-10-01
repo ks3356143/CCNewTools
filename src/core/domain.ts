@@ -89,6 +89,12 @@ export interface CriteriaEntry {
   items: string[]
 }
 
+export interface PathEntry {
+  /** 大纲中的绝对标题层级（3 = H3） */
+  level: number
+  text: string
+}
+
 export interface TestItem {
   /** 测试项名称（表格第 1 行第 2 格） */
   name: string
@@ -96,9 +102,15 @@ export interface TestItem {
   itemId: string
   /** 测试项标题的完整章节号，如 6.2.1.4.1.1 */
   chapter: string
-  /** 测试类型（最近的 level-4 标题） */
+  /**
+   * 从「测试项及方法」节下第一级到测试项标题的完整路径（含项标题自身）。
+   * 生成文档按此逐级出标题（镜像大纲层级，槽位 = 序号 + 2），
+   * 容器（配置项/分系统等）只是路径节点，不参与结构判断（2026-10-01 用户定稿）。
+   */
+  path: PathEntry[]
+  /** 测试类型（兼容字段：路径中命中静态三类型名的层，否则第一个以「测试」结尾的层名，否则首层） */
   typeName: string
-  /** 中间层（level-5，可能不存在） */
+  /** 中间层（兼容字段：类型层与项标题之间的所有层拼接；相邻时为 null） */
   groupName: string | null
   /** 测试项标题文本（表格挂载前最近的标题） */
   itemName: string
@@ -120,3 +132,17 @@ export interface ParsedOutline {
   issues: Issue[]
   stats: { items: number; cases: number; steps: number }
 }
+
+/** 静态三类型名（转换层固定话术的键，解析层类型识别共用；03 转换层 STATIC_TEMPLATES 的键必须与此一致） */
+export const STATIC_TYPE_NAMES = ['文档审查', '静态分析', '代码审查']
+
+/**
+ * 已知测试类型清单（静态三类型 + 军用软件测评常见动态类型）。
+ * typeName 从路径最深层往上找第一个命中；容器名（如「BCD星…配置项测试」）以「测试」结尾
+ * 但不在清单内，不会误当类型。遇到清单外的新类型时回退后缀匹配（见 outline.ts）。
+ */
+export const KNOWN_TYPE_NAMES = [
+  ...STATIC_TYPE_NAMES,
+  '功能测试', '性能测试', '接口测试', '边界测试', '人机交互界面测试', '安全性测试',
+  '余量测试', '强度测试', '恢复性测试', '安装性测试', '兼容性测试'
+]

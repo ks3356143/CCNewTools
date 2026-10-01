@@ -5,7 +5,7 @@ import { extractItemTable } from './table.ts'
 import { parseMethod } from './cases.ts'
 import { parseDescription, resolveSummaries } from './describe.ts'
 import { parseCriteriaCell, resolveCriteria } from './criteria.ts'
-import { IssueCollector, type ParsedOutline, type TestItem } from '../domain.ts'
+import { IssueCollector, KNOWN_TYPE_NAMES, type ParsedOutline, type TestItem, type PathEntry } from '../domain.ts'
 
 export interface HeadingRef {
   level: number
@@ -141,29 +141,32 @@ function assembleItem(
     return null
   }
 
-  // 测试类型 = 最近的 level-4 标题（含挂载点自身是 level-4 的情况，如文档审查）
-  let typeIdx = -1
-  for (let i = stack.length - 1; i >= 0; i--) {
-    if (stack[i].level === 4) {
-      typeIdx = i
-      break
+  // 完整路径 = 栈中全部标题（栈顶即挂载点/项标题，栈是从节下第一级到挂载点的祖先链，
+  // 容器/分系统等中间容器只是路径节点）。层级结构判断不再依赖固定的 level-4/5
+  // ——生成文档按 path 序号逐级出标题，镜像大纲层级（2026-10-01 用户定稿）
+  const path: PathEntry[] = stack.map(h => ({ level: h.level, text: h.text }))
+
+  // 兼容字段（树导航/静态识别沿用旧语义）：
+  // typeName = 从路径最深层往上第一个命中已知类型清单的层（含项标题自身——静态类型项名即类型名）；
+  // 清单未覆盖的新类型回退「测试/审查/分析结尾的最深层」，再退首层
+  let typeName = ''
+  for (let i = path.length - 1; i >= 0; i--) {
+    if (KNOWN_TYPE_NAMES.includes(path[i].text)) { typeName = path[i].text; break }
+  }
+  if (typeName === '') {
+    for (let i = path.length - 1; i >= 0; i--) {
+      if (/(测试|审查|分析)$/.test(path[i].text)) { typeName = path[i].text; break }
     }
   }
-  const typeName = typeIdx >= 0 ? stack[typeIdx].text : stack[0].text
-  if (typeIdx < 0) {
-    issues.warning('NO_TYPE_HEADING', '表格之前没有 level-4 测试类型标题，已用「' + typeName + '」充当', ctx)
+  if (typeName === '') typeName = path[0].text
+  // groupName = 类型层之后、项标题之前的所有层（一层时原名，多层拼接；相邻时 null）。
+  // 类型层取最后一次出现（静态「文档审查→文档审查」时命中项标题自身，中间层为空）
+  let typeIdx = 0
+  for (let i = path.length - 1; i >= 0; i--) {
+    if (path[i].text === typeName) { typeIdx = i; break }
   }
-  // 中间层 = level-4 之后的 level-5 标题（跳级形态下不存在）。
-  // 表格直接挂在 level-5 标题上时（head 就是该标题），它是测试项本身而非中间层——
-  // 否则组名与项名相同，生成文档/树里会多出一层重复标题（2026-10-01 用户反馈）
-  let groupIdx = -1
-  for (let i = stack.length - 1; i > typeIdx; i--) {
-    if (stack[i].level === 5) {
-      groupIdx = i
-      break
-    }
-  }
-  const groupName = groupIdx >= 0 && groupIdx < stack.length - 1 ? stack[groupIdx].text : null
+  const middles = path.slice(typeIdx + 1, -1)
+  const groupName = middles.length === 0 ? null : middles.map(m => m.text).join(' · ')
 
   const cases = parseMethod(t.method, issues, ctx)
   const desc = parseDescription(t.description, issues, ctx)
@@ -172,6 +175,7 @@ function assembleItem(
     name: t.name,
     itemId: t.itemId,
     chapter: head.num,
+    path: path,
     typeName: typeName,
     groupName: groupName,
     itemName: head.text,

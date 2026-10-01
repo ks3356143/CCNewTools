@@ -24,3 +24,6 @@ web/public/_test.docx
 
 # 发布产物（编译输出不入库；源图标 资源/app.ico 需要提交）
 dist/
+
+# 会话临时脚本与验证产物（含涉密文档派生物，绝不入库）
+.claude/tmp/
