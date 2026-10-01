@@ -4,8 +4,11 @@ import Docxtemplater from 'docxtemplater'
 import { DOMParser } from '@xmldom/xmldom'
 import { zipSync, strToU8, unzipSync, strFromU8 } from 'fflate'
 import { handle } from '../src/server/app.ts'
+import { VERSION } from '../src/server/app.ts'
 
 /** M0 冒烟：核心依赖在 Bun 下可用（实施计划 0.4） */
+
+const PKG_VERSION = VERSION // 与 app.ts 同源（根 package.json），发版无需改此断言
 
 const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -77,7 +80,7 @@ describe('M0 冒烟', () => {
       const res = await fetch(new URL('/api/ping', server.url))
       const data = await res.json()
       expect(data.ok).toBe(true)
-      expect(data.version).toBe('1.0.0')
+      expect(data.version).toBe(PKG_VERSION)
     } finally {
       server.stop(true)
     }

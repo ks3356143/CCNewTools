@@ -5,6 +5,14 @@
   border-radius: 0 !important;
 }
 
+/* v-text-field 输入文字垂直居中（2026-10-01 用户反馈"文字偏上"）：
+   中文 fallback 字体 16px 的字形盒 ≈22.9px，在默认 24px 行盒内顶部对齐 → 墨迹偏上 ~1.1px；
+   行盒收 1px 后，input(flex, align-items:center) 令字形盒在内容区上下对称 */
+.v-field__input,
+.v-label {
+  line-height: 23px;
+}
+
 /* 自定义按钮基（仅针对本项目自建按钮类，不重置 v-btn） */
 button.step,
 button.row,

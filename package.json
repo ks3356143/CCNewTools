@@ -1,6 +1,6 @@
 {
   "name": "ccnewtools",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "测试大纲 → 测试说明/测试记录 转换工具",
   "type": "module",
   "module": "src/server/index.ts",

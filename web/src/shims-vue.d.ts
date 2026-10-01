@@ -4,3 +4,6 @@ declare module '*.vue' {
   const component: DefineComponent<{}, {}, any>
   export default component
 }
+
+/** vite.config.ts define 注入的应用版本（来源根 package.json） */
+declare const __APP_VERSION__: string

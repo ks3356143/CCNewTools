@@ -7,6 +7,10 @@ import Screen1 from './screens/Screen1.vue'
 import Screen2 from './screens/Screen2.vue'
 import Screen3 from './screens/Screen3.vue'
 
+// vite define 注入（来源根 package.json）；必须先绑到局部常量——模板里直接写裸标识符
+// 会被 Vue 编译成 _ctx.__APP_VERSION__ 属性访问，define 的标识符替换匹配不上
+const appVersion = __APP_VERSION__
+
 const theme = useTheme()
 const STEPS = ['选择大纲', '核对与编辑', '生成文档']
 
@@ -50,7 +54,7 @@ function stepClick(n: number): void {
     <v-app-bar color="appbar" elevation="0">
       <div class="mark"><v-icon size="19">mdi-file-word-box</v-icon></div>
       <span class="app-title">测试文档生成工具</span>
-      <span class="ver">v1.0.0</span>
+      <span class="ver">v{{ appVersion }}</span>
       <div class="spacer" />
       <nav class="stepper">
         <template v-for="(t, i) in STEPS" :key="t">
@@ -93,7 +97,7 @@ function stepClick(n: number): void {
   display: flex; align-items: center; justify-content: center;
 }
 .app-title { font-size: 16px; font-weight: 600; color: #fff; margin-left: 4px; }
-/* 版本徽标（08：版本号三处可见之一）；写死在模板里避免给顶栏加运行时依赖 */
+/* 版本徽标（08：版本号三处可见之一）；__APP_VERSION__ 由 vite define 从根 package.json 注入，发版只改一处 */
 .ver {
   font-size: 11px; color: rgba(255, 255, 255, 0.72); margin-left: 8px;
   font-family: Consolas, monospace; letter-spacing: 0.4px;
