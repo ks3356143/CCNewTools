@@ -116,5 +116,14 @@ function stepClick(n: number): void {
 .step.done { color: rgba(255, 255, 255, 0.92); }
 .step.done .dot { background: rgba(255, 255, 255, 0.25); border-color: transparent; }
 .link { width: 24px; height: 1.4px; background: rgba(255, 255, 255, 0.45); margin: 0 3px; }
-@media (max-width: 760px) { .lbl { display: none; } .link { width: 12px; } }
+@media (max-width: 940px) { .lbl { display: none; } .link { width: 14px; } }
+/* 绝对居中的导航不感知两侧内容，窄窗口靠分档收缩防撞（2026-10-01 用户反馈移动端与版本徽标重叠）：
+   ≤940 藏导航文字、≤700 藏应用标题（图标与版本徽标保留） */
+@media (max-width: 700px) {
+  .app-title { display: none; }
+  .step { padding: 5px 5px; }
+  .link { width: 10px; margin: 0 2px; }
+  .mark { margin-left: 10px; }
+  .ver { margin-left: 6px; }
+}
 </style>
