@@ -77,7 +77,9 @@ function gen(): void {
 <style scoped>
 /* 应用壳布局（2026-10-01 用户反馈）：页面整体不滚，右列独立滚动，左树固定不动 */
 .s2 {
-  display: flex; max-width: 1360px; margin: 0 auto; padding: 18px 20px 18px; gap: 18px;
+  display: flex; max-width: 1360px; margin: 0 auto; gap: 18px;
+  /* 底部 104 = 操作栏实测高 91 + 间距：两栏卡片底边收在操作栏上方，不再被盖住 */
+  padding: 18px 20px 104px;
   height: calc(100vh - 64px); height: calc(100dvh - 64px); /* 64 = v-app-bar 默认高度 */
   overflow: hidden;
 }
@@ -87,7 +89,7 @@ function gen(): void {
   background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.5);
   border-radius: 18px; overflow: hidden;
 }
-.main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-bottom: 110px; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-bottom: 8px; padding-right: 12px; }
 .pad { height: 8px; }
 .actionbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
