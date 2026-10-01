@@ -121,6 +121,44 @@ describe('M3 渲染：测试记录模板', () => {
   const data = convertToTemplateData(makeOutline(), { ...DEFAULT_PARAMS, tester: '张三', monitor: '李四', testTime: '2026-09-30' })
   const buf = renderTemplate(REC, { cases: data.cases, configName: '某软件配置项' })
 
+  test('标题层级与测试说明同构：类型→组→项三级、无组类型项上浮、静态类型免标题（2026-10-01）', () => {
+    // 记录模板的样式 id 与说明模板不同：heading3 是 "30"、heading4 是 "4"
+    const zip = new PizZip(buf)
+    const xml = zip.file('word/document.xml')!.asText()
+    const doc = new DOMParser().parseFromString(xml, 'application/xml')
+    const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    const got: string[] = []
+    for (const p of Array.from(doc.getElementsByTagNameNS(W, 'p'))) {
+      const ps = p.getElementsByTagNameNS(W, 'pStyle')
+      if (ps.length === 0) continue
+      const sid = ps.item(0)!.getAttribute('w:val') || ''
+      if (!['1', '2', '30', '4'].includes(sid)) continue
+      let text = ''
+      for (const t of Array.from(p.getElementsByTagNameNS(W, 't'))) text += t.textContent ?? ''
+      if (text.trim() !== '') got.push(sid + ':' + text.trim())
+    }
+    expect(got.slice(0, 7)).toEqual([
+      '1:测试记录',
+      '2:功能测试',
+      '30:A星模板功能测试',
+      '4:A星指令参数管理',
+      '2:文档审查',
+      '2:边界测试',
+      '30:指令边界测试'
+    ])
+    // 其后是附录静态标题（文档审查单等，模板自带）
+    expect(got.slice(7)).toEqual([
+      '1:文档审查单',
+      '2:软件文档齐套性检查单',
+      '2:需求类文档审查单',
+      '2:设计类文档审查单',
+      '2:手册类文档审查单',
+      '1:代码审查单',
+      '1:静态分析结果记录',
+      '1:未覆盖情况'
+    ])
+  })
+
   test('记录表字段：实测结果为空、结论"通过"、执行信息、追踪关系三行', () => {
     const text = bodyText(buf)
     expect(text).toContain('YL_SU_ZLPA_001')
