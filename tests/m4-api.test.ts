@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
-import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildDocxBuffer, itemTable, DESC, METHOD } from './helpers/ooxml.ts'
@@ -126,16 +126,18 @@ describe('M4 编辑持久化（05）', () => {
     expect(second.cases[0].steps[2].actual).toBe('')
   })
 
-  test('损坏的编辑记录 JSON → 按无记录处理，解析不受影响（06）', async () => {
+  test('损坏的项目存档 JSON → 按无项目处理，解析不受影响（06）', async () => {
+    // 2026-10-01 检查修正：原测试写旧 数据/编辑记录/ 路径，但 F8 后已无代码读那里——
+    // 测试变成空转。现在写真正的消费方路径 项目/<id>/项目.json
     const { createHash } = await import('node:crypto')
     const hash = createHash('sha1').update(new Uint8Array(sampleDocx())).digest('hex')
-    const dir = process.env.CC_DATA_DIR!
-    const fs = await import('node:fs')
-    writeFileSync(join(dir, '编辑记录', `测试大纲A_${hash.slice(0, 8)}.json`), '{损坏的JSON')
+    const projDir = join(process.env.CC_DATA_DIR!, '项目', hash.slice(0, 12))
+    mkdirSync(projDir, { recursive: true })
+    writeFileSync(join(projDir, '项目.json'), '{损坏的JSON')
     const data = await parse('测试大纲A.docx', sampleDocx())
     expect(data.ok).toBe(true)
     expect(data.cases.length).toBe(2)
-    void fs
+    expect(data.restored.cases).toBe(0)
   })
 })
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { store, goCase, activeSuspects } from '../store.ts'
+import { store, goCase } from '../store.ts'
+import { activeSuspects } from '../suspect.ts'
 import type { CaseRow } from '../types.ts'
 
 const keyword = ref('')

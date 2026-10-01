@@ -141,7 +141,7 @@ function storedCasesOf(cases: CaseRow[]): StoredCase[] {
   }))
 }
 
-export async function saveEdits(
+async function saveEdits(
   outline: { name: string; hash: string },
   cases: CaseRow[],
   progress: EditProgress | null

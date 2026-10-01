@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, useTemplateRef, onMounted } from 'vue'
-import { store, doParse, activeSuspects, loadProjects, openProjectById, showToast } from '../store.ts'
+import { store, doParse, loadProjects, openProjectById, showToast } from '../store.ts'
+import { activeSuspects } from '../suspect.ts'
 import { deleteProject } from '../api.ts'
 import type { Issue, ProjectMeta } from '../types.ts'
 

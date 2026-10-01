@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
 import type { CaseRow, GlobalParams, Issue, ParseResponse, ProjectMeta } from './types.ts'
 import { parseOutline, saveEdits, saveSettings, generate, listProjects, openProject } from './api.ts'
+import { activeSuspects } from './suspect.ts'
 import { DEFAULT_PARAMS } from '../../src/core/domain.ts'
 
 export interface Toast { text: string; show: boolean }
@@ -98,12 +99,15 @@ export async function openProjectById(id: string): Promise<boolean> {
   }
 }
 
+// 编辑存档与设置各用各的防抖计时器（2026-10-01 检查发现：共用一个会互相清掉——
+// 编辑步骤后 800ms 内改设置，编辑保存被 clearTimeout 静默丢弃）
 let saveTimer: ReturnType<typeof setTimeout> | undefined
+let settingsTimer: ReturnType<typeof setTimeout> | undefined
 export function scheduleSave(): void {
   if (!store.parsed) return
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
-    // 随存档上报核对进度（可疑判定唯一入口在前端，见 09 设计文档）
+    // 随存档上报核对进度（可疑判定唯一入口在 suspect.ts，见 09 设计文档）
     saveEdits(store.outline, store.cases, {
       reviewed: store.cases.filter(c => c.reviewed).length,
       suspects: store.cases.reduce((n, c) => n + activeSuspects(c), 0)
@@ -112,8 +116,8 @@ export function scheduleSave(): void {
 }
 
 export function scheduleSettingsSave(): void {
-  clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => {
+  clearTimeout(settingsTimer)
+  settingsTimer = setTimeout(() => {
     saveSettings(store.params, store.theme).catch(() => {})
   }, 800)
 }
@@ -192,21 +196,6 @@ export function currentCase(): CaseRow | null {
   return store.cases[store.currentIdx] ?? null
 }
 
-/** 可疑判定唯一入口（前后端语义一致）：
- *  - 期望为空且有动作文本 → 可疑（含用户编辑时误删期望的情况）；
- *  - 后端其他 suspect 标记（当前仅"期望结果为空"一种）——用户补写期望后自动解除；
- *  - 用户点过"确认无误"（dismissedSuspects）不再标。
- */
-export function stepSuspectActive(row: CaseRow, s: CaseRow['steps'][number]): boolean {
-  if (row.dismissedSuspects.includes(s.no)) return false
-  if (!s.expect.trim()) return s.action.trim() !== ''
-  return s.suspect !== undefined && s.suspect !== '' && s.suspect !== '期望结果为空'
-}
-
-export function activeSuspects(row: CaseRow): number {
-  return row.steps.filter(s => stepSuspectActive(row, s)).length
-}
-
 export function goCase(idx: number): void {
   store.suspectFlash = null
   if (idx >= 0 && idx < store.cases.length) store.currentIdx = idx
@@ -218,6 +207,9 @@ export function resetAll(): void {
   store.cases = []
   store.issues = []
   store.genResult = null
+  store.genWarnings = []
+  store.suspectFlash = null
+  store.currentIdx = 0
   store.outline = { name: '', hash: '' }
 }
 

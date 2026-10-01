@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick } from 'vue'
-import { store, goCase, showToast, scheduleSave, activeSuspects, stepSuspectActive } from '../store.ts'
+import { store, goCase, showToast, scheduleSave } from '../store.ts'
+import { activeSuspects, stepSuspectActive } from '../suspect.ts'
 import TreeNav from '../components/TreeNav.vue'
 import ParamsCard from '../components/ParamsCard.vue'
 import CasePanel from '../components/CasePanel.vue'

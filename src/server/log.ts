@@ -1,4 +1,4 @@
-import { readdirSync, statSync, appendFileSync, mkdirSync, unlinkSync } from 'node:fs'
+import { readdirSync, appendFileSync, mkdirSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { dataRoot } from './store.ts'
 
@@ -25,7 +25,7 @@ function prune(dir: string): void {
     try {
       unlinkSync(join(dir, victim))
     } catch {
-      void statSync(dir) // no-op：删除失败忽略
+      // 删除失败忽略（下次启动再试）
     }
   }
 }

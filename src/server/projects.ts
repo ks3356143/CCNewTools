@@ -113,7 +113,7 @@ export function recordParse(name: string, hash: string, bytes: Uint8Array, stats
   }
   saveProjectFile(id, { meta: meta, edits: prev?.edits ?? null })
   mkdirSync(projectDir(id), { recursive: true })
-  writeFileSync(sourceFileOf(id), bytes, 'utf8')
+  writeFileSync(sourceFileOf(id), bytes)
 }
 
 /** 版本闸与旧 loadEditState 一致：版本不符整体作废 */

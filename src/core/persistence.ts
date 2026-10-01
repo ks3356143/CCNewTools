@@ -16,11 +16,6 @@ export function sha132(data: Uint8Array): string {
   return createHash('sha1').update(data).digest('hex')
 }
 
-export function editFileName(outlineName: string, hash: string): string {
-  const base = outlineName.replace(/\.docx$/i, '').replace(/[\\/:*?"<>|]/g, '_')
-  return base + '_' + hash.slice(0, 8) + '.json'
-}
-
 export interface StoredCase {
   caseId: string
   reviewed: boolean

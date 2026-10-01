@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { CaseRow } from '../types.ts'
-import { stepSuspectActive, store } from '../store.ts'
+import { stepSuspectActive } from '../suspect.ts'
+import { store } from '../store.ts'
 
 const props = defineProps<{ row: CaseRow }>()
 const emit = defineEmits<{ changed: [] }>()
