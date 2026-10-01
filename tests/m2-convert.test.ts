@@ -236,7 +236,7 @@ describe('M2 准则格配对（9.5 实测变种 + 2026-10-01 不切分定稿）'
     expect(data.cases[0].steps[0].expect).toBe('查询结果正确显示')
   })
 
-  test('用例标识撞号（2026-10-01）：多个测试项用相同 itemId → 告警（复制粘贴配置项未改标识）', () => {
+  test('用例标识撞号（2026-10-01）：照原样生成、不告警（用户拍板：看生成文档自己改）', () => {
     const outline = makeOutline()
     const dup: TestItem = {
       name: '撞号项', itemId: 'XQ_SU_ZLPA', chapter: '6.2.1.4.1.2',
@@ -247,14 +247,12 @@ describe('M2 准则格配对（9.5 实测变种 + 2026-10-01 不切分定稿）'
     }
     outline.items.splice(1, 0, dup)
     const data = convertToTemplateData(outline, DEFAULT_PARAMS)
-    // 两项同 XQ_SU_ZLPA → 都生成 YL_SU_ZLPA_001，告警一次并点名两个测试项
+    // 两项同 XQ_SU_ZLPA → 都生成 YL_SU_ZLPA_001，按用户决定照原样进清单/追踪表
     const dups = data.cases.filter(c => c.caseId === 'YL_SU_ZLPA_001')
     expect(dups.length).toBe(2)
-    const warns = data.issues.filter(i => i.code === 'CASE_ID_DUP')
-    expect(warns.length).toBe(1)
-    expect(warns[0].message).toContain('YL_SU_ZLPA_001')
-    expect(warns[0].message).toContain('A星指令参数管理')
-    expect(warns[0].message).toContain('撞号项')
+    expect(data.caselist.filter(c => c.caseId === 'YL_SU_ZLPA_001').length).toBe(2)
+    expect(data.traceRows.filter(t => t.caseId === 'YL_SU_ZLPA_001').length).toBe(2)
+    expect(data.issues.filter(i => i.code === 'CASE_ID_DUP')).toEqual([])
   })
 
   test('buildRow 不依赖组名', () => {

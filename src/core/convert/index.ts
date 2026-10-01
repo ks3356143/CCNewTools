@@ -42,28 +42,13 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
   let lastGroupKey = ''
   let lastItemKey = ''
   const issues = new IssueCollector()
-  /** caseId → 首次出现的测试项名（2026-10-01 对抗审查：多配置项复制粘贴同 itemId → 撞号告警） */
-  const caseIdOrigin = new Map<string, string>()
-  const dupWarned = new Set<string>()
 
   for (const item of parsed.items) {
     for (let i = 0; i < item.cases.length; i++) {
       const c = item.cases[i]
       const row = buildRow(item, c, params, issues)
-
-      const firstItem = caseIdOrigin.get(row.caseId)
-      if (firstItem === undefined) {
-        caseIdOrigin.set(row.caseId, item.itemName)
-      } else if (!dupWarned.has(row.caseId)) {
-        dupWarned.add(row.caseId)
-        // 撞号 = 两个测试项用了相同测试项标识（复制粘贴未改 XQ）：用例清单/追踪表无法区分，
-        // 且编辑存档按 caseId 键控会互相污染——必须显式告警
-        issues.warning(
-          'CASE_ID_DUP',
-          '用例标识 ' + row.caseId + ' 重复：测试项「' + firstItem + '」与「' + item.itemName + '」使用了相同的测试项标识，用例清单与追踪表无法区分，编辑内容会互相串扰，请修改其中一方的标识',
-          item.name
-        )
-      }
+      // 标识写重复（多配置项复制粘贴同 XQ → 同 YL 号）：按用户决定（2026-10-01）
+      // 照原样生成、不告警——用户看生成文档自行修改
 
       if (item.typeName !== lastType) {
         row.showType = item.typeName

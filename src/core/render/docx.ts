@@ -32,5 +32,36 @@ export function renderTemplate(template: Buffer, data: object): Buffer {
     throw new Error('模板渲染失败：' + detail)
   }
 
-  return doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' }) as Buffer
+  return fixOrphanBookmarkEnds(doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' }) as Buffer)
+}
+
+/**
+ * 渲染后处理：剔除悬空/重复的书签结束标记（2026-10-01 终验发现）。
+ * 记录模板的 _Toc 书签结束标记落在 {#cases} 循环区内，docxtemplater 复制循环体时
+ * 把 bookmarkEnd 一并复制（起标记在循环外仅 1 个 → "1 起 N 终"）。Word 能容忍打开，
+ * 但产物须通过 OOXML 语义校验（bookmark id 必须唯一配对）。
+ * 处理：每个 id 保留与起标记等量的结束标记（按出现顺序取前 N 个），多余的删除。
+ */
+function fixOrphanBookmarkEnds(buf: Buffer): Buffer {
+  const zip = new PizZip(buf)
+  const file = zip.files['word/document.xml']
+  if (!file) return buf
+  const xml = file.asText()
+
+  const startCount = new Map<string, number>()
+  for (const m of xml.matchAll(/<w:bookmarkStart\b[^>]*>/g)) {
+    const id = /w:id="([^"]+)"/.exec(m[0])?.[1]
+    if (id !== undefined) startCount.set(id, (startCount.get(id) ?? 0) + 1)
+  }
+  const seen = new Map<string, number>()
+  const fixed = xml.replace(/<w:bookmarkEnd\b[^>]*\/?>/g, function (el: string): string {
+    const id = /w:id="([^"]+)"/.exec(el)?.[1]
+    if (id === undefined) return el
+    const n = (seen.get(id) ?? 0) + 1
+    seen.set(id, n)
+    return n <= (startCount.get(id) ?? 0) ? el : ''
+  })
+  if (fixed === xml) return buf
+  zip.file('word/document.xml', fixed)
+  return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' }) as Buffer
 }

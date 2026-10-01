@@ -186,3 +186,36 @@ describe('M3 渲染错误处理（06）', () => {
     expect(() => renderTemplate(SPEC, bad)).toThrow(/模板渲染失败/)
   })
 })
+
+describe('M3 书签配对（2026-10-01 终验发现）', () => {
+  test('渲染产物书签起止配对：bookmarkEnd 数不超 bookmarkStart 数（记录模板 _Toc 书签 end 落在循环区）', () => {
+    const data = convertToTemplateData(makeOutline(), { ...DEFAULT_PARAMS, tester: '张三', monitor: '李四' })
+    for (const tpl of [SPEC, REC]) {
+      const buf = renderTemplate(tpl, {
+        cases: data.cases, caselist: data.caselist, traceRows: data.traceRows, configName: '某软件'
+      })
+      const xml = new PizZip(buf).file('word/document.xml')!.asText()
+      const starts: Record<string, number> = {}
+      for (const m of xml.matchAll(/<w:bookmarkStart\b[^>]*>/g)) {
+        const id = /w:id="([^"]+)"/.exec(m[0])?.[1] ?? '?'
+        starts[id] = (starts[id] ?? 0) + 1
+      }
+      const ends: Record<string, number> = {}
+      for (const m of xml.matchAll(/<w:bookmarkEnd\b[^>]*>/g)) {
+        const id = /w:id="([^"]+)"/.exec(m[0])?.[1] ?? '?'
+        ends[id] = (ends[id] ?? 0) + 1
+      }
+      for (const [id, n] of Object.entries(ends)) {
+        expect(n).toBeLessThanOrEqual(starts[id] ?? 0) // 多余 end 已剔除，不再"1 起 N 终"
+      }
+    }
+    // 记录模板自带 30 个 _Toc 书签（说明模板无书签）；修复前渲染后 end 会多出 N-1 个
+    const recXml = new PizZip(renderTemplate(REC, {
+      cases: data.cases, configName: '某软件'
+    })).file('word/document.xml')!.asText()
+    const recStarts = [...recXml.matchAll(/<w:bookmarkStart\b[^>]*>/g)]
+    const recEnds = [...recXml.matchAll(/<w:bookmarkEnd\b[^>]*>/g)]
+    expect(recStarts.length).toBeGreaterThan(0)
+    expect(recEnds.length).toBe(recStarts.length) // 逐一起止配对
+  })
+})
