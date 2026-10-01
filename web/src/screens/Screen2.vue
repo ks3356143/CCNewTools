@@ -75,14 +75,19 @@ function gen(): void {
 </template>
 
 <style scoped>
-.s2 { display: flex; align-items: flex-start; max-width: 1360px; margin: 0 auto; padding: 18px 20px 110px; gap: 18px; }
+/* 应用壳布局（2026-10-01 用户反馈）：页面整体不滚，右列独立滚动，左树固定不动 */
+.s2 {
+  display: flex; max-width: 1360px; margin: 0 auto; padding: 18px 20px 18px; gap: 18px;
+  height: calc(100vh - 64px); height: calc(100dvh - 64px); /* 64 = v-app-bar 默认高度 */
+  overflow: hidden;
+}
 .left {
-  width: 336px; flex: none; position: sticky; top: 74px; max-height: calc(100vh - 150px);
-  display: flex; flex-direction: column;
+  width: 380px; flex: none;
+  display: flex; flex-direction: column; min-height: 0;
   background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.5);
   border-radius: 18px; overflow: hidden;
 }
-.main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-bottom: 110px; }
 .pad { height: 8px; }
 .actionbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
@@ -111,7 +116,7 @@ function gen(): void {
 .grow { flex: 1; }
 .err-dot { width: 8px; height: 8px; border-radius: 50%; background: rgb(var(--v-theme-error)); margin-left: 6px; }
 @media (max-width: 960px) {
-  .s2 { flex-direction: column; }
-  .left { width: 100%; position: static; max-height: 300px; }
+  .s2 { flex-direction: column; height: auto; overflow: visible; }
+  .left { width: 100%; height: 320px; }
 }
 </style>
