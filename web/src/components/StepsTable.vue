@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { CaseRow } from '../types.ts'
-import { stepSuspectActive } from '../store.ts'
+import { stepSuspectActive, store } from '../store.ts'
 
 const props = defineProps<{ row: CaseRow }>()
 const emit = defineEmits<{ changed: [] }>()
@@ -71,7 +71,7 @@ function renumber(): void {
       <tr><th class="c">序号</th><th>输入及操作</th><th>期望结果与评估标准</th><th class="c">操作</th></tr>
     </thead>
     <tbody>
-      <tr v-for="(s, i) in row.steps" :key="i" :class="{ suspect: isSuspect(i) }">
+      <tr v-for="(s, i) in row.steps" :key="i" :class="{ suspect: isSuspect(i), flash: store.suspectFlash === i }">
         <td class="c no">{{ i + 1 }}</td>
         <td>
           <div class="edit" contenteditable="true" @paste="onPaste" @blur="onBlur($event, i, 'action')">{{ s.action }}</div>

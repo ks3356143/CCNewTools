@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick } from 'vue'
-import { store, goCase, showToast, scheduleSave, activeSuspects } from '../store.ts'
+import { store, goCase, showToast, scheduleSave, activeSuspects, stepSuspectActive } from '../store.ts'
 import TreeNav from '../components/TreeNav.vue'
 import ParamsCard from '../components/ParamsCard.vue'
 import CasePanel from '../components/CasePanel.vue'
@@ -16,12 +16,14 @@ async function jumpSuspect(): Promise<void> {
   const pos = list.indexOf(store.currentIdx)
   goCase(list[(pos + 1) % list.length])
   await nextTick()
-  const row = document.querySelector('.main tr.suspect')
-  if (row) {
-    row.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    row.classList.add('flash')
-    setTimeout(() => row.classList.remove('flash'), 1600)
+  // 闪烁走 Vue 状态（store.suspectFlash），行重渲染不会把 class 抹掉
+  const row = store.cases[store.currentIdx]
+  const fi = row.steps.findIndex(s => stepSuspectActive(row, s))
+  if (fi >= 0) {
+    store.suspectFlash = fi
+    setTimeout(() => { if (store.suspectFlash === fi) store.suspectFlash = null }, 1600)
   }
+  document.querySelector('.main tr.suspect')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
 }
 
 function markAllReviewed(): void {

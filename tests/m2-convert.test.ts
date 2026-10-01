@@ -189,3 +189,33 @@ describe('M2 准则格配对（9.5 实测变种）', () => {
     expect(row.mingcheng).toBe('参数查询正常功能')
   })
 })
+
+describe('M2 标题槽位（2026-10-01：混合嵌套回归，code-review 发现）', () => {
+  /** 同一类型内 组项→无组项→组项 交错：无组项上浮 h3 后组标题必须重新输出 */
+  function mixedOutline(): ParsedOutline {
+    const mk = (name: string, id: string, chapter: string, group: string | null, item: string): TestItem => ({
+      name: name, itemId: id, chapter: chapter, typeName: '功能测试', groupName: group, itemName: item,
+      description: { shared: null, entries: [] },
+      cases: [{ itemId: id + '_01', name: name + '用例', summary: '', steps: [{ no: 1, text: '操作，查看结果是否正确；' }] }],
+      criteriaCases: [], traceSrs: { chapter: '/', desc: '/' }
+    })
+    return {
+      items: [
+        mk('组项甲', 'XQ_M_A', '6.2.1.4.1.1', '某中间层', '组项甲'),
+        mk('无组项乙', 'XQ_M_B', '6.2.1.4.2', null, '无组项乙'),
+        mk('组项丙', 'XQ_M_C', '6.2.1.4.1.2', '某中间层', '组项丙')
+      ],
+      issues: [], stats: { items: 3, cases: 3, steps: 3 }
+    }
+  }
+
+  test('无组项后回到组形态：组标题重新输出，不错挂在无组项 h3 之下', () => {
+    const data = convertToTemplateData(mixedOutline(), DEFAULT_PARAMS)
+    const heads = data.cases.map(c => [c.showGroup, c.showItem])
+    expect(heads).toEqual([
+      ['某中间层', '组项甲'],   // 组→项 正常
+      ['无组项乙', null],       // 无组项上浮 h3
+      ['某中间层', '组项丙']    // 回到组：组标题必须再次出现
+    ])
+  })
+})

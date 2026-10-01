@@ -394,3 +394,35 @@ describe('M1 通过准则格解析（9.5 实测变种）', () => {
     expect(issues.issues.some(i => i.code === 'CRITERIA_LABEL' && i.message.includes('不同检索类型'))).toBe(true)
   })
 })
+
+describe('M1 编号 start 值（2026-10-01：numbering 笔误修复的回归钉，code-review 发现）', () => {
+  /** info.start→info 笔误修复后，start≠1 的编号定义必须真正生效（此前被 ?? 1 兜成 1） */
+  function numberingDoc(startVal: string): Document {
+    const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    const xml =
+      `<w:numbering xmlns:w="${W}">` +
+      '<w:abstractNum w:abstractNumId="0">' +
+      '<w:lvl w:ilvl="0"><w:start w:val="' + startVal + '"/><w:numFmt w:val="decimal"/></w:lvl>' +
+      '<w:lvl w:ilvl="1"><w:numFmt w:val="decimal"/></w:lvl>' +
+      '</w:abstractNum>' +
+      '<w:num w:numId="3"><w:abstractNumId w:val="0"/></w:num>' +
+      '</w:numbering>'
+    const { DOMParser } = require('@xmldom/xmldom')
+    return new DOMParser().parseFromString(xml, 'application/xml') as unknown as Document
+  }
+
+  test('start=5：首个一级标题编号从 5 起，第二个为 6', () => {
+    const { parseNumbering, createChapterCounter } = require('../src/core/parse/numbering.ts')
+    const counter = createChapterCounter(parseNumbering(numberingDoc('5')))
+    expect(counter.advance('3', 0)).toBe('5')
+    expect(counter.advance('3', 0)).toBe('6')
+    expect(counter.advance('3', 1)).toBe('6.1')
+  })
+
+  test('未定义 start 的层级默认从 1 起', () => {
+    const { parseNumbering, createChapterCounter } = require('../src/core/parse/numbering.ts')
+    const counter = createChapterCounter(parseNumbering(numberingDoc('1')))
+    expect(counter.advance('3', 0)).toBe('1')
+    expect(counter.advance('3', 1)).toBe('1.1')
+  })
+})

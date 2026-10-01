@@ -68,7 +68,10 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
           row.showItem = item.itemName
         }
       } else if (item.itemName !== item.typeName && ik !== lastItemKey) {
+        // 无组项上浮 h3 后必须刷新 lastGroupKey：同类型内若再回到带组形态
+        // （组项→无组项→组项 的混合嵌套），组标题要重新输出，否则会错挂在无组项的 h3 下
         row.showGroup = item.itemName
+        lastGroupKey = gk
       }
       lastItemKey = ik
       cases.push(row)

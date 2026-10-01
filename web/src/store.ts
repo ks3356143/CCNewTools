@@ -19,6 +19,10 @@ export const store = reactive({
   currentIdx: 0,
   generating: false,
   genResult: null as { spec: string; rec: string; specName: string; recName: string } | null,
+  /** 生成完成时仍存在的疑问文案（doGenerate 算一次，完成页横幅与日志共用同一来源） */
+  genWarnings: [] as string[],
+  /** 可疑跳转的闪烁行（步骤下标，1.6s 后清空；Vue 状态而非手工 DOM class，重渲染不丢） */
+  suspectFlash: null as number | null,
   projects: [] as ProjectMeta[],
   toast: { text: '', show: false } as Toast
 })
@@ -114,7 +118,7 @@ export function scheduleSettingsSave(): void {
   }, 800)
 }
 
-export interface GenLogLine { text: string; done: boolean }
+export interface GenLogLine { text: string; done: boolean; warn?: boolean }
 
 export async function doGenerate(onLog: (lines: GenLogLine[], pct: number) => void): Promise<boolean> {
   if (!store.params.tester.trim() || !store.params.monitor.trim()) {
@@ -165,6 +169,21 @@ export async function doGenerate(onLog: (lines: GenLogLine[], pct: number) => vo
   }
   genRes = result
   onLog([{ text: '两份文档渲染完成', done: false }], 100)
+  // 疑问提醒（2026-10-01 用户反馈）：可疑未确认/用例未核对时日志必须明示，不能只报成功。
+  // 只在此算一次，完成页横幅直接读 store.genWarnings（同一来源，文案不漂移）
+  store.genWarnings = []
+  const active = store.cases.filter(c => !c.excluded)
+  const warnSus = active.reduce((n, c) => n + activeSuspects(c), 0)
+  if (warnSus > 0) {
+    store.genWarnings.push(`有 ${warnSus} 处切分可疑未确认，文档已按当前文本生成`)
+  }
+  const warnUnreviewed = active.filter(c => !c.reviewed).length
+  if (warnUnreviewed > 0) {
+    store.genWarnings.push(`有 ${warnUnreviewed} 个用例未核对`)
+  }
+  for (const w of store.genWarnings) {
+    onLog([{ text: w, done: false, warn: true }], 100)
+  }
   store.genResult = { spec: genRes.spec, rec: genRes.rec, specName: genRes.specName, recName: genRes.recName }
   return true
 }
@@ -189,6 +208,7 @@ export function activeSuspects(row: CaseRow): number {
 }
 
 export function goCase(idx: number): void {
+  store.suspectFlash = null
   if (idx >= 0 && idx < store.cases.length) store.currentIdx = idx
 }
 
