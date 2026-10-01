@@ -34,6 +34,7 @@ function gen(): void {
 </script>
 
 <template>
+  <div class="screen">
   <div class="s2">
     <aside class="left">
       <TreeNav />
@@ -43,6 +44,7 @@ function gen(): void {
       <CasePanel />
       <div class="pad" />
     </section>
+    </div>
 
     <div class="actionbar">
       <div class="prog">
@@ -73,15 +75,17 @@ function gen(): void {
     </div>
   </div>
 </template>
-
 <style scoped>
-/* 应用壳布局（2026-10-01 用户反馈）：页面整体不滚，右列独立滚动，左树固定不动 */
-.s2 {
-  display: flex; max-width: 1360px; margin: 0 auto; gap: 18px;
-  /* 底部 104 = 操作栏实测高 91 + 间距：两栏卡片底边收在操作栏上方，不再被盖住 */
-  padding: 18px 20px 104px;
+/* 应用壳布局（2026-10-01 用户反馈）：页面整体不滚，右列独立滚动，左树固定不动；
+   操作栏随排版落在最底（不再悬浮盖内容），不留大块空窗 */
+.screen {
+  display: flex; flex-direction: column;
   height: calc(100vh - 64px); height: calc(100dvh - 64px); /* 64 = v-app-bar 默认高度 */
-  overflow: hidden;
+}
+.s2 {
+  flex: 1; min-height: 0; overflow: hidden;
+  display: flex; gap: 18px; max-width: 1360px; width: 100%;
+  margin: 0 auto; padding: 18px 20px 12px;
 }
 .left {
   width: 380px; flex: none;
@@ -90,14 +94,12 @@ function gen(): void {
   border-radius: 18px; overflow: hidden;
 }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-bottom: 8px; padding-right: 12px; }
+/* 纵向 flex 里子项默认会被压缩（全局参数卡片被裁掉半截的根因），一律按自然高度排 */
+.main > * { flex: none; }
 .pad { height: 8px; }
 .actionbar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
-  background: color-mix(in srgb, rgb(var(--v-theme-surface)) 88%, transparent);
-  backdrop-filter: blur(10px); border-top: 1px solid rgba(var(--v-theme-outline), 0.4);
-}
-.actionbar > * { flex: none; }
-.actionbar {
+  flex: none; border-top: 1px solid rgba(var(--v-theme-outline), 0.4);
+  background: rgb(var(--v-theme-surface));
   display: flex; align-items: center; gap: 12px; padding: 11px 22px;
 }
 .prog { flex: 1; max-width: 300px; }
@@ -118,7 +120,9 @@ function gen(): void {
 .grow { flex: 1; }
 .err-dot { width: 8px; height: 8px; border-radius: 50%; background: rgb(var(--v-theme-error)); margin-left: 6px; }
 @media (max-width: 960px) {
-  .s2 { flex-direction: column; height: auto; overflow: visible; }
+  .screen { height: auto; padding-bottom: 64px; }
+  .s2 { flex-direction: column; overflow: visible; }
   .left { width: 100%; height: 320px; }
+  .actionbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; }
 }
 </style>
