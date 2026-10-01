@@ -1,4 +1,13 @@
 import { handle } from './app.ts'
+import { migrateLegacyEdits } from './projects.ts'
+import { appendLog } from './log.ts'
+
+// 启动时把旧 数据/编辑记录/*.json 迁入项目目录（09）；失败只记日志不拦启动
+try {
+  migrateLegacyEdits()
+} catch (e) {
+  appendLog('ERROR 迁移旧编辑记录失败：' + (e instanceof Error ? e.message : String(e)))
+}
 
 const BASE_PORT = 8300
 const MAX_TRIES = 10

@@ -34,6 +34,23 @@ function sampleDocx(): Buffer {
   })
 }
 
+/** 另一份内容不同的合成大纲（09 内容寻址：换名不换内容是同一项目，隔离必须换内容） */
+function otherDocx(): Buffer {
+  return buildDocxBuffer({
+    content: [
+      { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+      { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+      {
+        kind: 'tbl',
+        rows: itemTable('另一测试项', 'XQ_C_D', [
+          [DESC, '1.用例三（XQ_C_D001）\n用例三综述。'],
+          [METHOD, '1.用例三（XQ_C_D001）\n1）打开界面，查看显示是否正确；']
+        ])
+      }
+    ]
+  })
+}
+
 async function parse(name: string, buf: Buffer): Promise<any> {
   const form = new FormData()
   form.append('file', new File([new Uint8Array(buf)], name))
@@ -89,9 +106,10 @@ describe('M4 编辑持久化（05）', () => {
   })
 
   test('另一份大纲的编辑记录互不影响（05 影响域隔离）', async () => {
-    const data = await parse('测试大纲B.docx', sampleDocx())
-    expect(data.cases[0].steps[0].action).not.toBe('手工改过的操作步骤。')
+    // 09 内容寻址：同内容换名 = 同一项目，编辑随内容共享；隔离必须换内容
+    const data = await parse('测试大纲B.docx', otherDocx())
     expect(data.restored.cases).toBe(0)
+    expect(data.cases[0].steps[0].action).not.toBe('手工改过的操作步骤。')
   })
 
   test('损坏的编辑记录 JSON → 按无记录处理，解析不受影响（06）', async () => {

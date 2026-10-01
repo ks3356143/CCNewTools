@@ -6,8 +6,12 @@ import { convertToTemplateData } from '../core/convert/index.ts'
 import type { CaseRow } from '../core/convert/rows.ts'
 import { renderTemplate } from '../core/render/docx.ts'
 import { IssueCollector, DEFAULT_PARAMS, type GlobalParams } from '../core/domain.ts'
-import { sha132, editFileName, mergeRestored, EDIT_STATE_VERSION, type EditState, type StoredCase } from '../core/persistence.ts'
-import { loadSettings, saveSettings, loadEditState, saveEditState, type Settings } from './store.ts'
+import { sha132, mergeRestored, EDIT_STATE_VERSION, type EditState, type StoredCase } from '../core/persistence.ts'
+import { loadSettings, saveSettings, type Settings } from './store.ts'
+import {
+  listProjects, loadProject, deleteProject, recordParse, recordGenerated,
+  loadProjectEdits, saveProjectEdits, projectId, sourceFileOf
+} from './projects.ts'
 import { appendLog } from './log.ts'
 
 function templateFile(name: string): Buffer {
@@ -15,6 +19,46 @@ function templateFile(name: string): Buffer {
 }
 
 /** API 路由（F1~F7 的服务端部分） */
+
+/** 核对进度（05：可疑判定唯一入口在前端，服务端只随存档透传展示） */
+interface EditProgress {
+  reviewed: number
+  suspects: number
+}
+
+/** 解析大纲并套回项目内已存编辑（/api/parse 与 打开项目 共用，09） */
+function parseAndRestore(name: string, hash: string, bytes: Uint8Array) {
+  const office = readDocx(bytes)
+  const issues = new IssueCollector()
+  const parsed = extractOutline(office, issues)
+
+  const settings = loadSettings()
+  // 老设置文件可能缺新字段（如 configName），合并默认值
+  const params: GlobalParams = { ...DEFAULT_PARAMS, ...(settings.params ?? {}) }
+  const fresh = convertToTemplateData(parsed, params)
+
+  const state = loadProjectEdits(projectId(hash))
+  let cases: CaseRow[] = fresh.cases
+  let restored = { cases: 0, steps: 0, skipped: 0 }
+  if (state !== null) {
+    const r = mergeRestored(fresh.cases, state.cases)
+    cases = r.cases
+    restored = { cases: r.restoredCases, steps: r.restoredSteps, skipped: r.skippedCases }
+    appendLog(`解析 ${name}（哈希 ${hash.slice(0, 8)}）：恢复 ${r.restoredCases} 例 / ${r.restoredSteps} 步，跳过 ${r.skippedCases} 例`)
+  } else {
+    appendLog(`解析 ${name}（哈希 ${hash.slice(0, 8)}）：${parsed.stats.items} 项 / ${parsed.stats.cases} 例 / ${parsed.stats.steps} 步`)
+  }
+
+  return {
+    outline: { name: name, hash: hash },
+    stats: parsed.stats,
+    issues: parsed.issues,
+    cases: cases,
+    params: params,
+    theme: settings.theme,
+    restored: restored
+  }
+}
 
 export async function handleApi(req: Request, url: URL): Promise<Response> {
   try {
@@ -33,12 +77,35 @@ export async function handleApi(req: Request, url: URL): Promise<Response> {
       return await apiParse(req)
     }
     if (url.pathname === '/api/edits' && req.method === 'POST') {
-      const body = (await req.json()) as { outline: { name: string; hash: string }; cases: CaseRow[] }
-      await saveEdits(body.outline, body.cases)
+      const body = (await req.json()) as { outline: { name: string; hash: string }; cases: CaseRow[]; progress?: EditProgress | null }
+      await saveEdits(body.outline, body.cases, body.progress ?? null)
       return Response.json({ ok: true })
     }
     if (url.pathname === '/api/generate' && req.method === 'POST') {
       return await apiGenerate(req)
+    }
+    // 项目制本地数据管理（09）
+    if (url.pathname === '/api/projects' && req.method === 'GET') {
+      return Response.json({ ok: true, projects: listProjects() })
+    }
+    if (url.pathname === '/api/projects/open' && req.method === 'POST') {
+      const body = (await req.json()) as { id: string }
+      const p = loadProject(body.id)
+      if (p === null) {
+        return Response.json({ ok: false, error: '项目不存在' }, { status: 400 })
+      }
+      if (!p.meta.hasSource) {
+        return Response.json({ ok: false, needsSource: true, error: '该项目没有源文件副本，请重新上传原大纲', name: p.meta.name })
+      }
+      const buf = readFileSync(sourceFileOf(p.meta.id))
+      const data = parseAndRestore(p.meta.name, p.meta.hash, new Uint8Array(buf))
+      appendLog('打开项目 ' + p.meta.name)
+      return Response.json({ ok: true, ...data })
+    }
+    const mDelete = url.pathname.match(/^\/api\/projects\/([0-9a-f]{12})$/)
+    if (mDelete !== null && req.method === 'DELETE') {
+      deleteProject(mDelete[1])
+      return Response.json({ ok: true })
     }
     return Response.json({ ok: false, error: '未知接口 ' + url.pathname }, { status: 404 })
   } catch (e) {
@@ -58,37 +125,10 @@ async function apiParse(req: Request): Promise<Response> {
   const bytes = new Uint8Array(await file.arrayBuffer())
   const hash = sha132(bytes)
 
-  const office = readDocx(bytes)
-  const issues = new IssueCollector()
-  const parsed = extractOutline(office, issues)
-
-  const settings = loadSettings()
-  // 老设置文件可能缺新字段（如 configName），合并默认值
-  const params: GlobalParams = { ...DEFAULT_PARAMS, ...(settings.params ?? {}) }
-  const fresh = convertToTemplateData(parsed, params)
-
-  const state = loadEditState(editFileName(name, hash))
-  let cases: CaseRow[] = fresh.cases
-  let restored = { cases: 0, steps: 0, skipped: 0 }
-  if (state !== null) {
-    const r = mergeRestored(fresh.cases, state.cases)
-    cases = r.cases
-    restored = { cases: r.restoredCases, steps: r.restoredSteps, skipped: r.skippedCases }
-    appendLog(`解析 ${name}（哈希 ${hash.slice(0, 8)}）：恢复 ${r.restoredCases} 例 / ${r.restoredSteps} 步，跳过 ${r.skippedCases} 例`)
-  } else {
-    appendLog(`解析 ${name}（哈希 ${hash.slice(0, 8)}）：${parsed.stats.items} 项 / ${parsed.stats.cases} 例 / ${parsed.stats.steps} 步`)
-  }
-
-  return Response.json({
-    ok: true,
-    outline: { name: name, hash: hash },
-    stats: parsed.stats,
-    issues: parsed.issues,
-    cases: cases,
-    params: params,
-    theme: settings.theme,
-    restored: restored
-  })
+  const data = parseAndRestore(name, hash, bytes)
+  // 解析成功自动建档/更新（09）：写源副本、刷统计，已有编辑保留
+  recordParse(name, hash, bytes, data.stats)
+  return Response.json({ ok: true, ...data })
 }
 
 function storedCasesOf(cases: CaseRow[]): StoredCase[] {
@@ -101,24 +141,24 @@ function storedCasesOf(cases: CaseRow[]): StoredCase[] {
   }))
 }
 
-function apiEdits(req: Request): Response {
-  void req
-  return Response.json({ ok: false, error: '内部未使用' }, { status: 404 })
-}
-
-export async function saveEdits(outline: { name: string; hash: string }, cases: CaseRow[]): Promise<void> {
+export async function saveEdits(
+  outline: { name: string; hash: string },
+  cases: CaseRow[],
+  progress: EditProgress | null
+): Promise<void> {
   const state: EditState = {
     version: EDIT_STATE_VERSION,
     outline: outline,
     savedAt: new Date().toISOString(),
     cases: storedCasesOf(cases)
   }
-  saveEditState(editFileName(outline.name, outline.hash), state)
+  // 编辑存进项目文件（09），progress 随存档上报供列表展示
+  saveProjectEdits(outline, state, progress)
   appendLog(`保存编辑：${outline.name}（${state.cases.length} 例）`)
 }
 
 async function apiGenerate(req: Request): Promise<Response> {
-  const body = (await req.json()) as { outline: { name: string }; cases: CaseRow[]; params: GlobalParams }
+  const body = (await req.json()) as { outline: { name: string; hash?: string }; cases: CaseRow[]; params: GlobalParams }
   const cases = body.cases.filter(c => !c.excluded)
   if (cases.length === 0) {
     return Response.json({ ok: false, error: '没有可生成的用例（全部被排除？）' }, { status: 400 })
@@ -142,6 +182,8 @@ async function apiGenerate(req: Request): Promise<Response> {
   const recBuf = renderTemplate(templateFile('测试记录模板.docx'), { cases: cases, configName: configName })
   const base = body.outline.name.replace(/\.docx$/i, '')
   appendLog(`生成文档：${body.outline.name}，${cases.length} 例`)
+  // 生成成功后更新项目元信息（09）：文档本体不落盘
+  if (body.outline.hash) recordGenerated(body.outline.hash)
   return Response.json({
     ok: true,
     spec: specBuf.toString('base64'),

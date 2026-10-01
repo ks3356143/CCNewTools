@@ -60,3 +60,8 @@ export function loadEditState(fileName: string): EditState | null {
   }
   return null
 }
+
+/** 测试注入：绕过进程内缓存（bun test 单进程跑多个测试文件） */
+export function setDataRootForTests(dir: string): void {
+  cached = dir
+}

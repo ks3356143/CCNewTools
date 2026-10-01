@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
-import type { CaseRow, GlobalParams, Issue } from './types.ts'
-import { parseOutline, saveEdits, saveSettings, generate } from './api.ts'
+import type { CaseRow, GlobalParams, Issue, ParseResponse, ProjectMeta } from './types.ts'
+import { parseOutline, saveEdits, saveSettings, generate, listProjects, openProject } from './api.ts'
 import { DEFAULT_PARAMS } from '../../src/core/domain.ts'
 
 export interface Toast { text: string; show: boolean }
@@ -19,6 +19,7 @@ export const store = reactive({
   currentIdx: 0,
   generating: false,
   genResult: null as { spec: string; rec: string; specName: string; recName: string } | null,
+  projects: [] as ProjectMeta[],
   toast: { text: '', show: false } as Toast
 })
 
@@ -38,20 +39,56 @@ export async function doParse(file: File): Promise<void> {
       showToast(res.error ?? '解析失败')
       return
     }
-    store.outline = res.outline
-    store.stats = res.stats
-    store.issues = res.issues
-    store.cases = res.cases
-    store.params = res.params
-    store.theme = res.theme || 'light'
-    store.restored = res.restored
-    store.parsed = true
-    store.currentIdx = 0
-    if (res.restored.cases > 0) {
-      showToast('已恢复上次编辑：' + res.restored.cases + ' 处')
-    }
+    applyParseResult(res)
   } catch (e) {
     showToast(e instanceof Error ? e.message : '无法连接本地服务')
+  } finally {
+    store.parsing = false
+  }
+}
+
+/** 解析结果统一落库到 store（上传解析与打开项目共用）；解析建档成功后刷新最近项目列表 */
+function applyParseResult(res: ParseResponse): void {
+  store.outline = res.outline
+  store.stats = res.stats
+  store.issues = res.issues
+  store.cases = res.cases
+  store.params = res.params
+  store.theme = res.theme || 'light'
+  store.restored = res.restored
+  store.parsed = true
+  store.currentIdx = 0
+  if (res.restored.cases > 0) {
+    showToast('已恢复上次编辑：' + res.restored.cases + ' 处')
+  }
+  void loadProjects()
+}
+
+/** 拉取最近项目列表（失败静默，不影响主流程） */
+export async function loadProjects(): Promise<void> {
+  try {
+    store.projects = await listProjects()
+  } catch {
+    // 静默
+  }
+}
+
+/** 打开已有项目：服务端读源副本重新解析并恢复编辑；失败 toast 统一在此处理，调用方勿重复弹 */
+export async function openProjectById(id: string): Promise<boolean> {
+  store.parsing = true
+  try {
+    const res = await openProject(id)
+    if (!res.ok) {
+      showToast(res.error ?? '打开失败')
+      return false
+    }
+    applyParseResult(res)
+    store.screen = 2
+    showToast('已打开项目')
+    return true
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : '无法连接本地服务')
+    return false
   } finally {
     store.parsing = false
   }
@@ -62,7 +99,11 @@ export function scheduleSave(): void {
   if (!store.parsed) return
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
-    saveEdits(store.outline, store.cases).catch(() => {})
+    // 随存档上报核对进度（可疑判定唯一入口在前端，见 09 设计文档）
+    saveEdits(store.outline, store.cases, {
+      reviewed: store.cases.filter(c => c.reviewed).length,
+      suspects: store.cases.reduce((n, c) => n + activeSuspects(c), 0)
+    }).catch(() => {})
   }, 800)
 }
 

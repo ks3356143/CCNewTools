@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, useTemplateRef } from 'vue'
-import { store, doParse, activeSuspects } from '../store.ts'
-import type { Issue } from '../types.ts'
+import { ref, useTemplateRef, onMounted } from 'vue'
+import { store, doParse, activeSuspects, loadProjects, openProjectById, showToast } from '../store.ts'
+import { deleteProject } from '../api.ts'
+import type { Issue, ProjectMeta } from '../types.ts'
 
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 const dragging = ref(false)
@@ -30,6 +31,87 @@ async function startParse(f: File): Promise<void> {
   await doParse(f)
   progress.value = 100
   phase.value = store.parsed ? 'done' : 'idle'
+}
+
+// —— 最近项目 ——
+// Screen1 是 v-if 挂载，每次回到第一屏都会重挂载，onMounted 即拉最新列表
+onMounted(() => {
+  void loadProjects()
+})
+
+const clearArmed = ref(false) // 「清空全部」待确认状态
+const delArmed = ref<string | null>(null) // 待确认删除的项目 id
+let confirmTimer: ReturnType<typeof setTimeout> | undefined
+
+/** 两段式确认共用：3 秒未再点自动还原 */
+function armConfirm(): void {
+  clearTimeout(confirmTimer)
+  confirmTimer = setTimeout(() => {
+    clearArmed.value = false
+    delArmed.value = null
+  }, 3000)
+}
+
+/** 去掉 .docx 后缀用于展示 */
+function stripDocx(name: string): string {
+  return name.replace(/\.docx$/i, '')
+}
+/** 本地时间 "M/D HH:mm" */
+function fmtTime(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + hh + ':' + mm
+}
+
+/** 打开项目：复用 drop 区的解析中状态；失败 toast 由 openProjectById 统一处理 */
+async function openOne(p: ProjectMeta): Promise<void> {
+  if (phase.value !== 'idle') return
+  fileName.value = p.name
+  progress.value = 0
+  phase.value = 'parsing'
+  requestAnimationFrame(() => (progress.value = 70))
+  try {
+    await openProjectById(p.id)
+  } finally {
+    progress.value = 100
+    phase.value = 'idle' // 成功时页面已切到第二屏，这里只是复位本屏状态
+  }
+}
+
+/** 删除单个项目（两段式确认） */
+async function removeOne(p: ProjectMeta): Promise<void> {
+  if (delArmed.value !== p.id) {
+    delArmed.value = p.id
+    armConfirm()
+    return
+  }
+  clearTimeout(confirmTimer)
+  delArmed.value = null
+  const ok = await deleteProject(p.id).catch(() => false)
+  if (!ok) {
+    showToast('删除失败')
+    return
+  }
+  showToast('已删除项目')
+  await loadProjects()
+}
+
+/** 清空全部项目（两段式确认，逐个删除） */
+async function clearAll(): Promise<void> {
+  if (!clearArmed.value) {
+    clearArmed.value = true
+    armConfirm()
+    return
+  }
+  clearTimeout(confirmTimer)
+  clearArmed.value = false
+  for (const p of [...store.projects]) {
+    await deleteProject(p.id).catch(() => false)
+  }
+  await loadProjects()
+  showToast('已清空全部项目')
 }
 
 function issueIcon(level: Issue['level']): string {
@@ -86,6 +168,29 @@ function jumpTo(issue: Issue): void {
       </template>
     </div>
     <input ref="fileInput" type="file" accept=".docx" hidden @change="onFile" />
+
+    <!-- 最近项目 -->
+    <div v-if="phase === 'idle' && store.projects.length > 0" class="projects">
+      <div class="p-head">
+        <span class="p-title">最近项目</span>
+        <button class="p-clear" :class="{ armed: clearArmed }" @click="clearAll">{{ clearArmed ? '确认清空？' : '清空全部' }}</button>
+      </div>
+      <div class="p-list">
+        <div v-for="p in store.projects" :key="p.id" class="p-row">
+          <v-icon size="19" class="p-icon">mdi-folder-text-outline</v-icon>
+          <div class="p-main">
+            <div class="p-name">{{ stripDocx(p.name) }}</div>
+            <div class="p-meta">
+              <span>{{ fmtTime(p.updatedAt) }}</span><span v-if="p.stats"> · {{ p.stats.cases }} 用例</span><span v-if="p.progress"> · 已核对 {{ p.progress?.reviewed }}</span><span v-if="p.progress && p.progress.suspects > 0" class="p-suspect"> · 可疑 {{ p.progress.suspects }}</span><span v-if="!p.hasSource" class="p-nosource"> · 无源文件副本</span>
+            </div>
+          </div>
+          <div class="p-acts">
+            <v-btn size="small" variant="tonal" color="primary" :loading="store.parsing" @click="openOne(p)">打开</v-btn>
+            <v-btn size="small" variant="text" color="error" @click="removeOne(p)">{{ delArmed === p.id ? '确认删除' : '删除' }}</v-btn>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <template v-if="phase === 'done'">
       <div class="result">
@@ -164,4 +269,21 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 .stat span { display: block; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.6); margin-top: 2px; }
 .cta { display: flex; justify-content: center; margin-top: 18px; }
 .foot { text-align: center; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.5); margin-top: 20px; }
+
+.projects { margin-top: 18px; }
+.p-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding: 0 2px; }
+.p-title { font-size: 13px; font-weight: 600; color: rgba(var(--v-theme-on-surface), 0.75); }
+.p-clear { border: none; background: none; padding: 3px 6px; border-radius: 6px; font-size: 12.5px; color: rgba(var(--v-theme-on-surface), 0.55); cursor: pointer; }
+.p-clear:hover { color: rgb(var(--v-theme-error)); background: rgba(var(--v-theme-error), 0.08); }
+.p-clear.armed { color: rgb(var(--v-theme-error)); font-weight: 600; }
+.p-list { background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.6); border-radius: 13px; overflow: hidden; }
+.p-row { display: flex; align-items: center; gap: 11px; padding: 11px 14px; }
+.p-row + .p-row { border-top: 1px solid rgba(var(--v-theme-outline), 0.5); }
+.p-icon { color: rgba(var(--v-theme-primary), 0.8); flex: none; }
+.p-main { flex: 1; min-width: 0; }
+.p-name { font-size: 13.5px; font-weight: 550; color: rgb(var(--v-theme-on-surface)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-meta { margin-top: 2px; font-size: 12.5px; color: rgba(var(--v-theme-on-surface), 0.6); font-variant-numeric: tabular-nums; }
+.p-suspect { color: rgb(var(--v-theme-warning)); }
+.p-nosource { color: rgba(var(--v-theme-on-surface), 0.4); }
+.p-acts { display: flex; align-items: center; gap: 2px; flex: none; }
 </style>
