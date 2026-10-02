@@ -38,3 +38,15 @@ export interface GenerateResponse {
   specName: string
   recName: string
 }
+
+/** 树目录节点：按完整大纲路径逐级构建（与生成文档同构；2026-10-02 树镜像改造） */
+export interface PathNode {
+  /** 全链 key（祖先链参与），同名节点在不同分支不合并 */
+  key: string
+  name: string
+  children: PathNode[]
+  /** 挂在该层的用例（最深层=测试项级） */
+  cases: { row: CaseRow; idx: number }[]
+  /** 子树用例总数（自下而上累加） */
+  caseCount: number
+}

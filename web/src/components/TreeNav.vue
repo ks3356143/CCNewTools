@@ -2,67 +2,64 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { store, goCase } from '../store.ts'
 import { activeSuspects } from '../suspect.ts'
+import TreeLevel from './TreeLevel.vue'
+import type { PathNode } from '../types.ts'
 import type { CaseRow } from '../types.ts'
 
 const keyword = ref('')
 const bodyEl = ref<HTMLElement | null>(null)
 
-interface CaseNode { row: CaseRow; idx: number }
-interface ItemNode { name: string; cases: CaseNode[] }
-interface GroupNode { name: string; items: ItemNode[] }
-interface TypeNode { name: string; groups: GroupNode[]; caseCount: number }
-
-const tree = computed<TypeNode[]>(() => {
+// 树按完整大纲路径逐级构建（2026-10-02 树镜像改造）：树与生成文档同构，
+// XXX分系统/容器/类型/项 层层可见。idx 用 store.cases 真实下标（撞号不合并）。
+const tree = computed<PathNode[]>(() => {
   const kw = keyword.value.trim().toLowerCase()
-  const types: TypeNode[] = []
-
-  // idx 直接用 store.cases 的真实下标（2026-10-01 撞号 bug：此前按 caseId 建 Map，
-  // 撞号用例的 idx 被末位覆盖 → 树上 4 行同名齐高亮、其余 3 例永远点不到）
+  const roots: PathNode[] = []
+  // 全链 key 保证同名节点在不同分支独立
   for (const [i, c] of store.cases.entries()) {
     if (kw && !(c.mingcheng + c.caseId + c.itemId).toLowerCase().includes(kw)) continue
-    let t = types.find(x => x.name === c.typeName)
-    if (!t) { t = { name: c.typeName, groups: [], caseCount: 0 }; types.push(t) }
-    t.caseCount++
-    let g = t.groups.find(x => x.name === (c.groupName ?? ''))
-    if (!g) { g = { name: c.groupName ?? '', items: [] }; t.groups.push(g) }
-    let it = g.items.find(x => x.name === c.itemName)
-    if (!it) { it = { name: c.itemName, cases: [] }; g.items.push(it) }
-    it.cases.push({ row: c, idx: i })
-  }
-  return types
-})
-
-const opened = reactiveTypeSet()
-
-function reactiveTypeSet() {
-  const s = ref(new Set<string>())
-  return {
-    s,
-    toggle(key: string) {
-      const next = new Set(s.value)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      s.value = next
-    },
-    isOpen(key: string): boolean {
-      return !s.value.has(key)
+    let level = roots
+    let chain = ''
+    const pathTexts = c.path.map(p => p.text)
+    for (const [d, text] of pathTexts.entries()) {
+      chain = chain + '\u0000' + text
+      let node = level.find(n => n.key === chain)
+      if (!node) {
+        node = { key: chain, name: text, children: [], cases: [], caseCount: 0 }
+        level.push(node)
+      }
+      node.caseCount++
+      if (d < pathTexts.length - 1) level = node.children
+      else node.cases.push({ row: c, idx: i })
     }
   }
+  return roots
+})
+
+const collapsed = ref(new Set<string>())
+function toggle(key: string): void {
+  const next = new Set(collapsed.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  collapsed.value = next
 }
 
-// 当前用例变化（徽章跳转/上下条按钮）时：展开当前用例所属类型并滚动树到当前用例
+// 当前用例变化（徽章跳转/上下条按钮）时：展开当前用例的祖先链并滚动树到当前用例
 watch(() => store.currentIdx, async () => {
   const c = store.cases[store.currentIdx]
   if (!c) return
-  if (!opened.isOpen(c.typeName)) {
-    const next = new Set(opened.s.value)
-    next.delete(c.typeName)
-    opened.s.value = next
+  const chainSet = new Set(collapsed.value)
+  let chain = ''
+  for (const p of c.path) {
+    chain = chain + '\u0000' + p.text
+    chainSet.delete(chain)
   }
+  collapsed.value = chainSet
   await nextTick()
   bodyEl.value?.querySelector<HTMLElement>(`[data-idx="${store.currentIdx}"]`)
     ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 })
+
+const totalCases = computed(() => store.cases.length)
 </script>
 
 <template>
@@ -74,43 +71,20 @@ watch(() => store.currentIdx, async () => {
       variant="outlined" density="compact" hide-details
       class="search"
     />
-    <div class="note">数字为大纲中的实际用例数</div>
+    <div class="note">数字为该层下的实际用例数</div>
     <div ref="bodyEl" class="body">
-      <div v-for="t in tree" :key="t.name" class="type">
-        <button class="row type-row" @click="opened.toggle(t.name)">
-          <v-icon size="16" class="chev" :class="{ closed: !opened.isOpen(t.name) }">mdi-chevron-down</v-icon>
-          <span class="name">{{ t.name }}</span>
-          <span class="cnt">{{ keyword ? '' : t.caseCount }}</span>
-        </button>
-        <div v-show="opened.isOpen(t.name)" class="indent">
-          <div v-for="g in t.groups" :key="g.name">
-            <div v-if="g.name" class="item-row group">{{ g.name }}</div>
-            <div class="indent" :class="{ plain: !g.name }">
-              <div v-for="it in g.items" :key="it.name">
-                <div class="item-row">{{ it.name }}</div>
-                <div class="indent">
-                  <button
-                    v-for="cn in it.cases"
-                    :key="cn.row.caseId"
-                    class="row case-row"
-                    :data-idx="cn.idx"
-                    :class="{ cur: cn.idx === store.currentIdx }"
-                    @click="goCase(cn.idx)"
-                  >
-                    <v-icon v-if="cn.row.reviewed" size="13" color="success">mdi-check</v-icon>
-                    <span v-else class="dot-holder">
-                      <span v-if="activeSuspects(cn.row) > 0" class="dot" />
-                    </span>
-                    <span class="name" :class="{ excluded: cn.row.excluded }">{{ cn.row.mingcheng }}</span>
-                    <span class="cid">{{ cn.row.caseId }}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <TreeLevel
+        v-for="root in tree"
+        :key="root.key"
+        :node="root"
+        :collapsed="collapsed"
+        :depth="0"
+        @toggle="toggle"
+      />
       <div v-if="tree.length === 0" class="empty">没有匹配的用例</div>
+    </div>
+    <div v-if="keyword && tree.length > 0" class="found">
+      匹配 {{ tree.reduce((n, r) => n + r.caseCount, 0) }} / {{ totalCases }} 个用例
     </div>
   </div>
 </template>
@@ -121,22 +95,6 @@ watch(() => store.currentIdx, async () => {
 .search { margin: 12px 12px 6px; flex: none; }
 .note { font-size: 11.5px; color: rgba(var(--v-theme-on-surface), 0.55); padding: 2px 14px 8px; border-bottom: 1px solid rgba(var(--v-theme-outline), 0.3); }
 .body { overflow-y: auto; flex: 1; padding: 6px; }
-.row { width: 100%; display: flex; align-items: center; gap: 6px; border-radius: 8px; text-align: left; cursor: pointer; transition: background 0.13s, color 0.13s; }
-.row:hover { background: rgba(var(--v-theme-primary), 0.08); }
-.type-row { padding: 7px 8px; font-size: 14px; font-weight: 600; color: rgba(var(--v-theme-on-surface), 0.9); }
-.item-row { padding: 5px 8px; font-size: 13px; font-weight: 500; color: rgba(var(--v-theme-on-surface), 0.65); }
-.item-row.group { font-weight: 550; }
-.case-row { padding: 5px 10px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.75); }
-.case-row.cur { background: rgba(var(--v-theme-primary), 0.14); color: rgb(var(--v-theme-primary)); font-weight: 550; }
-.indent { margin-left: 14px; border-left: 1px solid rgba(var(--v-theme-outline), 0.35); padding-left: 5px; }
-.indent.plain { border-left: none; margin-left: 4px; }
-.chev { transition: transform 0.18s; }
-.chev.closed { transform: rotate(-90deg); }
-.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.name.excluded { text-decoration: line-through; opacity: 0.5; }
-.cnt { margin-left: auto; font-size: 11px; color: rgba(var(--v-theme-on-surface), 0.5); }
-.cid { margin-left: auto; font-family: Consolas, monospace; font-size: 10.5px; opacity: 0.65; }
-.dot-holder { width: 14px; display: inline-flex; justify-content: center; }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: rgb(var(--v-theme-error)); }
+.found { flex: none; font-size: 11.5px; color: rgba(var(--v-theme-on-surface), 0.55); padding: 6px 14px 8px; border-top: 1px solid rgba(var(--v-theme-outline), 0.3); }
 .empty { padding: 16px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.5); }
 </style>

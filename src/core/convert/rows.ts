@@ -1,4 +1,4 @@
-import type { TestItem, RawCase, GlobalParams, IssueCollector, RawStep } from '../domain.ts'
+import type { TestItem, RawCase, GlobalParams, IssueCollector, RawStep, PathEntry } from '../domain.ts'
 import { makeCaseId } from './caseId.ts'
 import { splitStepText, stripTrailingPunct, hasExpectKeyword } from './split.ts'
 
@@ -10,6 +10,8 @@ export interface CaseRow {
   head4: string | null
   head5: string | null
   head6: string | null
+  /** 完整大纲路径（树目录按此逐级展示，与生成文档同构；2026-10-02 树镜像改造） */
+  path: PathEntry[]
   typeName: string
   groupName: string | null
   itemName: string
@@ -182,6 +184,7 @@ export function buildRow(item: TestItem, c: RawCase, params: GlobalParams, issue
 
   return {
     head2: null, head3: null, head4: null, head5: null, head6: null, // 由 convertToTemplateData 槽位分配填充
+    path: item.path,
     typeName: item.typeName,
     groupName: item.groupName,
     itemName: item.itemName,

@@ -79,7 +79,9 @@ function stepClick(n: number): void {
     </v-app-bar>
 
     <v-main>
-      <Transition name="screen" mode="out-in">
+      <!-- 显式 duration：窗口隐藏时 CSS transitionend 不触发，mode="out-in" 会永久卡在
+           leave 阶段（实测复现）——显式值让 Vue 用 setTimeout 定界，不依赖动画事件 -->
+      <Transition name="screen" mode="out-in" :duration="180">
         <Screen1 v-if="store.screen === 1" />
         <Screen2 v-else-if="store.screen === 2" />
         <Screen3 v-else />
