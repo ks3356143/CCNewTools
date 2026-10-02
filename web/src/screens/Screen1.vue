@@ -232,8 +232,10 @@ function jumpTo(issue: Issue): void {
 .hero { text-align: center; }
 .badge {
   width: 68px; height: 68px; border-radius: 18px; margin: 0 auto 18px;
-  background: rgba(var(--v-theme-primary), 0.14); color: rgb(var(--v-theme-primary));
+  background: linear-gradient(135deg, #3d6fb5 0%, #2D5B91 60%, #24507f 100%);
+  color: #fff;
   display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 18px rgba(45, 91, 145, 0.28);
 }
 h1 { font-size: 23px; font-weight: 650; }
 p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14px; }
@@ -273,6 +275,12 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 .stat b { display: block; font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; color: rgb(var(--v-theme-primary)); }
 .stat span { display: block; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.6); margin-top: 2px; }
 .cta { display: flex; justify-content: center; margin-top: 18px; }
+/* 主 CTA 渐变（页面唯一的大按钮，让行动点醒目） */
+.cta :deep(.v-btn) {
+  background: linear-gradient(135deg, #3d6fb5 0%, #2D5B91 55%, #24507f 100%);
+  box-shadow: 0 4px 14px rgba(45, 91, 145, 0.32);
+}
+.cta :deep(.v-btn:hover) { box-shadow: 0 6px 18px rgba(45, 91, 145, 0.4); }
 .foot { text-align: center; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.5); margin-top: 20px; }
 
 .projects { margin-top: 18px; }

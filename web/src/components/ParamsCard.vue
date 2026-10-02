@@ -16,25 +16,27 @@ function onInput(): void {
       <span class="sub">对所有用例生效，正式版会记住上次填写内容</span>
       <v-icon class="chev" :class="{ closed: !open }">mdi-chevron-down</v-icon>
     </div>
-    <div v-show="open" class="body">
-      <v-text-field
-        v-model="store.params.configName"
-        label='软件配置项名称（"测试说明"、"需求追踪表"章标题使用）'
-        placeholder="如：BCD星指令生成与发控软件配置项"
-        variant="outlined" density="compact" hide-details class="f wide"
-        @update:model-value="onInput"
-      />
-      <div class="grid2">
-        <v-text-field v-model="store.params.init" label="用例初始化" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
-        <v-text-field v-model="store.params.constraint" label="前提和约束" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+    <v-expand-transition>
+      <div v-show="open" class="body">
+        <v-text-field
+          v-model="store.params.configName"
+          label='软件配置项名称（"测试说明"、"需求追踪表"章标题使用）'
+          placeholder="如：BCD星指令生成与发控软件配置项"
+          variant="outlined" density="compact" hide-details class="f wide"
+          @update:model-value="onInput"
+        />
+        <div class="grid2">
+          <v-text-field v-model="store.params.init" label="用例初始化" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+          <v-text-field v-model="store.params.constraint" label="前提和约束" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+        </div>
+        <div class="grid4">
+          <v-text-field v-model="store.params.designer" label="设计人员" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+          <v-text-field v-model="store.params.testTime" label="测试时间" type="date" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+          <v-text-field v-model="store.params.tester" label="测试人员 *" placeholder="必填" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+          <v-text-field v-model="store.params.monitor" label="监测人员 *" placeholder="必填" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+        </div>
       </div>
-      <div class="grid4">
-        <v-text-field v-model="store.params.designer" label="设计人员" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
-        <v-text-field v-model="store.params.testTime" label="测试时间" type="date" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
-        <v-text-field v-model="store.params.tester" label="测试人员 *" placeholder="必填" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
-        <v-text-field v-model="store.params.monitor" label="监测人员 *" placeholder="必填" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
-      </div>
-    </div>
+    </v-expand-transition>
   </v-card>
 </template>
 

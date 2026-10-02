@@ -108,6 +108,8 @@ function renumber(): void {
   color: rgba(var(--v-theme-on-surface), 0.65);
 }
 .steps td { padding: 10px 12px; vertical-align: middle; border-bottom: 1px solid rgba(var(--v-theme-outline), 0.35); font-size: 13.5px; line-height: 1.65; }
+/* 斑马纹（可读性）：偶数行浅底，避开可疑行的高亮语义 */
+.steps tbody tr:nth-child(even):not(.suspect) td { background: rgba(var(--v-theme-primary), 0.025); }
 .steps tr:last-child td { border-bottom: none; }
 .c { text-align: center; }
 .c-no { width: 44px; color: rgba(var(--v-theme-on-surface), 0.6); font-variant-numeric: tabular-nums; }

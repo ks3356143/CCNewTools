@@ -95,6 +95,10 @@ function stepClick(n: number): void {
 </template>
 
 <style scoped>
+/* 顶栏品牌渐变（2026-10-02 用户要求"全局上一点颜色"）：主色同系深浅渐变 */
+.v-app-bar {
+  background: linear-gradient(120deg, #33639e 0%, #2D5B91 45%, #234a7c 100%) !important;
+}
 .mark {
   width: 32px; height: 32px; border-radius: 9px; margin-left: 14px;
   background: rgba(255, 255, 255, 0.18); color: #fff;

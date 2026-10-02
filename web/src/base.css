@@ -14,6 +14,14 @@
   line-height: 1.44;
 }
 
+/* 主背景顶部氛围（2026-10-02 用户要求"全局上一点颜色"）：
+   顶部一层主色薄雾渐入，页面不显苍白；用主题 token 深浅主题都自然 */
+.v-main {
+  background:
+    linear-gradient(180deg, rgba(var(--v-theme-primary), 0.07), rgba(var(--v-theme-primary), 0) 340px),
+    rgb(var(--v-theme-background));
+}
+
 /* v-text-field 输入文字垂直居中（2026-10-01 用户反馈"文字偏上"）：
    中文 fallback 字体 16px 的字形盒 ≈22.9px，在默认 24px 行盒内顶部对齐 → 墨迹偏上 ~1.1px；
    行盒收 1px 后，input(flex, align-items:center) 令字形盒在内容区上下对称 */
@@ -26,6 +34,11 @@
 .v-field__input {
   padding-top: 10px;
   padding-bottom: 6px;
+}
+/* 前后图标与下移后的文字保持同一中线（文字中心下移 2px，图标同步） */
+.v-field__prepend-inner,
+.v-field__append-inner {
+  transform: translateY(2px);
 }
 
 /* 自定义按钮基（仅针对本项目自建按钮类，不重置 v-btn） */

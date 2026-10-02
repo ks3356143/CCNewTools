@@ -28,6 +28,12 @@ function xmlParse(xml: string, what: string): Document {
  */
 export function readDocx(data: Uint8Array): OfficeFile {
   // 魔数判别（06-错误处理：导入阶段终止性错误）
+  if (data.length === 0) {
+    throw new Error('文件为空，请确认选择的是大纲原文')
+  }
+  if (data.length > 20 * 1024 * 1024) {
+    throw new Error('文件超过 20MB，解析可能较慢，请确认是大纲原文')
+  }
   const magic = data.length >= 4 ? [data[0], data[1], data[2], data[3]] : []
   if (magic[0] === 0xd0 && magic[1] === 0xcf && magic[2] === 0x11 && magic[3] === 0xe0) {
     throw new Error('这是旧版 .doc 格式（或已加密的文档），请用 Word 另存为 .docx 后再导入')
@@ -41,6 +47,11 @@ export function readDocx(data: Uint8Array): OfficeFile {
     files = unzipSync(new Uint8Array(data))
   } catch {
     throw new Error('文件损坏或不是有效的 Word 文档（zip 解析失败）')
+  }
+
+  // 加密文档检测（06：zip 内含 EncryptionInfo/EncryptedPackage 即为加密包）
+  if (files['EncryptionInfo'] || files['EncryptedPackage']) {
+    throw new Error('文档已加密，请解密后重新另存为 .docx 再导入')
   }
 
   const docXml = files['word/document.xml']

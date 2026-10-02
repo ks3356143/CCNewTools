@@ -124,8 +124,10 @@ const recKB = computed(() => (store.genResult ? base64KB(store.genResult.rec) : 
 .done { text-align: center; }
 .badge {
   width: 72px; height: 72px; border-radius: 18px; margin: 0 auto 18px;
-  background: rgba(var(--v-theme-success), 0.15); color: rgb(var(--v-theme-success));
+  background: linear-gradient(135deg, #3d9950 0%, #2a7d3c 100%);
+  color: #fff;
   display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 18px rgba(42, 125, 60, 0.3);
 }
 h1 { font-size: 22px; font-weight: 650; }
 .sub { margin-top: 7px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 13.5px; }
