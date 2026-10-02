@@ -119,11 +119,11 @@ function gen(): void {
 }
 .s2 {
   flex: 1; min-height: 0; overflow: hidden;
-  display: flex; gap: 18px; max-width: 1360px; width: 100%;
+  display: flex; gap: 18px; width: 100%;
   margin: 0 auto; padding: 18px 20px 12px;
 }
 .left {
-  width: 380px; flex: none;
+  width: 500px; flex: none;
   display: flex; flex-direction: column; min-height: 0;
   background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.5);
   border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);

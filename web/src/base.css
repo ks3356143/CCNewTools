@@ -21,6 +21,12 @@
 .v-label {
   line-height: 23px;
 }
+/* 值文字再下移 2px（2026-10-02 用户截图实测其环境仍偏上 ~3px；preview 环境像素扫描为居中，
+   属 DPR/浏览器缩放的取整差异——统一补偿 2px，以用户验收为准） */
+.v-field__input {
+  padding-top: 10px;
+  padding-bottom: 6px;
+}
 
 /* 自定义按钮基（仅针对本项目自建按钮类，不重置 v-btn） */
 button.step,
