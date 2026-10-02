@@ -29,8 +29,9 @@ const vuetify = createVuetify({
           error: '#B3261E',
           appbar: '#2D5B91',
           // MD3 outline 色：Vuetify 4 不再内置 --v-theme-outline，
-          // 界面所有细分隔线/边框都引用该 token，缺了会被浏览器整条丢弃
-          outline: '#79747E'
+          // 界面所有细分隔线/边框都引用该 token，缺了会被浏览器整条丢弃。
+          // 冷灰蓝（与品牌蓝同色相，2026-10-02 美化：原 MD3 紫灰 #79747E 与蓝系主色不搭）
+          outline: '#BFC9D6'
         }
       },
       dark: {
@@ -44,7 +45,7 @@ const vuetify = createVuetify({
           warning: '#F0C463',
           error: '#F2B8B5',
           appbar: '#1E3A5F',
-          outline: '#938F99'
+          outline: '#46536B'
         }
       }
     }

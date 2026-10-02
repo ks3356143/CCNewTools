@@ -115,12 +115,6 @@ async function clearAll(): Promise<void> {
   showToast('已清空全部项目')
 }
 
-function issueIcon(level: Issue['level']): string {
-  return level === 'error' ? 'mdi-close-circle' : level === 'warning' ? 'mdi-alert' : 'mdi-information'
-}
-function issueColor(level: Issue['level']): string {
-  return level === 'error' ? 'error' : level === 'warning' ? 'warning' : 'info'
-}
 function issueCounts(): string {
   const c = { error: 0, warning: 0, info: 0 }
   for (const i of store.issues) c[i.level]++
@@ -174,7 +168,9 @@ function jumpTo(issue: Issue): void {
     <div v-if="phase === 'idle' && store.projects.length > 0" class="projects">
       <div class="p-head">
         <span class="p-title">最近项目</span>
-        <button class="p-clear" :class="{ armed: clearArmed }" @click="clearAll">{{ clearArmed ? '确认清空？' : '清空全部' }}</button>
+        <v-btn size="x-small" variant="text" color="error" :class="{ armed: clearArmed }" @click="clearAll">
+          <v-icon v-if="clearArmed" size="13" class="mr-1">mdi-alert</v-icon>{{ clearArmed ? '确认清空？' : '清空全部' }}
+        </v-btn>
       </div>
       <div class="p-list">
         <div v-for="p in store.projects" :key="p.id" class="p-row">
@@ -187,7 +183,7 @@ function jumpTo(issue: Issue): void {
           </div>
           <div class="p-acts">
             <v-btn size="small" variant="tonal" color="primary" :loading="store.parsing" @click="openOne(p)">打开</v-btn>
-            <v-btn size="small" variant="text" color="error" @click="removeOne(p)">{{ delArmed === p.id ? '确认删除' : '删除' }}</v-btn>
+            <v-btn size="small" :variant="delArmed === p.id ? 'flat' : 'text'" color="error" class="p-del" @click="removeOne(p)">{{ delArmed === p.id ? '确认删除' : '删除' }}</v-btn>
           </div>
         </div>
       </div>
@@ -201,21 +197,29 @@ function jumpTo(issue: Issue): void {
             <span v-if="store.restored.cases > 0">；已恢复上次编辑 {{ store.restored.cases }} 处</span>
           </span>
         </v-alert>
-        <button v-for="(iss, i) in store.issues" :key="i" class="alert row-alert" :class="iss.level" @click="jumpTo(iss)">
-          <v-icon size="17">{{ issueIcon(iss.level) }}</v-icon>
-          <span class="iss-text">{{ iss.context ? '【' + iss.context + '】' : '' }}{{ iss.message }}</span>
-          <v-icon size="14" class="go">mdi-chevron-right</v-icon>
-        </button>
+        <v-alert
+          v-for="(iss, i) in store.issues" :key="i"
+          :type="iss.level === 'error' ? 'error' : iss.level === 'warning' ? 'warning' : 'info'"
+          variant="outlined" density="compact" class="row-alert"
+          @click="jumpTo(iss)"
+        >
+          <div class="iss-inner">
+            <span class="iss-text">{{ iss.context ? '【' + iss.context + '】' : '' }}{{ iss.message }}</span>
+            <v-icon size="14" class="go">mdi-chevron-right</v-icon>
+          </div>
+        </v-alert>
 
-        <div class="band">
+        <v-card rounded="14" elevation="1" class="band">
           <div class="stat"><b>{{ store.stats.items }}</b><span>测试项</span></div>
           <div class="stat"><b>{{ store.stats.cases }}</b><span>测试用例</span></div>
           <div class="stat"><b>{{ store.stats.steps }}</b><span>测试步骤</span></div>
           <div class="stat"><b>{{ store.cases.reduce((n, c) => n + activeSuspects(c), 0) }}</b><span>切分可疑待核对</span></div>
-        </div>
+        </v-card>
 
         <div class="cta">
-          <v-btn color="primary" rounded="pill" size="large" @click="store.screen = 2">开始核对与编辑</v-btn>
+          <v-btn color="primary" rounded="pill" size="large" @click="store.screen = 2">
+            开始核对与编辑<v-icon size="17" class="ml-2">mdi-arrow-right</v-icon>
+          </v-btn>
         </div>
       </div>
       <div class="foot">离线运行，文档内容不出本机。</div>
@@ -227,19 +231,21 @@ function jumpTo(issue: Issue): void {
 .wrap { max-width: 680px; margin: 26px auto 0; padding: 0 22px 40px; }
 .hero { text-align: center; }
 .badge {
-  width: 68px; height: 68px; border-radius: 21px; margin: 0 auto 18px;
+  width: 68px; height: 68px; border-radius: 18px; margin: 0 auto 18px;
   background: rgba(var(--v-theme-primary), 0.14); color: rgb(var(--v-theme-primary));
   display: flex; align-items: center; justify-content: center;
 }
 h1 { font-size: 23px; font-weight: 650; }
 p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14px; }
 .drop {
-  margin-top: 24px; padding: 42px 28px; border-radius: 20px; text-align: center;
+  margin-top: 24px; padding: 42px 28px; border-radius: 16px; text-align: center;
   border: 1.6px dashed rgba(var(--v-theme-outline), 1); background: rgb(var(--v-theme-surface));
-  cursor: pointer; transition: border-color 0.2s, background 0.2s;
+  cursor: pointer; transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
-.drop:hover, .drop.over { border-color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.06); }
+.drop:hover, .drop.over { border-color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.06); box-shadow: 0 2px 10px rgba(45, 91, 145, 0.08); }
 .drop.parsing { cursor: default; }
+.drop :deep(.v-icon) { transition: transform 0.2s ease-out; }
+.drop:hover :deep(.v-icon) { transform: translateY(-3px); }
 .dt { margin-top: 12px; font-size: 15.5px; font-weight: 550; }
 .dc { margin-top: 5px; font-size: 12.5px; color: rgba(var(--v-theme-on-surface), 0.6); }
 .dn { margin-top: 13px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.65); }
@@ -249,36 +255,39 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 
 .result { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
 .alert {
-  display: flex; align-items: flex-start; gap: 11px; padding: 12px 16px; border-radius: 13px;
+  display: flex; align-items: flex-start; gap: 11px; padding: 12px 16px; border-radius: 14px;
   font-size: 13.5px; text-align: left; width: 100%;
 }
 .alert b { font-weight: 650; }
 .ok-alert { font-size: 13.5px; text-align: left; }
-.row-alert { background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.6); color: rgb(var(--v-theme-on-surface)); cursor: pointer; }
-.row-alert:hover { border-color: rgb(var(--v-theme-primary)); }
-.row-alert.error { color: rgb(var(--v-theme-error)); }
-.row-alert.warning { color: rgb(var(--v-theme-warning)); }
-.row-alert.info { color: rgba(var(--v-theme-on-surface), 0.75); }
-.iss-text { flex: 1; }
-.go { opacity: 0.4; flex: none; align-self: center; }
+/* v-alert outlined（问题清单行，2026-10-02 组件化）：v-alert 自带类型色边框与图标，这里只补可点击语义 */
+.row-alert { cursor: pointer; font-size: 13.5px; transition: box-shadow 0.15s, background 0.15s; }
+.row-alert:hover { background: rgba(var(--v-theme-primary), 0.04); box-shadow: 0 2px 8px rgba(45, 91, 145, 0.1); }
+.iss-inner { display: flex; align-items: center; gap: 8px; }
+.iss-text { flex: 1; text-align: left; }
+.go { opacity: 0.4; flex: none; }
 
-.band { display: flex; background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.6); border-radius: 13px; overflow: hidden; }
+.band { display: flex; overflow: hidden; }
 .stat { flex: 1; padding: 15px 8px 13px; text-align: center; }
-.stat + .stat { border-left: 1px solid rgba(var(--v-theme-outline), 0.5); }
-.stat b { display: block; font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.stat + .stat { border-left: 1px solid rgba(var(--v-theme-outline), 0.45); }
+.stat b { display: block; font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; color: rgb(var(--v-theme-primary)); }
 .stat span { display: block; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.6); margin-top: 2px; }
 .cta { display: flex; justify-content: center; margin-top: 18px; }
 .foot { text-align: center; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.5); margin-top: 20px; }
 
 .projects { margin-top: 18px; }
-.p-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding: 0 2px; }
+.p-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; padding: 0 2px; }
 .p-title { font-size: 13px; font-weight: 600; color: rgba(var(--v-theme-on-surface), 0.75); }
 .p-clear { border: none; background: none; padding: 3px 6px; border-radius: 6px; font-size: 12.5px; color: rgba(var(--v-theme-on-surface), 0.55); cursor: pointer; }
 .p-clear:hover { color: rgb(var(--v-theme-error)); background: rgba(var(--v-theme-error), 0.08); }
 .p-clear.armed { color: rgb(var(--v-theme-error)); font-weight: 600; }
-.p-list { background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.6); border-radius: 13px; overflow: hidden; }
-.p-row { display: flex; align-items: center; gap: 11px; padding: 11px 14px; }
-.p-row + .p-row { border-top: 1px solid rgba(var(--v-theme-outline), 0.5); }
+.p-list {
+  background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.55);
+  border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+.p-row { display: flex; align-items: center; gap: 11px; padding: 11px 14px; transition: background 0.15s; }
+.p-row:hover { background: rgba(var(--v-theme-primary), 0.045); }
+.p-row + .p-row { border-top: 1px solid rgba(var(--v-theme-outline), 0.45); }
 .p-icon { color: rgba(var(--v-theme-primary), 0.8); flex: none; }
 .p-main { flex: 1; min-width: 0; }
 .p-name { font-size: 13.5px; font-weight: 550; color: rgb(var(--v-theme-on-surface)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -286,4 +295,5 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 .p-suspect { color: rgb(var(--v-theme-error)); }
 .p-nosource { color: rgba(var(--v-theme-on-surface), 0.4); }
 .p-acts { display: flex; align-items: center; gap: 2px; flex: none; }
+.p-del { min-width: 82px; }
 </style>

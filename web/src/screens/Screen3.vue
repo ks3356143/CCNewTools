@@ -44,7 +44,7 @@ const recKB = computed(() => (store.genResult ? base64KB(store.genResult.rec) : 
 <template>
   <div class="wrap">
     <div v-if="phase === 'gen'" class="gen">
-      <v-card rounded="lg" elevation="1" class="card">
+      <v-card rounded="14" elevation="1" class="card">
         <div class="title">正在生成文档</div>
         <div class="row"><span>正在按测试项表格逐张渲染</span><b>{{ pct }}%</b></div>
         <div class="bar"><i :style="{ width: pct + '%' }" /></div>
@@ -65,7 +65,7 @@ const recKB = computed(() => (store.genResult ? base64KB(store.genResult.rec) : 
         <template v-for="w in store.genWarnings" :key="w">{{ w }}。<br /></template>
         建议返回核对后再出正式文档。
       </v-alert>
-      <v-card rounded="lg" elevation="1" class="files">
+      <v-card rounded="14" elevation="1" class="files">
         <div class="frow">
           <v-icon size="21" color="primary">mdi-file-word-box</v-icon>
           <div class="fi">
@@ -123,14 +123,15 @@ const recKB = computed(() => (store.genResult ? base64KB(store.genResult.rec) : 
 .lt.warn { color: #e8c36a; }
 .done { text-align: center; }
 .badge {
-  width: 72px; height: 72px; border-radius: 24px; margin: 0 auto 18px;
+  width: 72px; height: 72px; border-radius: 18px; margin: 0 auto 18px;
   background: rgba(var(--v-theme-success), 0.15); color: rgb(var(--v-theme-success));
   display: flex; align-items: center; justify-content: center;
 }
 h1 { font-size: 22px; font-weight: 650; }
 .sub { margin-top: 7px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 13.5px; }
 .files { margin-top: 22px; text-align: left; overflow: hidden; }
-.frow { display: flex; align-items: center; gap: 13px; padding: 14px 18px; }
+.frow { display: flex; align-items: center; gap: 13px; padding: 14px 18px; transition: background 0.15s; }
+.frow:hover { background: rgba(var(--v-theme-primary), 0.04); }
 .frow + .frow { border-top: 1px solid rgba(var(--v-theme-outline), 0.45); }
 .fi { flex: 1; min-width: 0; }
 .fn { font-size: 14px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

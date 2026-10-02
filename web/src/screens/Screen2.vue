@@ -83,12 +83,12 @@ function gen(): void {
                 告警 {{ warnCount }}
               </button>
             </template>
-            <div class="isslist">
+            <v-card rounded="10" elevation="8" class="isslist">
               <div v-for="(w, i) in warningList" :key="i" class="iss-row">
                 <span class="iss-tag">{{ w.context ? '【' + w.context + '】' : '' }}</span>
                 <span>{{ w.message }}</span>
               </div>
-            </div>
+            </v-card>
           </v-menu>
         </div>
         <div class="bar"><i :class="{ done: store.cases.length > 0 && reviewedCount === store.cases.length }" :style="{ width: (store.cases.length ? (reviewedCount / store.cases.length) * 100 : 0) + '%' }" /></div>
@@ -126,7 +126,7 @@ function gen(): void {
   width: 380px; flex: none;
   display: flex; flex-direction: column; min-height: 0;
   background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.5);
-  border-radius: 18px; overflow: hidden;
+  border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
 }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-bottom: 8px; padding-right: 12px; }
 /* 纵向 flex 里子项默认会被压缩（全局参数卡片被裁掉半截的根因），一律按自然高度排 */
@@ -151,12 +151,11 @@ function gen(): void {
 }
 .prog .txt .sus.zero { color: rgb(var(--v-theme-success)); background: rgba(var(--v-theme-success), 0.13); cursor: default; }
 .prog .txt .sus.warn { color: rgb(var(--v-theme-warning)); background: rgba(var(--v-theme-warning), 0.14); }
-/* 告警胶囊的弹出清单（重开项目路径的问题可见性，2026-10-01） */
+/* 告警胶囊的弹出清单（重开项目路径的问题可见性，2026-10-01）；容器改 v-card（2026-10-02 组件化） */
 .isslist {
   max-width: 560px; max-height: 320px; overflow-y: auto;
-  background: rgb(var(--v-theme-surface)); color: rgba(var(--v-theme-on-surface), 0.85);
-  border-radius: 10px; padding: 6px 4px; font-size: 12.5px; line-height: 1.6;
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.16);
+  color: rgba(var(--v-theme-on-surface), 0.85);
+  padding: 6px 4px; font-size: 12.5px; line-height: 1.6;
 }
 .iss-row { display: flex; gap: 6px; padding: 4px 10px; text-align: left; align-items: flex-start; }
 .iss-row + .iss-row { border-top: 1px solid rgba(var(--v-theme-outline), 0.25); }

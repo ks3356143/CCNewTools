@@ -55,7 +55,7 @@ function onChanged(): void {
     </div>
     <div class="summary"><b>用例综述：</b>{{ row.summary || '（空）' }}</div>
 
-    <v-card rounded="lg" elevation="1" class="table-card" :class="{ dim: row.excluded }">
+    <v-card rounded="14" elevation="1" class="table-card" :class="{ dim: row.excluded }">
       <div class="tbl-head">
         <span class="t">测试步骤</span>
         <span class="hint">单击单元格修改，自动保存</span>
@@ -73,7 +73,7 @@ function onChanged(): void {
 .title-row h2 { font-size: 21px; font-weight: 650; }
 .btns { margin-left: auto; display: flex; gap: 8px; }
 .chips { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-.chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 11px; border-radius: 8px; font-size: 12.5px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 11px; border-radius: 999px; font-size: 12.5px; }
 .chip .k { opacity: 0.66; }
 .mono { font-family: Consolas, monospace; font-size: 11.5px; }
 .chip.id1 { background: rgba(var(--v-theme-primary), 0.14); color: rgb(var(--v-theme-primary)); }

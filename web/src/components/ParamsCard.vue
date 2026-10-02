@@ -10,7 +10,7 @@ function onInput(): void {
 </script>
 
 <template>
-  <v-card rounded="lg" elevation="1">
+  <v-card rounded="14" elevation="1">
     <div class="head" @click="open = !open">
       <span class="t">全局参数</span>
       <span class="sub">对所有用例生效，正式版会记住上次填写内容</span>

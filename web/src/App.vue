@@ -79,9 +79,11 @@ function stepClick(n: number): void {
     </v-app-bar>
 
     <v-main>
-      <Screen1 v-if="store.screen === 1" />
-      <Screen2 v-else-if="store.screen === 2" />
-      <Screen3 v-else />
+      <Transition name="screen" mode="out-in">
+        <Screen1 v-if="store.screen === 1" />
+        <Screen2 v-else-if="store.screen === 2" />
+        <Screen3 v-else />
+      </Transition>
     </v-main>
 
     <v-snackbar v-model="store.toast.show" location="bottom" timeout="2600" rounded="lg">
@@ -107,7 +109,8 @@ function stepClick(n: number): void {
 /* 三屏导航绝对居中（2026-10-01 用户反馈）：左右两侧内容宽度不等（左标题长、右仅一个按钮），
    两个等宽 spacer 会把导航推偏；改为相对整个顶栏居中，不受两侧宽度影响 */
 .stepper { display: flex; align-items: center; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
-.step { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 999px; color: rgba(255, 255, 255, 0.75); }
+.step { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 999px; color: rgba(255, 255, 255, 0.75); transition: background 0.15s, color 0.15s; }
+.step:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
 .dot {
   width: 24px; height: 24px; border-radius: 50%; flex: none;
   border: 1.4px solid rgba(255, 255, 255, 0.6);
@@ -120,6 +123,13 @@ function stepClick(n: number): void {
 .step.done { color: rgba(255, 255, 255, 0.92); }
 .step.done .dot { background: rgba(255, 255, 255, 0.25); border-color: transparent; }
 .link { width: 24px; height: 1.4px; background: rgba(255, 255, 255, 0.45); margin: 0 3px; }
+/* 三屏切换过渡（Micro-interactions：180ms fade-slide，respect reduced-motion） */
+.screen-enter-active, .screen-leave-active { transition: opacity 0.18s ease-out, transform 0.18s ease-out; }
+.screen-enter-from { opacity: 0; transform: translateY(6px); }
+.screen-leave-to { opacity: 0; transform: translateY(-4px); }
+@media (prefers-reduced-motion: reduce) {
+  .screen-enter-active, .screen-leave-active { transition: none; }
+}
 @media (max-width: 940px) { .lbl { display: none; } .link { width: 14px; } }
 /* 绝对居中的导航不感知两侧内容，窄窗口靠分档收缩防撞（2026-10-01 用户反馈移动端与版本徽标重叠）：
    ≤940 藏导航文字、≤700 藏应用标题（图标与版本徽标保留） */

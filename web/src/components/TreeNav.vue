@@ -121,7 +121,7 @@ watch(() => store.currentIdx, async () => {
 .search { margin: 12px 12px 6px; flex: none; }
 .note { font-size: 11.5px; color: rgba(var(--v-theme-on-surface), 0.55); padding: 2px 14px 8px; border-bottom: 1px solid rgba(var(--v-theme-outline), 0.3); }
 .body { overflow-y: auto; flex: 1; padding: 6px; }
-.row { width: 100%; display: flex; align-items: center; gap: 6px; border-radius: 8px; text-align: left; cursor: pointer; }
+.row { width: 100%; display: flex; align-items: center; gap: 6px; border-radius: 8px; text-align: left; cursor: pointer; transition: background 0.13s, color 0.13s; }
 .row:hover { background: rgba(var(--v-theme-primary), 0.08); }
 .type-row { padding: 7px 8px; font-size: 14px; font-weight: 600; color: rgba(var(--v-theme-on-surface), 0.9); }
 .item-row { padding: 5px 8px; font-size: 13px; font-weight: 500; color: rgba(var(--v-theme-on-surface), 0.65); }
@@ -137,6 +137,6 @@ watch(() => store.currentIdx, async () => {
 .cnt { margin-left: auto; font-size: 11px; color: rgba(var(--v-theme-on-surface), 0.5); }
 .cid { margin-left: auto; font-family: Consolas, monospace; font-size: 10.5px; opacity: 0.65; }
 .dot-holder { width: 14px; display: inline-flex; justify-content: center; }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: rgb(var(--v-theme-warning)); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: rgb(var(--v-theme-error)); }
 .empty { padding: 16px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.5); }
 </style>

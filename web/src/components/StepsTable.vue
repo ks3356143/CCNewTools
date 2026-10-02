@@ -112,7 +112,9 @@ function renumber(): void {
 .c { text-align: center; }
 .c-no { width: 44px; color: rgba(var(--v-theme-on-surface), 0.6); font-variant-numeric: tabular-nums; }
 .c-act { width: 42%; }
-.c-ops { width: 92px; }
+/* 操作列：4 个 32px 图标按钮 + gap/padding = 140px，列宽必须盖住（2026-10-02 用户反馈"操作图标显示不全"，
+   旧值 92/104px 盒子溢出被表格裁切） */
+.c-ops { width: 152px; }
 td.editable, .edit { outline: none; cursor: text; min-height: 22px; }
 .edit { padding: 2px 6px; border: 1px dashed rgba(var(--v-theme-outline), 0.45); border-radius: 6px; }
 .edit:hover { border-color: rgba(var(--v-theme-primary), 0.5); background: rgba(var(--v-theme-primary), 0.06); }
@@ -125,7 +127,7 @@ tr.suspect td:first-child { box-shadow: inset 3px 0 0 rgb(var(--v-theme-error));
   background: rgba(var(--v-theme-error), 0.14); border-radius: 999px; padding: 2px 9px;
 }
 .fix { margin-left: 4px; text-decoration: underline; text-underline-offset: 3px; font-size: 11.5px; color: rgb(var(--v-theme-primary)); }
-.ops { width: 104px; }
+.ops { width: 152px; padding-left: 4px; padding-right: 4px; }
 .ops .ops-box { display: inline-flex; gap: 2px; background: rgba(var(--v-theme-primary), 0.06); border-radius: 8px; padding: 3px; }
 .ops .ops-box .v-btn { --v-btn-size: 24px; color: rgba(var(--v-theme-on-surface), 0.55); }
 .sus-note { font-size: 12px; color: rgb(var(--v-theme-error)); padding: 8px 14px; border-top: 1px dashed rgba(var(--v-theme-error), 0.4); }
