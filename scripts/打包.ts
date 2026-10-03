@@ -63,9 +63,11 @@ console.log(`assets.ts：${distFiles.length} 个前端文件 + ${tplFiles.length
 // 3. 三目标编译
 mkdirSync(OUT, { recursive: true })
 const VER = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version as string
+// 产物文件名前缀 CCNewTools（ASCII）——GitHub Release 会剥离附件名中的非 ASCII 字符（踩坑 2026-10-03），
+// 中文名上传后只剩 _v…；产物内部标题/横幅仍是"测试文档生成工具"
 const targets: Array<{ target: string; name: string }> = [
-  { target: 'bun-windows-x64', name: `测试文档生成工具_v${VER}_win-x64.exe` },
-  { target: 'bun-linux-x64', name: `测试文档生成工具_v${VER}_linux-x64` }
+  { target: 'bun-windows-x64', name: `CCNewTools_v${VER}_win-x64.exe` },
+  { target: 'bun-linux-x64', name: `CCNewTools_v${VER}_linux-x64` }
 ]
 for (const t of targets) {
   console.log(`编译 ${t.target} → ${t.name} ...`)
@@ -83,7 +85,7 @@ for (const t of targets) {
   await $`bun build ${common} src/server/index.ts --outfile ${join(OUT, t.name)}`.cwd(ROOT)
 }
 // 麒麟 V10 与 linux-x64 同二进制（glibc 2.31 兼容），按交付名复制一份
-copyFileSync(join(OUT, `测试文档生成工具_v${VER}_linux-x64`), join(OUT, `测试文档生成工具_v${VER}_kylin-v10`))
+copyFileSync(join(OUT, `CCNewTools_v${VER}_linux-x64`), join(OUT, `CCNewTools_v${VER}_kylin-v10`))
 console.log(`产物已输出到 ${relative(ROOT, OUT)}：`)
 for (const f of readdirSync(OUT)) console.log('  ' + f)
 void extname
