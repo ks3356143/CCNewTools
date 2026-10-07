@@ -4,7 +4,7 @@
     {
       "name": "应用",
       "runtimeExecutable": "bun",
-      "runtimeArgs": ["src/server/index.ts"],
+      "runtimeArgs": ["src/server/index.ts", "--no-open"],
       "port": 8300
     },
     {
