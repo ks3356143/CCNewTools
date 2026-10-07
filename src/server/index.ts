@@ -29,11 +29,14 @@ const BASE_PORT = 8300
 const MAX_TRIES = 10
 
 function openBrowser(url: string) {
-  if (process.platform === 'win32') {
-    Bun.spawn(['cmd', '/c', 'start', '', url], { stdout: 'ignore', stderr: 'ignore' })
-  } else {
-    Bun.spawn(['xdg-open', url], { stdout: 'ignore', stderr: 'ignore', stdin: 'ignore' })
-  }
+  // 无桌面/无 xdg-open 的环境 spawn 会抛错；必须吞掉，否则会被端口重试的 catch 误判成端口被占
+  try {
+    if (process.platform === 'win32') {
+      Bun.spawn(['cmd', '/c', 'start', '', url], { stdout: 'ignore', stderr: 'ignore' })
+    } else {
+      Bun.spawn(['xdg-open', url], { stdout: 'ignore', stderr: 'ignore', stdin: 'ignore' })
+    }
+  } catch { /* 横幅里的地址兜底手动访问 */ }
 }
 
 let started: ReturnType<typeof Bun.serve> | null = null
@@ -51,8 +54,12 @@ for (let port = BASE_PORT; port < BASE_PORT + MAX_TRIES; port++) {
     console.log(`数据目录：${dataRoot()}`)
     const notice = dataRootFallbackNotice()
     if (notice) console.log(`⚠ ${notice}`)
+    // v1.1.4：默认自动打开浏览器（01 架构启动流程落地）；--no-open 禁用（自动化/冒烟场景），--open 不再需要但传了也无害
+    if (!process.argv.includes('--no-open')) {
+      console.log('正在自动打开浏览器（若没有弹出，请手动访问上面的地址）……')
+      openBrowser(url)
+    }
     console.log('关闭此窗口即退出。')
-    if (process.argv.includes('--open')) openBrowser(url)
     break
   } catch {
     if (port === BASE_PORT + MAX_TRIES - 1) {

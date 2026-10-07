@@ -1,6 +1,6 @@
 {
   "name": "ccnewtools",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "测试大纲 → 测试说明/测试记录 转换工具",
   "type": "module",
   "module": "src/server/index.ts",
@@ -8,7 +8,7 @@
     "dev:server": "bun --watch src/server/index.ts",
     "dev:web": "vite",
     "build": "vite build",
-    "start": "bun run build && bun src/server/index.ts --open",
+    "start": "bun run build && bun src/server/index.ts",
     "test": "bun test"
   },
   "dependencies": {
