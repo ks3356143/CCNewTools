@@ -2,6 +2,7 @@ import { handle } from './app.ts'
 import { VERSION } from './app.ts'
 import { migrateLegacyEdits } from './projects.ts'
 import { appendLog } from './log.ts'
+import { dataRoot, dataRootFallbackNotice } from './store.ts'
 
 // 启动时把旧 数据/编辑记录/*.json 迁入项目目录（09）；失败只记日志不拦启动
 try {
@@ -29,6 +30,10 @@ for (let port = BASE_PORT; port < BASE_PORT + MAX_TRIES; port++) {
     const url = `http://127.0.0.1:${port}`
     console.log(`测试文档生成工具 v${VERSION}`)
     console.log(`服务已启动：${url}`)
+    // 数据目录随横幅亮出（v1.1.2）：用户找数据/备份换机不再靠猜；回退场景同步提示（08：提示一次）
+    console.log(`数据目录：${dataRoot()}`)
+    const notice = dataRootFallbackNotice()
+    if (notice) console.log(`⚠ ${notice}`)
     console.log('关闭此窗口即退出。')
     if (process.argv.includes('--open')) openBrowser(url)
     break

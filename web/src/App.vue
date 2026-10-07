@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useTheme } from 'vuetify'
 import { store, scheduleSettingsSave, showToast } from './store.ts'
 import { loadSettings } from './api.ts'
@@ -13,6 +13,8 @@ const appVersion = __APP_VERSION__
 
 const theme = useTheme()
 const STEPS = ['选择大纲', '核对与编辑', '生成文档']
+// 使用说明对话框（08 交付物：内置界面，顶栏 ? 打开）
+const about = ref(false)
 
 onMounted(async () => {
   try {
@@ -73,6 +75,9 @@ function stepClick(n: number): void {
         </template>
       </nav>
       <div class="spacer" />
+      <v-btn icon size="small" class="mr-2" title="使用说明" @click="about = true">
+        <v-icon>mdi-help-circle-outline</v-icon>
+      </v-btn>
       <v-btn icon size="small" class="mr-3" @click="toggleTheme">
         <v-icon>{{ store.theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
       </v-btn>
@@ -91,6 +96,40 @@ function stepClick(n: number): void {
     <v-snackbar v-model="store.toast.show" location="bottom" timeout="2600" rounded="lg">
       {{ store.toast.text }}
     </v-snackbar>
+
+    <!-- 使用说明（08：一页说明内置界面，丢失手册也能自助） -->
+    <v-dialog v-model="about" max-width="620">
+      <v-card rounded="lg">
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="primary">mdi-file-word-box</v-icon>
+          <span>测试文档生成工具</span>
+          <span class="about-ver">v{{ appVersion }}</span>
+          <v-spacer />
+          <v-btn icon size="small" variant="text" @click="about = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="about-body">
+          <div class="sec">打开界面</div>
+          <p>双击 exe 启动后<b>不会自动弹出界面</b>——在浏览器地址栏输入黑色控制台窗口里显示的地址（默认
+            <code>http://127.0.0.1:8300</code>，被占用时自动换下一个端口，以控制台显示为准）。</p>
+
+          <div class="sec">数据保存在哪里</div>
+          <p>exe 旁边的 <code>数据/</code> 文件夹（上传的大纲副本、核对修改、参数设置都在里面，全程不联网）。<b>换电脑</b>：把
+            exe 和 <code>数据/</code> 文件夹一起拷贝；<b>升级</b>：用新 exe 覆盖旧的，<code>数据/</code> 不用动。</p>
+
+          <div class="sec">常见问题</div>
+          <ul>
+            <li>只有黑窗口、没见着界面？正常现象，用浏览器打开控制台里显示的地址即可。</li>
+            <li>页面一片空白？浏览器版本太旧，请换 2022 年以后的 Chrome / Edge。</li>
+            <li>公司代理环境打不开页面？在代理设置里"绕过本地地址"（把 127.0.0.1 加入例外）。</li>
+            <li>首次运行被 Windows 蓝色提示拦截？点「更多信息」→「仍要运行」；杀毒软件误报时加入信任白名单。</li>
+            <li>核对时的修改会丢吗？不会，自动保存；直接关闭窗口，下次打开项目继续。</li>
+          </ul>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </v-app>
 </template>
 
@@ -145,5 +184,25 @@ function stepClick(n: number): void {
   .link { width: 10px; margin: 0 2px; }
   .mark { margin-left: 10px; }
   .ver { margin-left: 6px; }
+}
+/* 使用说明对话框（v-dialog 传送到 body 渲染，scoped 属性编译期落在节点上，样式仍生效） */
+.about-ver {
+  font-size: 11px; margin-left: 8px;
+  font-family: Consolas, monospace; letter-spacing: 0.4px;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+.about-body { line-height: 1.8; font-size: 13.5px; padding-top: 14px; }
+.about-body .sec {
+  font-weight: 600; font-size: 13px; margin: 14px 0 2px;
+  color: rgb(var(--v-theme-primary));
+}
+.about-body .sec:first-child { margin-top: 0; }
+.about-body p { margin: 0 0 4px; }
+.about-body ul { margin: 0; padding-left: 20px; }
+.about-body li { margin-bottom: 4px; }
+.about-body b { font-weight: 600; }
+.about-body code {
+  background: rgba(var(--v-theme-primary), 0.1); padding: 0 5px;
+  border-radius: 4px; font-size: 12.5px;
 }
 </style>
