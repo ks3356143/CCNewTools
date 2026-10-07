@@ -7,7 +7,17 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <!-- Vue 挂载前的兜底线索（内网老浏览器白屏问题）：bundle 用到 2022 年后浏览器才支持的语法，
+         太旧的浏览器打不开界面且无任何提示；正常加载时 Vue mount 会整体替换本节点内容 -->
+    <div style="font-family: system-ui, 'Microsoft YaHei', sans-serif; color: #5a6572; text-align: center; padding-top: 22vh; font-size: 14px; line-height: 2;">
+      正在加载工具界面……<br />
+      如果长时间停留在此页或一片空白：浏览器版本过旧，请换用 2022 年以后的 Chrome / Edge 访问本地址。
+    </div>
+  </div>
+  <noscript>
+    <p style="text-align: center; color: #5a6572; font-size: 14px;">本工具需要浏览器启用 JavaScript。</p>
+  </noscript>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

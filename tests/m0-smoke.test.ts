@@ -5,6 +5,7 @@ import { DOMParser } from '@xmldom/xmldom'
 import { zipSync, strToU8, unzipSync, strFromU8 } from 'fflate'
 import { handle } from '../src/server/app.ts'
 import { VERSION } from '../src/server/app.ts'
+import { exeDirNotice } from '../src/server/store.ts'
 
 /** M0 冒烟：核心依赖在 Bun 下可用（实施计划 0.4） */
 
@@ -84,5 +85,27 @@ describe('M0 冒烟', () => {
     } finally {
       server.stop(true)
     }
+  })
+
+  describe('exe 运行位置风险提示（v1.1.3，内网复查）', () => {
+    test('临时目录内（压缩包直运行的典型形态）→ 警示', () => {
+      const msg = exeDirNotice(
+        'C:\\Users\\a\\AppData\\Local\\Temp\\Rar$EX0.123',
+        'C:\\Users\\a\\AppData\\Local\\Temp'
+      )
+      expect(msg).toContain('临时目录')
+      expect(msg).toContain('解压')
+    })
+    test('大小写与分隔符不敏感；恰好等于临时目录也警示', () => {
+      expect(exeDirNotice('C:\\Users\\A\\AppData\\Local\\Temp\\', 'c:/users/a/appdata/local/temp')).toContain('临时目录')
+    })
+    test('网络共享 UNC 路径 → 提示多人共用风险', () => {
+      expect(exeDirNotice('\\\\FileSrv\\共享\\工具')).toContain('网络共享')
+    })
+    test('普通目录 → 无提示（含名称前缀相似的目录不误报）', () => {
+      expect(exeDirNotice('E:\\测评工具')).toBeNull()
+      expect(exeDirNotice('D:\\')).toBeNull()
+      expect(exeDirNotice('C:\\Users\\a\\AppData\\Local\\temporary-x', 'C:\\Users\\a\\AppData\\Local\\temp')).toBeNull()
+    })
   })
 })
