@@ -24,7 +24,8 @@ function openBrowser(url: string) {
 let started: ReturnType<typeof Bun.serve> | null = null
 for (let port = BASE_PORT; port < BASE_PORT + MAX_TRIES; port++) {
   try {
-    started = Bun.serve({ port, fetch: handle })
+    // 仅监听本机回环：涉密内网环境下避免同网段其他机器访问到本服务（Bun 默认 0.0.0.0 全网卡）
+    started = Bun.serve({ port, hostname: '127.0.0.1', fetch: handle })
     const url = `http://127.0.0.1:${port}`
     console.log(`测试文档生成工具 v${VERSION}`)
     console.log(`服务已启动：${url}`)
