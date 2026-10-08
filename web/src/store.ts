@@ -103,23 +103,62 @@ export async function openProjectById(id: string): Promise<boolean> {
 // 编辑步骤后 800ms 内改设置，编辑保存被 clearTimeout 静默丢弃）
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 let settingsTimer: ReturnType<typeof setTimeout> | undefined
+// 防抖窗口内的未落盘标记：pagehide 兜底只在真有待存数据时才发请求
+let editsDirty = false
+let settingsDirty = false
+
+/** 核对进度随存档上报（可疑判定唯一入口在 suspect.ts，见 09 设计文档） */
+function editProgress() {
+  return {
+    reviewed: store.cases.filter(c => c.reviewed).length,
+    suspects: store.cases.reduce((n, c) => n + activeSuspects(c), 0)
+  }
+}
+
 export function scheduleSave(): void {
   if (!store.parsed) return
+  editsDirty = true
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
-    // 随存档上报核对进度（可疑判定唯一入口在 suspect.ts，见 09 设计文档）
-    saveEdits(store.outline, store.cases, {
-      reviewed: store.cases.filter(c => c.reviewed).length,
-      suspects: store.cases.reduce((n, c) => n + activeSuspects(c), 0)
-    }).catch(() => {})
+    editsDirty = false
+    saveEdits(store.outline, store.cases, editProgress()).catch(() => {})
   }, 800)
 }
 
 export function scheduleSettingsSave(): void {
+  settingsDirty = true
   clearTimeout(settingsTimer)
   settingsTimer = setTimeout(() => {
+    settingsDirty = false
     saveSettings(store.params, store.theme).catch(() => {})
   }, 800)
+}
+
+// 防抖窗口内关标签页/关浏览器：最后一次编辑会随计时器一起丢（审计轮 2026-10-07 确认）。
+// 兜底必须用同步 XHR——sendBeacon/fetch keepalive 有 64KB 上限，实测存档 27~123KB 会被
+// 静默截断；本机回环同步写 <10ms，页面关闭前必达。pagehide 在关标签/刷新/关浏览器时都触发。
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => {
+    if (editsDirty) {
+      editsDirty = false
+      syncPost('/api/edits', { outline: store.outline, cases: store.cases, progress: editProgress() })
+    }
+    if (settingsDirty) {
+      settingsDirty = false
+      syncPost('/api/settings', { params: store.params, theme: store.theme })
+    }
+  })
+}
+
+function syncPost(path: string, body: unknown): void {
+  try {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', path, false)
+    xhr.setRequestHeader('content-type', 'application/json')
+    xhr.send(JSON.stringify(body))
+  } catch {
+    // 卸载路径尽力而为：失败无法补救，也不能阻塞页面关闭
+  }
 }
 
 export interface GenLogLine { text: string; done: boolean; warn?: boolean }
