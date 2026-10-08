@@ -5,12 +5,18 @@ import { readDocx, type OfficeFile } from '../../src/core/parse/docx.ts'
 /** 合成 .docx 的最小 OOXML 构造器（07 测试策略：脱敏样本，纯代码生成不依赖 Word） */
 
 export interface ParaSpec {
-  text: string
+  /** 段落文本；给出 textParts 时可省略 */
+  text?: string
   /** 标题级别（1 基），以 outlineLvl 直接标注 */
   heading?: number
   /** 自动编号列表 */
   numId?: number
   ilvl?: number
+  /**
+   * 段内软换行（Shift+Enter，w:br）测试记号（2026-10-08 新变种）：给出时优先于 text，
+   * 各片段以 <w:br/> 连接在同一 run 内——模拟单元格里用 br 分隔行的真实写法
+   */
+  textParts?: string[]
 }
 
 export type Cell = string | ParaSpec | ParaSpec[]
@@ -27,7 +33,11 @@ export function paraXml(spec: ParaSpec): string {
     props.push('<w:numPr><w:ilvl w:val="' + (spec.ilvl ?? 0) + '"/><w:numId w:val="' + spec.numId + '"/></w:numPr>')
   }
   if (props.length > 0) pPr = '<w:pPr>' + props.join('') + '</w:pPr>'
-  return '<w:p>' + pPr + '<w:r><w:t xml:space="preserve">' + esc(spec.text) + '</w:t></w:r></w:p>'
+  if (spec.textParts !== undefined) {
+    const inner = spec.textParts.map(t => '<w:t xml:space="preserve">' + esc(t) + '</w:t>').join('<w:br/>')
+    return '<w:p>' + pPr + '<w:r>' + inner + '</w:r></w:p>'
+  }
+  return '<w:p>' + pPr + '<w:r><w:t xml:space="preserve">' + esc(spec.text ?? '') + '</w:t></w:r></w:p>'
 }
 
 export function cellXml(spec: Cell): string {

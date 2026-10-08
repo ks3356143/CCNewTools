@@ -42,9 +42,10 @@ export function extractItemTable(tbl: Element): ItemTable | null {
   if (!row1.length) return null
   if (textOf(row1[0]).trim() !== '测试项名称') return null
 
-  // 第 2 格 = 名称，第 4 格 = 标识（03 第一节）；缺格时留空
-  const name = row1.length > 1 ? textOf(row1[1]).trim() : ''
-  const itemId = row1.length > 3 ? textOf(row1[3]).trim() : ''
+  // 第 2 格 = 名称，第 4 格 = 标识（03 第一节）；缺格时留空。
+  // 格内软换行（br）是排版断行，名称/标识按单行语义处理（2026-10-08 新变种）
+  const name = row1.length > 1 ? textOf(row1[1]).replace(/\n/g, '').trim() : ''
+  const itemId = row1.length > 3 ? textOf(row1[3]).replace(/\n/g, '').trim() : ''
 
   // 其余行按行标签取值；值格 = 从行尾向前的第一个非空格（跳过第 0 格标签；
   // 垂直合并产生的空格自然被跳过，单段值格也不会与标签格混淆）

@@ -20,6 +20,33 @@ export function matchCaseTitle(t: string): { name: string; itemId: string } | nu
 /** 步骤起始：m）或 m) 开头 */
 const STEP_START_RE = /^\d{1,3}\s*[）)]/
 
+/**
+ * Shift+Enter 软换行（w:br）段落展开（2026-10-08 内网新变种实测）：
+ * 单元格里的 br 既有语义分行（用例标题行/步骤行之间），也有词中断行
+ * （如"正␂常检索"——排版乱用）。策略：
+ * ① 整段去掉换行后能命中用例标题的 → 按标题段保真（词中断行不影响用例识别）；
+ * ② 其余按行拆开——碎行交给切分规则的"续行并入"自然还原，内容不丢。
+ */
+export function expandSoftBreaks(paras: ParaInfo[]): ParaInfo[] {
+  const out: ParaInfo[] = []
+  for (const p of paras) {
+    if (!p.text.includes('\n')) {
+      out.push(p)
+      continue
+    }
+    const whole = p.text.replace(/\n/g, '')
+    if (matchCaseTitle(whole.trim()) !== null) {
+      out.push({ text: whole.trim(), numId: p.numId, ilvl: p.ilvl })
+      continue
+    }
+    for (const line of p.text.split('\n')) {
+      const t = line.trim()
+      if (t !== '') out.push({ text: t, numId: p.numId, ilvl: p.ilvl })
+    }
+  }
+  return out
+}
+
 /** 判断期望结果是否以固定动词开头（03 第五节可疑启发式） */
 interface WorkingStep {
   text: string

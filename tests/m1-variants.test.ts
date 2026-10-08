@@ -181,3 +181,65 @@ describe('变种大杂烩：不同写法都要转换成功', () => {
     expect(r.expectSource).toBe('方法切分')
   })
 })
+
+describe('软换行变种（Shift+Enter / w:br，2026-10-08 内网实测）', () => {
+  // 真实形态（内网 4最新变种.docx，38 处 br）：单元格内用 br 分隔
+  // "条目标题⏎综述；"、"标题⏎1）步骤"、"步骤⏎步骤"——此前 br 丢失全部粘连
+  function brContent(): Array<{ kind: 'p'; para: any } | { kind: 'tbl'; rows: Cell[][] }> {
+    return [
+      { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+      { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+      { kind: 'p', para: { text: '软换行测试项', heading: 6, numId: 1, ilvl: 5 } },
+      {
+        kind: 'tbl',
+        rows: itemTable('软换行测试项', 'XQ_RJ_HC', [
+          [DESC, [
+            { textParts: ['1.第一个用例（XQ_RJ_HC001）', '第一个用例的综述；'] },
+            { textParts: ['2.正常检索功能（XQ_RJ_HC002）', '第二个用例的综述；'] }
+          ]],
+          [METHOD, [
+            { textParts: ['1.第一个用例（XQ_RJ_HC001）', '1）点击查询按钮，', '查看结果是否正确显示；', '2）执行导出操作，查看导出文件完整；'] },
+            { textParts: ['2.正常检索功能（XQ_RJ_HC002）', '边界类：', '1）输入超长文本，', '查看软件正确处理；', '2）输入特殊字符，查看软件正确处理；'] },
+            { textParts: ['3.双轨标题用例', '（XQ_RJ_HC003）'] },
+            { text: '1）唯一步骤，查看正常；' }
+          ]],
+          [CRITERIA, [
+            { textParts: ['1、第一个用例（XQ_RJ_HC001）', '1）结果正确显示；', '2）导出文件完整；'] },
+            { textParts: ['2、正常检索功能（XQ_RJ_HC002）', '1）软件正确处理；'] }
+          ]]
+        ])
+      }
+    ]
+  }
+
+  const issues = new IssueCollector()
+  const parsed = extractOutline(buildDocx({ content: brContent() }), issues)
+  const data = convertToTemplateData(parsed, DEFAULT_PARAMS)
+
+  test('用例识别：br 语义分行与被拆标题（双轨）都识别出 3 例', () => {
+    expect(parsed.stats).toEqual({ items: 1, cases: 3, steps: 5 })
+    const item = parsed.items[0]
+    expect(item.cases.map(c => c.name)).toEqual(['第一个用例', '正常检索功能', '双轨标题用例'])
+  })
+
+  test('方法格：碎行并入还原步骤文本，标题/综述/小标题各归其位', () => {
+    const c1 = parsed.items[0].cases[0]
+    expect(c1.steps.map(s => s.text)).toEqual(['点击查询按钮，查看结果是否正确显示；', '执行导出操作，查看导出文件完整；'])
+    const c2 = parsed.items[0].cases[1]
+    // "边界类："是标题后的引导句，并入步骤 1（既有规则 2，不因 br 改变）
+    expect(c2.steps.map(s => s.text)).toEqual(['边界类：输入超长文本，查看软件正确处理；', '输入特殊字符，查看软件正确处理；'])
+    const c3 = parsed.items[0].cases[2]
+    expect(c3.steps.map(s => s.text)).toEqual(['唯一步骤，查看正常；'])
+  })
+
+  test('描述格与准则格：br 条目拆分、综述与准则配对正确', () => {
+    const item = parsed.items[0]
+    expect(item.description.entries.map(e => e.summary)).toEqual(['第一个用例的综述；', '第二个用例的综述；'])
+    expect(item.criteriaCases[0].items).toEqual(['结果正确显示；', '导出文件完整；'])
+    expect(item.criteriaCases[1].items).toEqual(['软件正确处理；'])
+    const r1 = data.cases.find(c => c.caseId === 'YL_RJ_HC_001')!
+    expect(r1.expectSource).toBe('通过准则')
+    expect(r1.summary).toBe('第一个用例的综述；')
+    expect(r1.steps.map(s => s.expect)).toEqual(['结果正确显示', '导出文件完整'])
+  })
+})

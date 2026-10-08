@@ -2,7 +2,7 @@ import { children, textOf, numPrOf, localName, W, type OfficeFile } from './docx
 import { parseNumbering, createChapterCounter } from './numbering.ts'
 import { parseStyles, headingLevel, styleNumPr } from './styles.ts'
 import { extractItemTable } from './table.ts'
-import { parseMethod } from './cases.ts'
+import { parseMethod, expandSoftBreaks } from './cases.ts'
 import { parseDescription, resolveSummaries } from './describe.ts'
 import { parseCriteriaCell, resolveCriteria } from './criteria.ts'
 import { IssueCollector, KNOWN_TYPE_NAMES, type ParsedOutline, type TestItem, type PathEntry } from '../domain.ts'
@@ -60,7 +60,9 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
     if (tag === 'p') {
       const lvl = headingLevel(node, styles)
       if (lvl === null) continue
-      const text = textOf(node).trim()
+      // 标题内的软换行（br）视为同一标题的排版断行，直接删除——层名参与类型匹配，
+      // "功能\n测试" 不能因断行而识别失败
+      const text = textOf(node).replace(/\n/g, '').trim()
       // 空标题（只挂编号没写文字）不进栈：进栈会以空名参与类型/组判定
       if (text === '') continue
       // 编号可能在段落直接格式或标题样式定义里（真实大纲：heading1-9 样式各带 numId+ilvl）
@@ -168,9 +170,10 @@ function assembleItem(
   const middles = path.slice(typeIdx + 1, -1)
   const groupName = middles.length === 0 ? null : middles.map(m => m.text).join(' · ')
 
-  const cases = parseMethod(t.method, issues, ctx)
-  const desc = parseDescription(t.description, issues, ctx)
-  const critCell = parseCriteriaCell(t.criteria, issues, ctx)
+  // 软换行展开（2026-10-08 新变种）：三个内容格统一按 br 拆行/标题保真处理后再进切分
+  const cases = parseMethod(expandSoftBreaks(t.method), issues, ctx)
+  const desc = parseDescription(expandSoftBreaks(t.description), issues, ctx)
+  const critCell = parseCriteriaCell(expandSoftBreaks(t.criteria), issues, ctx)
   const item: TestItem = {
     name: t.name,
     itemId: t.itemId,

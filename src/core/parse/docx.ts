@@ -124,11 +124,28 @@ export function attr(el: Element, name: string, ns: string = W): string | null {
   return el.getAttribute(`w:${name}`) ?? el.getAttribute(name)
 }
 
-/** 段落全部文本（w:t 串联） */
+/**
+ * 段落全部文本（w:t 串联）。Shift+Enter 软换行（w:br / w:cr）输出 \n——
+ * 2026-10-08 内网新变种实测：此前 br 被静默丢弃，单元格内以 br 分隔的
+ * 用例标题行/步骤行全部粘连，切分整段失准（一个步骤粘下一千多字符）。
+ * w:tab 维持既有行为（丢弃），消费方按需展开（见 cases.ts expandSoftBreaks）。
+ */
 export function textOf(p: Node): string {
-  const parts: string[] = []
-  for (const t of deep(p, W, 't')) parts.push(t.textContent ?? '')
-  return parts.join('')
+  let out = ''
+  const walk = (node: Node): void => {
+    for (let i = 0; i < node.childNodes.length; i++) {
+      const n = node.childNodes.item(i)
+      if (n.nodeType !== 1) continue
+      const el = n as Element
+      if (el.namespaceURI !== W) continue
+      const name = localName(el)
+      if (name === 't') out += el.textContent ?? ''
+      else if (name === 'br' || name === 'cr') out += '\n'
+      else walk(el)
+    }
+  }
+  walk(p)
+  return out
 }
 
 export interface ParaInfo {
