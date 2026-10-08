@@ -25,7 +25,7 @@ function onInput(): void {
           <v-text-field
             v-model="store.params.configName"
             label='软件配置项名称（"测试说明"、"需求追踪表"章标题使用）'
-            placeholder="如：BCD星指令生成与发控软件配置项"
+            placeholder="如：XX星指令生成与发控软件配置项"
             variant="outlined" density="compact" hide-details class="f wide"
             @update:model-value="onInput"
           />
