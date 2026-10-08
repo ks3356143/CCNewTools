@@ -23,6 +23,18 @@ function xmlParse(xml: string, what: string): Document {
 }
 
 /**
+ * 大小上限（2026-10-08 内网实测调整）：.docx 是 zip，截图/流程图占大头但完全不参与解析，
+ * 按整个文件限制会误杀带图大纲（带图 20MB+ 的大纲 XML 往往只有 1~5MB）；
+ * 真正的解析负担是 document.xml 文本，限它才准。zip 总大小仅留 100MB 防呆。
+ */
+const MAX_ZIP_MB = 100
+const MAX_XML_MB = 20
+
+function mb(n: number): string {
+  return (n / 1024 / 1024).toFixed(1)
+}
+
+/**
  * 读取 .docx（zip 包）。只读解析，不修改文件——被 Word 打开占用时依然可读
  * （踩坑记录 2026-09-30：officecli 以可写方式打开被占文件会失败）。
  */
@@ -31,8 +43,8 @@ export function readDocx(data: Uint8Array): OfficeFile {
   if (data.length === 0) {
     throw new Error('文件为空，请确认选择的是大纲原文')
   }
-  if (data.length > 20 * 1024 * 1024) {
-    throw new Error('文件超过 20MB，解析可能较慢，请确认是大纲原文')
+  if (data.length > MAX_ZIP_MB * 1024 * 1024) {
+    throw new Error(`文件 ${mb(data.length)}MB 超过 ${MAX_ZIP_MB}MB 上限，请确认是大纲原文`)
   }
   const magic = data.length >= 4 ? [data[0], data[1], data[2], data[3]] : []
   if (magic[0] === 0xd0 && magic[1] === 0xcf && magic[2] === 0x11 && magic[3] === 0xe0) {
@@ -56,6 +68,10 @@ export function readDocx(data: Uint8Array): OfficeFile {
 
   const docXml = files['word/document.xml']
   if (!docXml) throw new Error('文件损坏：缺少 word/document.xml，请确认是 Word 文档')
+  // 正文超限检查在 XML 解析之前——超大 XML 才是真正的解析负担
+  if (docXml.length > MAX_XML_MB * 1024 * 1024) {
+    throw new Error(`文档正文 ${mb(docXml.length)}MB 超过 ${MAX_XML_MB}MB 上限，大纲规模异常庞大，请拆分后分批导入`)
+  }
   const doc = xmlParse(strFromU8(docXml), 'document.xml')
 
   const numbering = files['word/numbering.xml']

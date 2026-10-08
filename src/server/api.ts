@@ -132,10 +132,17 @@ async function apiParse(req: Request): Promise<Response> {
   const bytes = new Uint8Array(await file.arrayBuffer())
   const hash = sha132(bytes)
 
-  const data = parseAndRestore(name, hash, bytes)
-  // 解析成功自动建档/更新（09）：写源副本、刷统计，已有编辑保留
-  recordParse(name, hash, bytes, data.stats)
-  return Response.json({ ok: true, ...data })
+  try {
+    const data = parseAndRestore(name, hash, bytes)
+    // 解析成功自动建档/更新（09）：写源副本、刷统计，已有编辑保留
+    recordParse(name, hash, bytes, data.stats)
+    return Response.json({ ok: true, ...data })
+  } catch (e) {
+    // 外层 catch 只记 ERROR 无上下文；这里补上文件名与大小，内网排障一眼定位是哪份文件、多大
+    const msg = e instanceof Error ? e.message : String(e)
+    appendLog(`解析 ${name}（${(bytes.length / 1048576).toFixed(1)}MB）失败：${msg}`)
+    return Response.json({ ok: false, error: msg }, { status: 400 })
+  }
 }
 
 function storedCasesOf(cases: CaseRow[]): StoredCase[] {

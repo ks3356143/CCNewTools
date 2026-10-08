@@ -2,6 +2,7 @@ import { describe, test, expect, beforeAll } from 'bun:test'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { zipSync, strToU8 } from 'fflate'
 import { buildDocxBuffer, itemTable, DESC, METHOD } from './helpers/ooxml.ts'
 import { handle } from '../src/server/app.ts'
 
@@ -79,6 +80,21 @@ describe('M4 /api/parse', () => {
     expect(res.status).toBe(400)
     expect(data.ok).toBe(false)
     expect(data.error).toContain('docx')
+  })
+
+  test('正文超 20MB → 400 带实际大小（上限按解压后 document.xml 判断，2026-10-08 内网实测调整）', async () => {
+    // 重复段落把正文撑过 20MB；重复文本压缩率高，zip 本身远小于 20MB——
+    // 旧口径（按整个 zip 大小）会拒绝，新口径下 zip 带图大、正文小的大纲照常解析
+    const big = '<w:p><w:r><w:t>x</w:t></w:r></w:p>'.repeat(700000)
+    const zip = zipSync({ 'word/document.xml': strToU8(big) })
+    expect(zip.length).toBeLessThan(20 * 1024 * 1024)
+    const form = new FormData()
+    form.append('file', new File([zip], '超大正文.docx'))
+    const res = await fetch(URL0 + '/api/parse', { method: 'POST', body: form })
+    const data = await res.json()
+    expect(res.status).toBe(400)
+    expect(data.error).toContain('文档正文')
+    expect(data.error).toContain('20MB')
   })
 })
 
