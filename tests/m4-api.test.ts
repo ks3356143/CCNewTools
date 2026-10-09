@@ -82,19 +82,21 @@ describe('M4 /api/parse', () => {
     expect(data.error).toContain('docx')
   })
 
-  test('正文超 20MB → 400 带实际大小（上限按解压后 document.xml 判断，2026-10-08 内网实测调整）', async () => {
-    // 重复段落把正文撑过 20MB；重复文本压缩率高，zip 本身远小于 20MB——
-    // 旧口径（按整个 zip 大小）会拒绝，新口径下 zip 带图大、正文小的大纲照常解析
-    const big = '<w:p><w:r><w:t>x</w:t></w:r></w:p>'.repeat(700000)
+  test('正文超 100MB → 400 带实际大小（v1.2.0 大文档口径：上限 100MB，走分块前检查）', async () => {
+    // 重复段落把正文撑过 100MB；重复文本压缩率高，zip 本身远小于 200MB——
+    // 结构必须完整（有 w:document/w:body）：v1.2.0 起 20~100MB 是合法区间，超限检查在分块解析之前
+    const big = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+      + '<w:p><w:r><w:t>x</w:t></w:r></w:p>'.repeat(3300000)
+      + '</w:body></w:document>'
     const zip = zipSync({ 'word/document.xml': strToU8(big) })
-    expect(zip.length).toBeLessThan(20 * 1024 * 1024)
+    expect(zip.length).toBeLessThan(200 * 1024 * 1024)
     const form = new FormData()
     form.append('file', new File([zip], '超大正文.docx'))
     const res = await fetch(URL0 + '/api/parse', { method: 'POST', body: form })
     const data = await res.json()
     expect(res.status).toBe(400)
     expect(data.error).toContain('文档正文')
-    expect(data.error).toContain('20MB')
+    expect(data.error).toContain('100MB')
   })
 })
 

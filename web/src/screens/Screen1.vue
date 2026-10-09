@@ -10,6 +10,8 @@ const dragging = ref(false)
 const phase = ref<'idle' | 'parsing' | 'done'>('idle')
 const fileName = ref('')
 const progress = ref(0)
+/** 大文件提示（10-大文档处理 P1：>20MB 正文走分块解析，耗时明显变长，先给出预期） */
+const bigFile = ref(false)
 
 function pick(): void {
   if (phase.value === 'idle') fileInput.value?.click()
@@ -26,6 +28,7 @@ function onDrop(e: DragEvent): void {
 }
 async function startParse(f: File): Promise<void> {
   fileName.value = f.name
+  bigFile.value = f.size > 20 * 1024 * 1024
   progress.value = 0
   phase.value = 'parsing'
   requestAnimationFrame(() => (progress.value = 70))
@@ -155,6 +158,7 @@ function jumpTo(issue: Issue): void {
         <div class="dt">正在解析大纲…</div>
         <div class="bar"><i :style="{ width: progress + '%' }" /></div>
         <div class="dn">文件：<b>{{ fileName }}</b></div>
+        <div v-if="bigFile" class="dn big">文件较大（正文超 20MB 走分块解析），预计需要 1~2 分钟，请耐心等待</div>
       </template>
       <template v-else>
         <v-icon size="40" color="success">mdi-check-circle</v-icon>
@@ -252,6 +256,7 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 .dc { margin-top: 5px; font-size: 12.5px; color: rgba(var(--v-theme-on-surface), 0.6); }
 .dn { margin-top: 13px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.65); }
 .dn b { color: rgb(var(--v-theme-on-surface)); }
+.dn.big { color: rgb(var(--v-theme-warning)); font-weight: 550; }
 .bar { height: 5px; border-radius: 999px; background: rgba(var(--v-theme-outline), 0.5); overflow: hidden; margin-top: 18px; }
 .bar i { display: block; height: 100%; width: 0; background: rgb(var(--v-theme-primary)); border-radius: inherit; transition: width 0.9s cubic-bezier(0.3, 0.6, 0.4, 1); }
 

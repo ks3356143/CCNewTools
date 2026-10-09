@@ -1,4 +1,4 @@
-import { children, textOf, numPrOf, localName, W, type OfficeFile } from './docx.ts'
+import { textOf, numPrOf, localName, bodyElements, type OfficeFile } from './docx.ts'
 import { parseNumbering, createChapterCounter } from './numbering.ts'
 import { parseStyles, headingLevel, styleNumPr } from './styles.ts'
 import { extractItemTable } from './table.ts'
@@ -35,10 +35,6 @@ function warnIfDropped(h: HeadingRef, issues: IssueCollector): void {
  * 不含业务规则（用例标识生成、动作/期望拆分都在转换层）。
  */
 export function extractOutline(office: OfficeFile, issues: IssueCollector): ParsedOutline {
-  const docEl = office.doc.documentElement
-  const body = docEl ? children(docEl, W, 'body')[0] : null
-  if (!body) throw new Error('文件损坏：document.xml 中没有 body')
-
   const counters = createChapterCounter(parseNumbering(office.numbering))
   const styles = parseStyles(office.styles)
 
@@ -49,13 +45,8 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
   let sawTable = false
   let manualChapterCount = 0
 
-  const kids: Element[] = []
-  for (let i = 0; i < body.childNodes.length; i++) {
-    const n = body.childNodes.item(i)
-    if (n.nodeType === 1) kids.push(n as Element)
-  }
-
-  for (const node of kids) {
+  // body 顶层元素序列（≤20MB 整份 DOM / >20MB 分块即用即弃，对消费者同构——10-大文档处理 4.3）
+  for (const node of bodyElements(office)) {
     const tag = localName(node)
     if (tag === 'p') {
       const lvl = headingLevel(node, styles)

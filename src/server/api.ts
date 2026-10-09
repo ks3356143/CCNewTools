@@ -33,9 +33,12 @@ interface EditProgress {
 
 /** 解析大纲并套回项目内已存编辑（/api/parse 与 打开项目 共用，09） */
 function parseAndRestore(name: string, hash: string, bytes: Uint8Array) {
+  const t0 = Date.now()
   const office = readDocx(bytes)
   const issues = new IssueCollector()
   const parsed = extractOutline(office, issues)
+  // 大文档分块模式的耗时随解析日志落盘（10-大文档处理 4.4 验收项）
+  const mode = office.chunked ? `，大文档分块解析 ${Date.now() - t0}ms` : ''
 
   const settings = loadSettings()
   // 老设置文件可能缺新字段（如 configName），合并默认值
@@ -49,9 +52,9 @@ function parseAndRestore(name: string, hash: string, bytes: Uint8Array) {
     const r = mergeRestored(fresh.cases, state.cases)
     cases = r.cases
     restored = { cases: r.restoredCases, steps: r.restoredSteps, skipped: r.skippedCases }
-    appendLog(`解析 ${name}（哈希 ${hash.slice(0, 8)}）：恢复 ${r.restoredCases} 例 / ${r.restoredSteps} 步，跳过 ${r.skippedCases} 例`)
+    appendLog(`解析 ${name}（哈希 ${hash.slice(0, 8)}）：恢复 ${r.restoredCases} 例 / ${r.restoredSteps} 步，跳过 ${r.skippedCases} 例${mode}`)
   } else {
-    appendLog(`解析 ${name}（哈希 ${hash.slice(0, 8)}）：${parsed.stats.items} 项 / ${parsed.stats.cases} 例 / ${parsed.stats.steps} 步`)
+    appendLog(`解析 ${name}（哈希 ${hash.slice(0, 8)}）：${parsed.stats.items} 项 / ${parsed.stats.cases} 例 / ${parsed.stats.steps} 步${mode}`)
   }
 
   return {
