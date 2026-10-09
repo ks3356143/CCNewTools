@@ -35,7 +35,6 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
       v-if="hasContent"
       class="row level-row"
       :class="{ 'is-item': depth >= 2 }"
-      :style="{ paddingLeft: 8 + depth * 15 + 'px' }"
       @click="toggle"
     >
       <v-icon size="16" class="chev" :class="{ closed: !open }">mdi-chevron-down</v-icon>
@@ -58,7 +57,6 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
         :key="cn.row.caseId + '@' + cn.idx"
         class="row case-row"
         :data-idx="cn.idx"
-        :style="{ paddingLeft: 10 + (depth + 1) * 15 + 'px' }"
         :class="{ cur: cn.idx === store.currentIdx }"
         @click="goCase(cn.idx)"
       >
@@ -75,14 +73,16 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
 </template>
 
 <style scoped>
-/* 折叠行按深度缩进（根层 8px 起步，每层 +15px）；深度 ≥2（测试项级）弱化为分组视觉 */
+/* 缩进只靠嵌套 .indent 的 margin-left 累积（每层 15px，与常见树控件同量级）——
+   行内 padding 固定；此前行 padding 又乘 depth 与嵌套 margin 双重叠加，每层实缩 30px，
+   四层深的用例行缩进 145px，内网实测"缩进太大"（2026-10-09） */
 .lvl { min-width: 0; }
 .row { width: 100%; display: flex; align-items: center; gap: 6px; border-radius: 8px; text-align: left; cursor: pointer; transition: background 0.13s, color 0.13s; }
 .row:hover { background: rgba(var(--v-theme-primary), 0.08); }
-.level-row { padding-right: 8px; font-size: 13.5px; font-weight: 550; color: rgba(var(--v-theme-on-surface), 0.88); }
+.level-row { padding-left: 8px; padding-right: 8px; font-size: 13.5px; font-weight: 550; color: rgba(var(--v-theme-on-surface), 0.88); }
 .level-row.is-item { font-weight: 500; color: rgba(var(--v-theme-on-surface), 0.68); font-size: 13px; }
 .indent { margin-left: 15px; border-left: 1px solid rgba(var(--v-theme-outline), 0.35); padding-left: 0; }
-.case-row { margin-right: 6px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.75); }
+.case-row { padding-left: 10px; margin-right: 6px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.75); }
 .case-row.cur { background: rgba(var(--v-theme-primary), 0.14); color: rgb(var(--v-theme-primary)); font-weight: 550; }
 .chev { transition: transform 0.18s; flex: none; }
 .chev.closed { transform: rotate(-90deg); }
