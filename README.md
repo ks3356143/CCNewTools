@@ -10,9 +10,9 @@
 
 | 文件 | 适用系统 |
 |------|----------|
-| `CCNewTools_v1.3.0_win-x64.exe` | Windows 10/11（64 位） |
-| `CCNewTools_v1.3.0_linux-x64` | Linux（64 位）；下载后先加执行权限 `chmod +x 文件名`，再在终端运行 |
-| `CCNewTools_v1.3.0_kylin-v10` | 银河麒麟 V10（与 Linux 版相同文件，暂未实机验证） |
+| `CCNewTools_v1.3.1_win-x64.exe` | Windows 10/11（64 位） |
+| `CCNewTools_v1.3.1_linux-x64` | Linux（64 位）；下载后先加执行权限 `chmod +x 文件名`，再在终端运行 |
+| `CCNewTools_v1.3.1_kylin-v10` | 银河麒麟 V10（与 Linux 版相同文件，暂未实机验证） |
 
 ## 使用方法
 
