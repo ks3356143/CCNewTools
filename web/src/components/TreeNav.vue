@@ -9,14 +9,30 @@ import type { CaseRow } from '../types.ts'
 const keyword = ref('')
 const bodyEl = ref<HTMLElement | null>(null)
 
+/** 搜索命中渲染上限（构建侧截断，见 tree computed 注释） */
+const SEARCH_RENDER_LIMIT = 300
+
+// 搜索输入防抖 300ms：大文档（29686 例）每次 keystroke 全量重算树，逐键卡顿
+const searchInput = ref('')
+let debounceTimer: ReturnType<typeof setTimeout> | undefined
+watch(searchInput, v => {
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => { keyword.value = v }, 300)
+})
+
 // 树按完整大纲路径逐级构建（2026-10-02 树镜像改造）：树与生成文档同构，
 // XXX分系统/容器/类型/项 层层可见。idx 用 store.cases 真实下标（撞号不合并）。
-const tree = computed<PathNode[]>(() => {
+// 纯计算（不写外部 ref——computed 副作用会打乱渲染调度）：搜索命中只入树前
+// SEARCH_RENDER_LIMIT 个（42MB 样本 29686 例实测宽泛词全量渲染卡死），hits 累计
+// 全部命中数供溢出提示；非搜索态不截断（大文档默认折叠，无此问题）。
+const tree = computed<{ roots: PathNode[]; hits: number }>(() => {
   const kw = (keyword.value ?? '').trim().toLowerCase()
   const roots: PathNode[] = []
-  // 全链 key 保证同名节点在不同分支独立
+  let hits = 0
   for (const [i, c] of store.cases.entries()) {
     if (kw && !(c.mingcheng + c.caseId + c.itemId).toLowerCase().includes(kw)) continue
+    hits++
+    if (kw && hits > SEARCH_RENDER_LIMIT) continue
     let level = roots
     let chain = ''
     const pathTexts = c.path.map(p => p.text)
@@ -32,28 +48,38 @@ const tree = computed<PathNode[]>(() => {
       else node.cases.push({ row: c, idx: i })
     }
   }
-  return roots
+  return { roots, hits }
 })
+const treeRoots = computed(() => tree.value.roots)
+const searchOverflow = computed(() => (keyword.value ?? '').trim() !== '' && tree.value.hits > SEARCH_RENDER_LIMIT)
 
-const collapsed = ref(new Set<string>())
+// 展开语义（2026-10-09 验证轮改造）：expanded 记录手动展开的节点；小文档（≤600 例，覆盖全部已知真实样本）
+// 或搜索态强制全展开保持原体验；大文档默认全折叠——折叠子树不渲染（TreeLevel v-if），
+// 逐层按需创建 DOM（29686 例全量渲染实测卡死主线程）。openFn 是稳定引用，TreeLevel 的 computed
+// 调用它时自动收集 expanded/keyword 依赖。
+const expanded = ref(new Set<string>())
+const smallOrSearch = computed(() => store.cases.length <= 600 || (keyword.value ?? '').trim() !== '')
+function isOpen(key: string): boolean {
+  return smallOrSearch.value || expanded.value.has(key)
+}
 function toggle(key: string): void {
-  const next = new Set(collapsed.value)
+  const next = new Set(expanded.value)
   if (next.has(key)) next.delete(key)
   else next.add(key)
-  collapsed.value = next
+  expanded.value = next
 }
 
 // 当前用例变化（徽章跳转/上下条按钮）时：展开当前用例的祖先链并滚动树到当前用例
 watch(() => store.currentIdx, async () => {
   const c = store.cases[store.currentIdx]
   if (!c) return
-  const chainSet = new Set(collapsed.value)
+  const next = new Set(expanded.value)
   let chain = ''
   for (const p of c.path) {
     chain = chain + '\u0000' + p.text
-    chainSet.delete(chain)
+    next.add(chain)
   }
-  collapsed.value = chainSet
+  expanded.value = next
   await nextTick()
   bodyEl.value?.querySelector<HTMLElement>(`[data-idx="${store.currentIdx}"]`)
     ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
@@ -65,7 +91,7 @@ const totalCases = computed(() => store.cases.length)
 <template>
   <div class="tree">
     <v-text-field
-      v-model="keyword"
+      v-model="searchInput"
       placeholder="搜索用例名称或标识"
       prepend-inner-icon="mdi-magnify"
       variant="solo" density="compact" hide-details
@@ -75,17 +101,20 @@ const totalCases = computed(() => store.cases.length)
     <div class="note">数字为该层下的实际用例数</div>
     <div ref="bodyEl" class="body">
       <TreeLevel
-        v-for="root in tree"
+        v-for="root in treeRoots"
         :key="root.key"
         :node="root"
-        :collapsed="collapsed"
+        :open-fn="isOpen"
         :depth="0"
         @toggle="toggle"
       />
-      <div v-if="tree.length === 0" class="empty">没有匹配的用例</div>
+      <div v-if="treeRoots.length === 0" class="empty">没有匹配的用例</div>
     </div>
-    <div v-if="keyword && tree.length > 0" class="found">
-      匹配 {{ tree.reduce((n, r) => n + r.caseCount, 0) }} / {{ totalCases }} 个用例
+    <div v-if="keyword && treeRoots.length > 0" class="found">
+      匹配 {{ tree.hits }} / {{ totalCases }} 个用例
+    </div>
+    <div v-if="searchOverflow" class="found overflow">
+      匹配过多，仅显示前 {{ SEARCH_RENDER_LIMIT }} 个用例，请细化关键词
     </div>
   </div>
 </template>
@@ -99,5 +128,6 @@ const totalCases = computed(() => store.cases.length)
 .note { font-size: 11.5px; color: rgba(var(--v-theme-on-surface), 0.55); padding: 2px 14px 8px; border-bottom: 1px solid rgba(var(--v-theme-outline), 0.3); }
 .body { overflow-y: auto; flex: 1; padding: 6px; }
 .found { flex: none; font-size: 11.5px; color: rgba(var(--v-theme-on-surface), 0.55); padding: 6px 14px 8px; border-top: 1px solid rgba(var(--v-theme-outline), 0.3); }
+.found.overflow { color: rgb(var(--v-theme-warning)); }
 .empty { padding: 16px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.5); }
 </style>

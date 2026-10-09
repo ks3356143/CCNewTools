@@ -50,6 +50,13 @@ function gen(): void {
     showToast('请先填写测试人员与监测人员')
     return
   }
+  // 生成上限（10-大文档处理 P1）：与 api.ts GENERATE_CASE_LIMIT 一致（整体渲染内存 ≈226KB/例，
+  // 8GB 内网机器扛不住数万例——v1.3.0 分批渲染后放宽）
+  const n = store.cases.filter(c => !c.excluded).length
+  if (n > 10000) {
+    showToast(`用例数 ${n} 超过当前版本生成上限 10000，请拆分大纲分册导入（分批渲染将在 v1.3.0 支持）`)
+    return
+  }
   store.screen = 3
 }
 </script>

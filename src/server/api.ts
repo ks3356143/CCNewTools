@@ -31,6 +31,13 @@ interface EditProgress {
   suspects: number
 }
 
+/**
+ * 生成用例数上限（10-大文档处理 P1 保护线）：整体渲染实测内存 ≈226KB/例
+ * （42MB 样本 29686 例实测 58.8s / 6.7GB），8GB 内网机器扛不住 → v1.3.0
+ * 分批渲染落地后放宽或取消。10000 例 ≈ 2.3GB，可承受。
+ */
+const GENERATE_CASE_LIMIT = 10000
+
 /** 解析大纲并套回项目内已存编辑（/api/parse 与 打开项目 共用，09） */
 function parseAndRestore(name: string, hash: string, bytes: Uint8Array) {
   const t0 = Date.now()
@@ -179,6 +186,9 @@ async function apiGenerate(req: Request): Promise<Response> {
   const cases = body.cases.filter(c => !c.excluded)
   if (cases.length === 0) {
     return Response.json({ ok: false, error: '没有可生成的用例（全部被排除？）' }, { status: 400 })
+  }
+  if (cases.length > GENERATE_CASE_LIMIT) {
+    return Response.json({ ok: false, error: `用例数 ${cases.length} 超过当前版本生成上限 ${GENERATE_CASE_LIMIT}，请拆分大纲分册导入（大文档分批渲染将在 v1.3.0 支持）` }, { status: 400 })
   }
   // 用例清单 + 追踪表由送来的用例数据推导（保持与核对结果一致）
   const caselist = cases.map((c, i) => ({ no: i + 1, mingcheng: c.mingcheng, caseId: c.caseId, summary: c.summary }))

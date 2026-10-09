@@ -195,13 +195,16 @@ export async function doGenerate(onLog: (lines: GenLogLine[], pct: number) => vo
     })
 
   const total = tableNames.length
-  for (let i = 0; i < total; i++) {
+  // 动画封顶（2026-10-09 验证轮）：日志是前端本地节流展示（服务端渲染并发进行），表数上万时
+  // 60ms 下限要放 15 分钟——最多展示 200 条跳跃推进（总时长 ~12s），真实完成以响应为准
+  const step = Math.max(1, Math.ceil(total / 200))
+  for (let i = 0; i < total; i += step) {
     onLog(
       [{ text: '处理测试项表格 ' + (i + 1) + '/' + total + '：' + tableNames[i], done: false }],
       Math.round((i / total) * 92)
     )
     await new Promise(r => setTimeout(r, Math.max(60, Math.min(500, 2600 / total))))
-    onLog([], Math.round(((i + 1) / total) * 92))
+    onLog([], Math.round(((i + step) / total) * 92))
   }
 
   const result = await request

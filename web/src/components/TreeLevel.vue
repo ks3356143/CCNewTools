@@ -4,16 +4,29 @@ import { store, goCase } from '../store.ts'
 import { activeSuspects } from '../suspect.ts'
 import type { CaseRow, PathNode } from '../types.ts'
 
-const props = defineProps<{ node: PathNode; collapsed: Set<string>; depth: number }>()
+const props = defineProps<{ node: PathNode; openFn: (key: string) => boolean; depth: number }>()
 
 const emit = defineEmits<{ toggle: [key: string] }>()
 
-const open = computed(() => !props.collapsed.has(props.node.key))
+// 展开与否由父级 openFn 判定（小文档/搜索时强制全展开，大文档按 expanded 集合逐层展开）
+const open = computed(() => props.openFn(props.node.key))
+
 function toggle(): void {
   emit('toggle', props.node.key)
 }
 
 const hasContent = computed(() => props.node.children.length > 0 || props.node.cases.length > 0)
+
+/**
+ * 单层渲染上限（2026-10-09 验证轮）：极端文档单层可挂上万个节点（42MB 样本"功能测试"
+ * 一层 14843 个测试项），展开即卡死。每层只渲染前 LIMIT 行，其余折叠计数提示、可搜索定位。
+ */
+const CHILD_LIMIT = 200
+const CASE_LIMIT = 500
+const shownChildren = computed(() => props.node.children.slice(0, CHILD_LIMIT))
+const hiddenChildren = computed(() => Math.max(0, props.node.children.length - CHILD_LIMIT))
+const shownCases = computed(() => props.node.cases.slice(0, CASE_LIMIT))
+const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LIMIT))
 </script>
 
 <template>
@@ -29,17 +42,19 @@ const hasContent = computed(() => props.node.children.length > 0 || props.node.c
       <span class="name">{{ node.name }}</span>
       <span class="cnt">{{ node.caseCount }}</span>
     </button>
-    <div v-show="open && hasContent" class="indent">
+    <!-- v-if（非 v-show）：折叠的子树不创建 DOM——2026-10-09 验证轮实测 29686 例全量渲染约 30 万节点卡死主线程 -->
+    <div v-if="open && hasContent" class="indent">
       <TreeLevel
-        v-for="ch in node.children"
+        v-for="ch in shownChildren"
         :key="ch.key"
         :node="ch"
-        :collapsed="collapsed"
+        :open-fn="openFn"
         :depth="depth + 1"
         @toggle="k => emit('toggle', k)"
       />
+      <div v-if="hiddenChildren > 0" class="more">…还有 {{ hiddenChildren }} 个下级未显示，请用搜索定位</div>
       <button
-        v-for="cn in node.cases"
+        v-for="cn in shownCases"
         :key="cn.row.caseId + '@' + cn.idx"
         class="row case-row"
         :data-idx="cn.idx"
@@ -54,6 +69,7 @@ const hasContent = computed(() => props.node.children.length > 0 || props.node.c
         <span class="name" :class="{ excluded: cn.row.excluded }">{{ cn.row.mingcheng }}</span>
         <span class="cid">{{ cn.row.caseId }}</span>
       </button>
+      <div v-if="hiddenCases > 0" class="more">…还有 {{ hiddenCases }} 个用例未显示，请用搜索定位</div>
     </div>
   </div>
 </template>
@@ -76,4 +92,5 @@ const hasContent = computed(() => props.node.children.length > 0 || props.node.c
 .cid { margin-left: auto; font-family: Consolas, monospace; font-size: 10.5px; opacity: 0.65; flex: none; }
 .dot-holder { width: 14px; display: inline-flex; justify-content: center; flex: none; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: rgb(var(--v-theme-error)); }
+.more { padding: 2px 0 4px; font-size: 11.5px; color: rgb(var(--v-theme-warning)); }
 </style>
