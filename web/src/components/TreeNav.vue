@@ -79,33 +79,61 @@ const tree = computed<{ roots: PathNode[]; hits: number }>(() => {
 const treeRoots = computed(() => tree.value.roots)
 const searchOverflow = computed(() => (keyword.value ?? '').trim() !== '' && tree.value.hits > SEARCH_RENDER_LIMIT)
 
-// 展开语义（2026-10-09 验证轮改造）：expanded 记录手动展开的节点；小文档（≤600 例，覆盖全部已知真实样本）
-// 或搜索态强制全展开保持原体验；大文档默认全折叠——折叠子树不渲染（TreeLevel v-if），
-// 逐层按需创建 DOM（29686 例全量渲染实测卡死主线程）。openFn 是稳定引用，TreeLevel 的 computed
-// 调用它时自动收集 expanded/keyword 依赖。
+// 展开语义（2026-10-09 内网实测修复）：两个例外集合按形态二选一生效——
+// ① 小文档（≤600 例，覆盖全部已知真实样本）：默认全展开，collapsed 记录手动收缩的
+//    节点（v1.3.2 的 bug：smallOrSearch 恒真 → isOpen 恒 true、toggle 写 expanded 永不
+//    生效——全部父节点无法收缩，内网实测报告）；
+// ② 大文档非搜索态：默认全折叠，expanded 记录手动展开的节点——折叠子树不渲染
+//    （TreeLevel v-if），逐层按需创建 DOM（29686 例全量渲染实测卡死主线程）。
+// ③ 搜索态：强制全展开（搜索即定位，命中必须直接可见——若尊重手动收缩，命中会
+//    藏在收缩节点下，"匹配 N"却看不见内容）。
 const expanded = ref(new Set<string>())
-const smallOrSearch = computed(() => store.cases.length <= 600 || (keyword.value ?? '').trim() !== '')
+const collapsed = ref(new Set<string>())
+const isLarge = computed(() => store.cases.length > 600)
+const searching = computed(() => (keyword.value ?? '').trim() !== '')
 function isOpen(key: string): boolean {
-  return smallOrSearch.value || expanded.value.has(key)
+  if (searching.value) return true
+  if (isLarge.value) return expanded.value.has(key)
+  return !collapsed.value.has(key)
 }
 function toggle(key: string): void {
-  const next = new Set(expanded.value)
-  if (next.has(key)) next.delete(key)
-  else next.add(key)
-  expanded.value = next
+  if (searching.value) return // 搜索结果树强制全展开，不维护收缩态
+  if (isLarge.value) {
+    const next = new Set(expanded.value)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    expanded.value = next
+  } else {
+    const next = new Set(collapsed.value)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    collapsed.value = next
+  }
 }
 
-// 当前用例变化（徽章跳转/上下条按钮）时：展开当前用例的祖先链并滚动树到当前用例
+// 当前用例变化（徽章跳转/上下条按钮）时：保证当前用例的祖先链可见并滚动到它——
+// 大文档非搜索态把祖先链写入 expanded；小文档非搜索态从 collapsed 移除（手动收缩
+// 让位于跳转定位）
 watch(() => store.currentIdx, async () => {
   const c = store.cases[store.currentIdx]
   if (!c) return
-  const next = new Set(expanded.value)
-  let chain = ''
-  for (const p of c.path) {
-    chain = chain + '\u0000' + p.text
-    next.add(chain)
+  if (isLarge.value && !searching.value) {
+    const next = new Set(expanded.value)
+    let chain = ''
+    for (const p of c.path) {
+      chain = chain + '\u0000' + p.text
+      next.add(chain)
+    }
+    expanded.value = next
+  } else if (!searching.value && collapsed.value.size > 0) {
+    const next = new Set(collapsed.value)
+    let chain = ''
+    for (const p of c.path) {
+      chain = chain + '\u0000' + p.text
+      next.delete(chain)
+    }
+    collapsed.value = next
   }
-  expanded.value = next
   await nextTick()
   bodyEl.value?.querySelector<HTMLElement>(`[data-idx="${store.currentIdx}"]`)
     ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })

@@ -8,7 +8,7 @@ const props = defineProps<{ node: PathNode; openFn: (key: string) => boolean; de
 
 const emit = defineEmits<{ toggle: [key: string] }>()
 
-// 展开与否由父级 openFn 判定（小文档/搜索时强制全展开，大文档按 expanded 集合逐层展开）
+// 展开与否由父级 openFn 判定（小文档/搜索默认全展开、手动收缩为例外；大文档非搜索按 expanded 逐层展开）
 const open = computed(() => props.openFn(props.node.key))
 
 function toggle(): void {
