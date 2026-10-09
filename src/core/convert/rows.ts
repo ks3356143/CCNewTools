@@ -60,11 +60,11 @@ export function traceOf(item: TestItem, c: RawCase): string {
 const STATIC_TEMPLATES: Record<string, Array<{ action: string; expect: string }>> = {
   '文档审查': [
     {
-      action: '按照需求规格说明审查单，对被测文档《BCD星指令生成与发控软件需求规格说明》进行审查',
+      action: '按照需求规格说明审查单，对被测文档《被测软件需求规格说明》进行审查',
       expect: '依据附录A.1对需求规格说明进行审查'
     },
     {
-      action: '《BCD星指令生成与发控软件概要设计说明》和《BCD星指令生成与发控软件用户手册》齐套性进行审查',
+      action: '《被测软件概要设计说明》和《被测软件用户手册》齐套性进行审查',
       expect: '文档完整，齐套'
     }
   ],

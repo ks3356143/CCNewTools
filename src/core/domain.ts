@@ -35,7 +35,7 @@ export class IssueCollector {
 
 /** 界面全局参数（03 字段映射：默认值来自老工具写死值，界面可改并记住上次填写内容） */
 export interface GlobalParams {
-  /** 软件配置项名称（"测试说明"/"需求追踪表"章的标题用，如"BCD星指令生成与发控软件配置项"） */
+  /** 软件配置项名称（"测试说明"/"需求追踪表"章的标题用，如"XX软件配置项"） */
   configName: string
   init: string
   constraint: string
@@ -138,7 +138,7 @@ export const STATIC_TYPE_NAMES = ['文档审查', '静态分析', '代码审查'
 
 /**
  * 已知测试类型清单（静态三类型 + 军用软件测评常见动态类型）。
- * typeName 从路径最深层往上找第一个命中；容器名（如「BCD星…配置项测试」）以「测试」结尾
+ * typeName 从路径最深层往上找第一个命中；容器名（如「XX星…配置项测试」）以「测试」结尾
  * 但不在清单内，不会误当类型。遇到清单外的新类型时回退后缀匹配（见 outline.ts）。
  */
 export const KNOWN_TYPE_NAMES = [
