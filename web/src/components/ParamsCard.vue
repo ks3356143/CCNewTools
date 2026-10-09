@@ -24,20 +24,20 @@ function onInput(): void {
         <div class="body">
           <v-text-field
             v-model="store.params.configName"
-            label='软件配置项名称（"测试说明"、"需求追踪表"章标题使用）'
+            label="软件配置项名称"
             placeholder="如：XX星指令生成与发控软件配置项"
-            variant="outlined" density="compact" hide-details class="f wide"
+            variant="outlined" density="compact" hide-details persistent-placeholder class="f wide"
             @update:model-value="onInput"
           />
           <div class="grid2">
-            <v-text-field v-model="store.params.init" label="用例初始化" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
-            <v-text-field v-model="store.params.constraint" label="前提和约束" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+            <v-text-field v-model="store.params.init" label="用例初始化" variant="outlined" density="compact" hide-details persistent-placeholder @update:model-value="onInput" />
+            <v-text-field v-model="store.params.constraint" label="前提和约束" variant="outlined" density="compact" hide-details persistent-placeholder @update:model-value="onInput" />
           </div>
           <div class="grid4">
-            <v-text-field v-model="store.params.designer" label="设计人员" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
-            <v-text-field v-model="store.params.testTime" label="测试时间" type="date" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
-            <v-text-field v-model="store.params.tester" label="测试人员 *" placeholder="必填" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
-            <v-text-field v-model="store.params.monitor" label="监测人员 *" placeholder="必填" variant="outlined" density="compact" hide-details @update:model-value="onInput" />
+            <v-text-field v-model="store.params.designer" label="设计人员" variant="outlined" density="compact" hide-details persistent-placeholder @update:model-value="onInput" />
+            <v-text-field v-model="store.params.testTime" label="测试时间" type="date" variant="outlined" density="compact" hide-details persistent-placeholder @update:model-value="onInput" />
+            <v-text-field v-model="store.params.tester" label="测试人员 *" placeholder="必填" variant="outlined" density="compact" hide-details persistent-placeholder @update:model-value="onInput" />
+            <v-text-field v-model="store.params.monitor" label="监测人员 *" placeholder="必填" variant="outlined" density="compact" hide-details persistent-placeholder @update:model-value="onInput" />
           </div>
         </div>
       </div>
@@ -61,4 +61,10 @@ function onInput(): void {
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-top: 12px; }
 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 16px; margin-top: 12px; }
 @media (max-width: 960px) { .grid2, .grid4 { grid-template-columns: 1fr; } }
+/* 永久浮起 label（Material persistent label，2026-10-09 内网实测"字体显大突兀"）：
+   Vuetify outlined 空值时 label 以 16px 大字停在框内（超长 label 更甚），有值才浮成
+   12px——同卡 7 框两种形态并存很突兀。显示切换是纯 visibility，这里统一强制浮起态：
+   label 恒为边框缺口上的 12px 小字，空值框内只显示灰色 placeholder */
+.body :deep(.v-field-label:not(.v-field-label--floating)) { visibility: hidden; }
+.body :deep(.v-field-label--floating) { visibility: visible; }
 </style>
