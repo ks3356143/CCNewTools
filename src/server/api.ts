@@ -1,13 +1,13 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { readDocx } from '../core/parse/docx.ts'
 import { extractOutline } from '../core/parse/outline.ts'
 import { convertToTemplateData } from '../core/convert/index.ts'
 import type { CaseRow } from '../core/convert/rows.ts'
-import { renderTemplate } from '../core/render/docx.ts'
+import { renderTemplate, renderTemplateBatched, stripAnchorMarks, type LoopSpec } from '../core/render/docx.ts'
 import { IssueCollector, DEFAULT_PARAMS, type GlobalParams } from '../core/domain.ts'
 import { sha132, mergeRestored, EDIT_STATE_VERSION, type EditState, type StoredCase } from '../core/persistence.ts'
-import { loadSettings, saveSettings, type Settings } from './store.ts'
+import { loadSettings, saveSettings, dataRoot, type Settings } from './store.ts'
 import {
   listProjects, loadProject, deleteProject, recordParse, recordGenerated,
   loadProjectEdits, saveProjectEdits, projectId, sourceFileOf
@@ -32,11 +32,29 @@ interface EditProgress {
 }
 
 /**
- * 生成用例数上限（10-大文档处理 P1 保护线）：整体渲染实测内存 ≈226KB/例
- * （42MB 样本 29686 例实测 58.8s / 6.7GB），8GB 内网机器扛不住 → v1.3.0
- * 分批渲染落地后放宽或取消。10000 例 ≈ 2.3GB，可承受。
+ * 生成回退开关（10-大文档处理 5.2）：≤该用例数走整体渲染（成熟路径零风险），
+ * 超过走分批渲染（逐批即用即弃，内存与用例总数脱钩——实测 29686 例整体渲染 6.7GB，
+ * 分批后峰值 <1GB）。v1.3.0 起生成上限撤销。
  */
-const GENERATE_CASE_LIMIT = 10000
+const BATCH_RENDER_THRESHOLD = 500
+
+/**
+ * 测试记录文档的用例数边界（2026-10-09 42MB 实测发现的产品边界）：
+ * 记录模板每例 ~38KB XML（记录表+步骤+签字栏结构），29686 例产物解压后 1.1GB——
+ * Word 物理上打不开（非生成过程问题，是产物体积边界）。2000 例 ≈ 76MB XML 为
+ * Word 可用的保守上限；超限只生成测试说明并明确告知（说明每例 ~1.2KB，35MB@29686 可用）。
+ */
+const RECORD_CASE_LIMIT = 2000
+
+/** 分批渲染的循环区配置（与模板锚点手术的锚点名对应；两份模板同一 cases 锚点名） */
+const SPEC_LOOPS: LoopSpec[] = [
+  { field: 'caselist', begin: '_CL_BEGIN_', end: '_CL_END_', batchSize: 1000 },
+  { field: 'traceRows', begin: '_TR_BEGIN_', end: '_TR_END_', batchSize: 1000 },
+  { field: 'cases', begin: '_CT_BEGIN_', end: '_CT_END_', batchSize: 300 }
+]
+const REC_LOOPS: LoopSpec[] = [
+  { field: 'cases', begin: '_CT_BEGIN_', end: '_CT_END_', batchSize: 300 }
+]
 
 /** 解析大纲并套回项目内已存编辑（/api/parse 与 打开项目 共用，09） */
 function parseAndRestore(name: string, hash: string, bytes: Uint8Array) {
@@ -187,9 +205,6 @@ async function apiGenerate(req: Request): Promise<Response> {
   if (cases.length === 0) {
     return Response.json({ ok: false, error: '没有可生成的用例（全部被排除？）' }, { status: 400 })
   }
-  if (cases.length > GENERATE_CASE_LIMIT) {
-    return Response.json({ ok: false, error: `用例数 ${cases.length} 超过当前版本生成上限 ${GENERATE_CASE_LIMIT}，请拆分大纲分册导入（大文档分批渲染将在 v1.3.0 支持）` }, { status: 400 })
-  }
   // 用例清单 + 追踪表由送来的用例数据推导（保持与核对结果一致）
   const caselist = cases.map((c, i) => ({ no: i + 1, mingcheng: c.mingcheng, caseId: c.caseId, summary: c.summary }))
   const traceRows = cases.map((c, i) => ({
@@ -203,17 +218,52 @@ async function apiGenerate(req: Request): Promise<Response> {
     caseId: c.caseId
   }))
   const configName = body.params?.configName ?? ''
-  const specBuf = renderTemplate(templateFile('测试说明模板.docx'), {
-    cases: cases, caselist: caselist, traceRows: traceRows, configName: configName
-  })
-  const recBuf = renderTemplate(templateFile('测试记录模板.docx'), { cases: cases, configName: configName })
-  appendLog(`生成文档：${body.outline.name}，${cases.length} 例`)
-  // 生成成功后更新项目元信息（09）：文档本体不落盘
+  // ≤500 例走整体渲染（成熟路径），>500 例走分批渲染（内存与总数脱钩——10-大文档处理 5.2）
+  const batched = cases.length > BATCH_RENDER_THRESHOLD
+  const t0 = Date.now()
+  const specBuf = batched
+    ? renderTemplateBatched(templateFile('测试说明模板.docx'), { cases, caselist, traceRows, configName }, SPEC_LOOPS)
+    : stripAnchorMarks(renderTemplate(templateFile('测试说明模板.docx'), { cases, caselist, traceRows, configName }))
+  // 记录文档边界：超 2000 例产物 XML 超出 Word 可用范围（实测 1.1GB@29686），跳过并告知
+  const recSkipped = cases.length > RECORD_CASE_LIMIT
+  const recBuf = recSkipped
+    ? null
+    : batched
+      ? renderTemplateBatched(templateFile('测试记录模板.docx'), { cases, configName }, REC_LOOPS)
+      : stripAnchorMarks(renderTemplate(templateFile('测试记录模板.docx'), { cases, configName }))
+  const elapsed = Date.now() - t0
+
+  // 落盘交付（10-大文档处理 5.3）：产物写 数据/生成/<项目id12>/，浏览器不再承载大文件
+  const id12 = body.outline.hash ? projectId(body.outline.hash) : null
+  let files: Array<{ name: string; sizeKB: string; path: string }> = []
+  if (id12) {
+    const dir = join(dataRoot(), '生成', id12)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, '测试说明-生成.docx'), specBuf)
+    files.push({ name: '测试说明-生成.docx', sizeKB: (specBuf.length / 1024).toFixed(1), path: join(dir, '测试说明-生成.docx') })
+    if (recBuf) {
+      writeFileSync(join(dir, '测试记录-生成.docx'), recBuf)
+      files.push({ name: '测试记录-生成.docx', sizeKB: (recBuf.length / 1024).toFixed(1), path: join(dir, '测试记录-生成.docx') })
+    }
+  }
+  const mode = batched ? `分批渲染（${Math.ceil(cases.length / 300)} 批用例详情）` : '整体渲染'
+  appendLog(`生成文档：${body.outline.name}，${cases.length} 例，${mode} ${elapsed}ms${recSkipped ? '，测试记录超 ' + RECORD_CASE_LIMIT + ' 例未生成' : ''}${id12 ? '，已落盘 数据/生成/' + id12 : ''}`)
+  // 生成成功后更新项目元信息（09）
   if (body.outline.hash) recordGenerated(body.outline.hash)
   return Response.json({
     ok: true,
-    spec: specBuf.toString('base64'),
-    rec: recBuf.toString('base64'),
+    files: files,
+    recSkipped: recSkipped,
+    recNote: recSkipped
+      ? `用例数 ${cases.length} 超出测试记录文档的 Word 可用范围（上限 ${RECORD_CASE_LIMIT} 例），本批仅生成测试说明。如需完整测试记录，请把大纲按测试类型拆分成几个分册分别导入生成`
+      : undefined,
+    // ≤10MB 保留下载双轨（习惯延续）；大文档只给落盘路径，免浏览器大内存
+    ...(specBuf.length <= 10 * 1024 * 1024 && recBuf && recBuf.length <= 10 * 1024 * 1024
+      ? {
+          spec: specBuf.toString('base64'),
+          rec: recBuf.toString('base64')
+        }
+      : {}),
     // 固定文件名（2026-10-01 用户定稿）：与模板名区分的短名，不带大纲名前缀
     specName: '测试说明-生成.docx',
     recName: '测试记录-生成.docx'

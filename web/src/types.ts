@@ -30,11 +30,23 @@ export interface ProjectMeta {
   progress: { reviewed: number; suspects: number } | null
 }
 
+export interface GeneratedFile {
+  name: string
+  sizeKB: string
+  path: string
+}
+
 export interface GenerateResponse {
   ok: boolean
   error?: string
-  spec: string
-  rec: string
+  /** 产物落盘信息（v1.3.0 起恒有：数据/生成/<项目>/ 下生成的文档） */
+  files?: GeneratedFile[]
+  /** 测试记录超 Word 可用边界被跳过时为 true（v1.3.0），recNote 给说明 */
+  recSkipped?: boolean
+  recNote?: string
+  /** base64 下载双轨：≤10MB 时携带，大文档不传（免浏览器大内存） */
+  spec?: string
+  rec?: string
   specName: string
   recName: string
 }

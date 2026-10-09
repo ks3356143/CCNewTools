@@ -160,19 +160,25 @@ describe('M4 编辑持久化（05）', () => {
 })
 
 describe('M4 /api/generate', () => {
-  test('生成用例数超上限 10000 → 400（10-大文档处理 P1 保护线：整体渲染内存 ≈226KB/例）', async () => {
+  test('生成 >500 例自动分批渲染：产物落盘 + files 响应（10-大文档处理 5.3，v1.3.0）', async () => {
     const first = await parse('测试大纲A.docx', sampleDocx())
-    const many = Array.from({ length: 10001 }, () => ({ ...first.cases[0], caseId: 'YL_A_B_009' }))
+    const many = Array.from({ length: 501 }, (_, i) => ({ ...first.cases[0], caseId: 'YL_A_B_' + String(i).padStart(3, '0') }))
     const res = await fetch(URL0 + '/api/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ outline: first.outline, cases: many })
     })
     const data = await res.json()
-    expect(res.status).toBe(400)
-    expect(data.ok).toBe(false)
-    expect(data.error).toContain('10000')
-    expect(data.error).toContain('拆分')
+    expect(data.ok).toBe(true)
+    expect(data.files).toHaveLength(2)
+    expect(data.files[0].name).toBe('测试说明-生成.docx')
+    expect(data.files[0].path).toContain(join('生成', first.outline.hash.slice(0, 12)))
+    // 落盘文件真实存在且为有效 zip
+    const disk = readFileSync(data.files[0].path)
+    expect(disk.subarray(0, 2).toString()).toBe('PK')
+    // ≤10MB 保留 base64 下载双轨
+    expect(typeof data.spec).toBe('string')
+    expect(typeof data.rec).toBe('string')
   })
 
   test('生成两份 docx（base64），排除的用例不生成', async () => {

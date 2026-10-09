@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { renderTemplate } from '../src/core/render/docx.ts'
+import { renderTemplate, renderTemplateBatched, stripAnchorMarks } from '../src/core/render/docx.ts'
 import { convertToTemplateData } from '../src/core/convert/index.ts'
 import { DEFAULT_PARAMS, type ParsedOutline, type TestItem, type RawCase } from '../src/core/domain.ts'
 import PizZip from 'pizzip'
@@ -227,5 +227,51 @@ describe('M3 书签配对（2026-10-01 终验发现）', () => {
     const recEnds = [...recXml.matchAll(/<w:bookmarkEnd\b[^>]*>/g)]
     expect(recStarts.length).toBeGreaterThan(0)
     expect(recEnds.length).toBe(recStarts.length) // 逐一起止配对
+  })
+})
+
+describe('M3 分批渲染（10-大文档处理 5.2）：批片段合并产物与整体渲染一致', () => {
+  const data = convertToTemplateData(makeOutline(), { ...DEFAULT_PARAMS, tester: '张三', monitor: '李四' })
+  const cases = data.cases
+  const caselist = cases.map((c, i) => ({ no: i + 1, mingcheng: c.mingcheng, caseId: c.caseId, summary: c.summary }))
+  const traceRows = cases.map((c, i) => ({
+    no: i + 1, srsChapter: c.srsChapter, srsDesc: c.srsDesc, outlineChapter: c.chapter,
+    itemName: c.itemName, itemItemId: c.itemItemId, caseName: c.mingcheng, caseId: c.caseId
+  }))
+  const cfg = '某软件配置项'
+  const strip = (xml: string): string => xml.replace(/<w:bookmark(?:Start|End)\b[^>]*\/?>/g, '')
+  const docXml = (buf: Buffer): string => new PizZip(buf).file('word/document.xml')!.asText()
+
+  // batchSize 1 → 每例一批，最大化跨批合并语义暴露
+  const batchedSpec = renderTemplateBatched(SPEC, { cases, caselist, traceRows, configName: cfg }, [
+    { field: 'caselist', begin: '_CL_BEGIN_', end: '_CL_END_', batchSize: 1 },
+    { field: 'traceRows', begin: '_TR_BEGIN_', end: '_TR_END_', batchSize: 1 },
+    { field: 'cases', begin: '_CT_BEGIN_', end: '_CT_END_', batchSize: 1 }
+  ])
+  const wholeSpec = stripAnchorMarks(renderTemplate(SPEC, { cases, caselist, traceRows, configName: cfg }))
+  const batchedRec = renderTemplateBatched(REC, { cases, configName: cfg }, [
+    { field: 'cases', begin: '_CT_BEGIN_', end: '_CT_END_', batchSize: 1 }
+  ])
+  const wholeRec = stripAnchorMarks(renderTemplate(REC, { cases, configName: cfg }))
+
+  test('说明：剥离书签后逐字节一致 + 锚点零残留', () => {
+    expect(strip(docXml(batchedSpec))).toBe(strip(docXml(wholeSpec)))
+    expect(/_(CL|CT|TR)_(BEGIN|END)_/.test(docXml(batchedSpec))).toBe(false)
+  })
+
+  test('记录：剥离书签后逐字节一致 + 锚点零残留 + 书签起止配对', () => {
+    const xml = docXml(batchedRec)
+    expect(strip(xml)).toBe(strip(docXml(wholeRec)))
+    expect(/_CT_(BEGIN|END)_/.test(xml)).toBe(false)
+    const starts = [...xml.matchAll(/<w:bookmarkStart\b[^>]*>/g)]
+    const ends = [...xml.matchAll(/<w:bookmarkEnd\b[^>]*>/g)]
+    expect(ends.length).toBe(starts.length)
+  })
+
+  test('跨批数据完整：分批产物含全部用例文本（每例一批无丢失）', () => {
+    const xml = docXml(batchedSpec)
+    for (const c of cases) expect(xml).toContain(c.caseId)
+    const recXml = docXml(batchedRec)
+    for (const c of cases) expect(recXml).toContain(c.caseId)
   })
 })

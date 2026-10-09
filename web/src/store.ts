@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import type { CaseRow, GlobalParams, Issue, ParseResponse, ProjectMeta } from './types.ts'
+import type { CaseRow, GlobalParams, GeneratedFile, Issue, ParseResponse, ProjectMeta } from './types.ts'
 import { parseOutline, saveEdits, saveSettings, generate, listProjects, openProject } from './api.ts'
 import { activeSuspects } from './suspect.ts'
 import { DEFAULT_PARAMS } from '../../src/core/domain.ts'
@@ -19,7 +19,7 @@ export const store = reactive({
   restored: { cases: 0, steps: 0, skipped: 0 },
   currentIdx: 0,
   generating: false,
-  genResult: null as { spec: string; rec: string; specName: string; recName: string } | null,
+  genResult: null as { spec?: string; rec?: string; specName: string; recName: string; files?: GeneratedFile[]; recSkipped?: boolean; recNote?: string } | null,
   /** 生成完成时仍存在的疑问文案（doGenerate 算一次，完成页横幅与日志共用同一来源） */
   genWarnings: [] as string[],
   /** 可疑跳转的闪烁行（步骤下标，1.6s 后清空；Vue 状态而非手工 DOM class，重渲染不丢） */
@@ -230,7 +230,15 @@ export async function doGenerate(onLog: (lines: GenLogLine[], pct: number) => vo
   for (const w of store.genWarnings) {
     onLog([{ text: w, done: false, warn: true }], 100)
   }
-  store.genResult = { spec: genRes.spec, rec: genRes.rec, specName: genRes.specName, recName: genRes.recName }
+  store.genResult = {
+    spec: genRes.spec,
+    rec: genRes.rec,
+    specName: genRes.specName,
+    recName: genRes.recName,
+    files: genRes.files,
+    recSkipped: genRes.recSkipped,
+    recNote: genRes.recNote
+  }
   return true
 }
 
