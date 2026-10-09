@@ -237,7 +237,7 @@ describe('M1 段落形态与步骤切分（02 第五、六节）', () => {
     expect(c.steps[0].text).not.toContain('1）')
   })
 
-  test('悬空小标题行被丢弃并记录提示（9.1）', () => {
+  test('悬空小标题行被静默丢弃（9.1，2026-10-09 用户裁决：忽略行不提醒）', () => {
     const { result, issues } = parse([
       { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
       { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
@@ -254,9 +254,7 @@ describe('M1 段落形态与步骤切分（02 第五、六节）', () => {
     expect(c.steps.length).toBe(2)
     expect(c.steps[1].text).toBe('输入参数标识，查看查询结果是否正确；')
     const info = issues.issues.find(i => i.code === 'DANGLING_LABEL')
-    expect(info).toBeDefined()
-    expect(info!.level).toBe('info')
-    expect(info!.message).toContain('查询标识：')
+    expect(info).toBeUndefined()
   })
 
   test('小标题行后有正文并入则保留为步骤（规则 4）', () => {
@@ -485,7 +483,8 @@ describe('M1 通过准则格解析（9.5 实测变种）', () => {
     expect(cc[0].items).toEqual(['软件展示页面层级信息、搜索栏和搜索按钮、检索结果统计栏、信息列表；'])
     expect(cc[1].itemId).toBe('XQ_SU_JSWQ_SU02')
     expect(cc[1].items).toEqual(['展示统计检索结果数量，数量与库中数量一致；'])
-    expect(issues.issues.some(i => i.code === 'CRITERIA_LABEL' && i.message.includes('不同检索类型'))).toBe(true)
+    // 小标题行静默丢弃（2026-10-09 用户裁决：忽略行不提醒）
+    expect(issues.issues.some(i => i.code === 'CRITERIA_LABEL')).toBe(false)
   })
 })
 

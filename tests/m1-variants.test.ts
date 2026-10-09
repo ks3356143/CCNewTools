@@ -122,8 +122,8 @@ describe('变种大杂烩：不同写法都要转换成功', () => {
     // 自动编号吸收 + 引导句：准确率用例 2 步
     expect(acc.cases[0].steps.length).toBe(2)
     expect(acc.cases[0].steps[0].text).toContain('按大纲要求搭建测试环境：')
-    // 悬空小标题丢弃并提示
-    expect(parsed.issues.filter(i => i.code === 'DANGLING_LABEL').length).toBe(1)
+    // 悬空小标题静默丢弃（2026-10-09 用户裁决：忽略行不提醒）
+    expect(parsed.issues.filter(i => i.code === 'DANGLING_LABEL').length).toBe(0)
     // 多余描述子项告警
     expect(parsed.issues.some(i => i.code === 'DESC_ENTRY_UNUSED')).toBe(true)
     // 标识笔误告警（XQ_AC_SCZQ vs XQ_AC_SCZQL）
@@ -241,5 +241,53 @@ describe('软换行变种（Shift+Enter / w:br，2026-10-08 内网实测）', ()
     expect(r1.expectSource).toBe('通过准则')
     expect(r1.summary).toBe('第一个用例的综述；')
     expect(r1.steps.map(s => s.expect)).toEqual(['结果正确显示', '导出文件完整'])
+  })
+})
+
+describe('内网实测形态固化（2026-10-09：无编号首子项标题 + 括号小标题丢弃，检索WQ资源信息测试项）', () => {
+  // 结构浓缩自真实文档：①方法格首段带 numPr（"1、"是 Word 自动编号渲染，字面无前缀），
+  // 旧 matchCaseTitle 要求编号开头 → 首子项整体丢失；②标题后首个"："行含括号枚举
+  // （「不同检索类型（WQ类型、目标、行业分类、标签、关键词）：」），旧逻辑走引导句规则
+  // 与第 1 步粘连；③无括号"："行（「边界类：」）维持引导句并入（既有规则 2 不变）。
+  // 忽略行一律静默（用户裁决：被忽略的行不在解析完成后提醒）。
+  const issues = new IssueCollector()
+  const parsed = extractOutline(buildDocx({
+    content: [
+      { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+      { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+      { kind: 'p', para: { text: '检索WQ资源信息', heading: 6, numId: 1, ilvl: 5 } },
+      {
+        kind: 'tbl',
+        rows: itemTable('检索WQ资源信息', 'XQ_SU_JSWQ', [
+          [DESC, [
+            { textParts: ['1、检索WQ资源信息人机界面元素测试（XQ_SU_JSWQ_SU01）', '验证软件人机界面元素与需求规格说明要求是否一致；'] },
+            { textParts: ['2、正常检索WQ资源信息功能测试（XQ_SU_JSWQ_SU02）', '验证软件检索WQ资源信息功能实现与需求规格说明是否一致；'] }
+          ]],
+          [METHOD, [
+            { numId: 11, textParts: ['检索WQ资源信息人机界面元素测试（XQ_SU_JSWQ_SU01）', '1）打开界面，查看页面层级信息；', '2）关键词搜索后查看统计数量；'] },
+            { textParts: ['2、正常检索WQ资源信息功能测试（XQ_SU_JSWQ_SU02）', '不同检索类型（WQ类型、目标、行业分类、标签、关键词）：', '1）输入不同WQ类型，查看检索结果数量一致；'] }
+          ]],
+          [CRITERIA, [
+            { textParts: ['1、检索WQ资源信息人机界面元素测试（XQ_SU_JSWQ_SU01）', '1）展示页面层级信息；'] },
+            { textParts: ['2、正常检索WQ资源信息功能测试（XQ_SU_JSWQ_SU02）', '1）数量一致；'] }
+          ]]
+        ])
+      }
+    ]
+  }), issues)
+
+  test('无编号标题（numPr 渲染编号）识别为首子项用例：2 例完整', () => {
+    expect(parsed.stats).toEqual({ items: 1, cases: 2, steps: 3 })
+    const item = parsed.items[0]
+    expect(item.cases.map(c => c.name)).toEqual(['检索WQ资源信息人机界面元素测试', '正常检索WQ资源信息功能测试'])
+    expect(item.cases[0].itemId).toBe('XQ_SU_JSWQ_SU01')
+    expect(item.cases[0].steps.map(s => s.text)).toEqual(['打开界面，查看页面层级信息；', '关键词搜索后查看统计数量；'])
+  })
+
+  test('括号小标题丢弃不粘连，忽略行零提醒', () => {
+    const c2 = parsed.items[0].cases[1]
+    expect(c2.steps.map(s => s.text)).toEqual(['输入不同WQ类型，查看检索结果数量一致；'])
+    expect(c2.steps[0].text.startsWith('不同检索类型')).toBe(false)
+    expect(parsed.issues.filter(i => i.level !== 'error').length).toBe(0)
   })
 })

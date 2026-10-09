@@ -42,8 +42,8 @@ export function parseCriteriaCell(paras: ParaInfo[], issues: IssueCollector, ctx
     }
 
     if (t.endsWith('：')) {
-      // 小标题行（如"不同检索类型（……）："），无实际内容 → 丢弃；仅在有用例结构时提示
-      if (entries.length > 0) issues.info('CRITERIA_LABEL', '通过准则格已忽略小标题行：' + t, ctx)
+      // 小标题行（如"不同检索类型（……）："），无实际内容 → 静默丢弃（2026-10-09 用户裁决：
+      // 被忽略的行不在解析完成后提醒）
       continue
     }
 

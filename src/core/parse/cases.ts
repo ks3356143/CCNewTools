@@ -7,13 +7,18 @@ import type { RawCase, IssueCollector } from '../domain.ts'
  * 容错（实测 A星大纲 V1.10）：编号后允许省略「.」「、」分隔符
  * （如「8宏动作与模板映射修改异常功能（XQ_SU_HHZM_SU08）」）；
  * 但编号后紧跟「）」的是普通步骤（m）开头），不作为标题。
+ * 编号前缀可选（2026-10-09 内网实测：首子项标题靠 Word 自动编号渲染（numPr），
+ * 字面文本无「1、」前缀——如「检索WQ资源信息人机界面元素测试（XQ_SU_JSWQ_SU01）」）。
+ * 行尾须恰为「（标识）」：正文句（综述/步骤）的标识后面还有内容，不会误命中。
  */
 export function matchCaseTitle(t: string): { name: string; itemId: string } | null {
-  const m = /^\d{1,3}\s*(.+?)\s*[（(]\s*([A-Za-z]{2}_[A-Za-z0-9_]+)\s*[)）]\s*$/.exec(t)
+  const m = /^(?:\d{1,3}\s*)?(.+?)\s*[（(]\s*([A-Za-z]{2}_[A-Za-z0-9_]+)\s*[)）]\s*$/.exec(t)
   if (m === null) return null
   let name = m[1].trim()
   name = name.replace(/^[.、]\s*/, '')
   if (name === '' || name.startsWith('）') || name.startsWith(')')) return null
+  // 名称以句读结尾的是正文行（如「……用户搜索WQ资源，（XQ_…）」），不是标题
+  if (/[。；，、：；,;:]$/.test(name)) return null
   return { name: name, itemId: m[2] }
 }
 
@@ -97,11 +102,8 @@ function finishCase(st: MethodState, issues: IssueCollector, ctx: string): void 
     st.working.push({ text: st.pendingSummary.replace(/\n/g, ''), fromLabel: false, listColon: false })
     st.pendingSummary = null
   }
-  for (const s of st.working) {
-    if (s.fromLabel && s.text.endsWith('：')) {
-      issues.info('DANGLING_LABEL', '已忽略小标题行：' + s.text, ctx)
-    }
-  }
+  // 小标题行（fromLabel 且「：」结尾）静默丢弃——2026-10-09 用户裁决：被忽略的行不在
+  // 解析完成后提醒；影响产物完整性的丢行场景由 ZERO_STEPS 等 error 级兜底
   const kept: WorkingStep[] = []
   for (const s of st.working) {
     if (s.fromLabel && s.text.endsWith('：')) continue
@@ -162,7 +164,15 @@ function feedPara(st: MethodState, para: ParaInfo, issues: IssueCollector, ctx: 
   }
 
   if (para.numId !== null) {
-    // 自动编号列表项（02 第五节：正文没有 1） 字面文本）
+    // 自动编号列表项（02 第五节：正文没有 1） 字面文本）。
+    // 例外（2026-10-09 内网实测）：numPr 与字面「m）」并存的段落（作者手打编号+自动编号
+    // 双重渲染）→ 与普通步骤行同处理剥号，产物步骤形态才与无 numPr 的步骤一致。
+    if (STEP_START_RE.test(t)) {
+      addStep(st, t.replace(/^\d{1,3}\s*[）)]\s*/, ''), false)
+      st.prevText = t
+      st.firstPara = false
+      return
+    }
     const last = st.working[st.working.length - 1]
     if (last !== undefined && last.listColon) {
       // 列表项以「：」结尾后，其后的列表项并入同一步骤
@@ -185,8 +195,19 @@ function feedPara(st: MethodState, para: ParaInfo, issues: IssueCollector, ctx: 
     return
   }
 
+  if (st.firstPara === true && t.endsWith('：') && /[（(][^（）()]*[)）]/.test(t)) {
+    // 标题后首个"："行且含括号结构（如「不同检索类型（WQ类型、目标、行业分类、标签、关键词）：」）
+    // → 按小标题行丢弃（fromLabel 语义，finishCase 时剥除；2026-10-09 内网实测：引导句规则
+    // 抢走该行并与第 1 步粘连）。无括号的"："行（如「空白空格类：」「边界类：」）维持引导句
+    // 规则并入第 1 步（既有规则 2，m1-variants 固化「边界类：」并入）。
+    st.working.push({ text: t, fromLabel: true, listColon: false })
+    st.firstPara = false
+    st.prevText = t
+    return
+  }
+
   if (st.firstPara === true && t.endsWith('：')) {
-    // 引导句（02 第六节规则 2）
+    // 引导句（02 第六节规则 2）——仅纯文本"："行
     st.leadIn = t
     st.prevText = t
     st.firstPara = false
