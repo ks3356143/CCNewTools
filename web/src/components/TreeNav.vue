@@ -25,14 +25,40 @@ watch(searchInput, v => {
 // 纯计算（不写外部 ref——computed 副作用会打乱渲染调度）：搜索命中只入树前
 // SEARCH_RENDER_LIMIT 个（42MB 样本 29686 例实测宽泛词全量渲染卡死），hits 累计
 // 全部命中数供溢出提示；非搜索态不截断（大文档默认折叠，无此问题）。
+//
+// P3 实测（2026-10-09，42MB/29686 例 Playwright 计时）：清空搜索要 ~2s——tree computed
+// 依赖 keyword，清空即全量重建。拆出 baseTree（只依赖 store.cases）：非搜索态直接复用
+// 其缓存结果（同一批节点对象，TreeLevel 按 key 复用不重渲染），搜索态独立建树（命中
+// 子集的 caseCount 不同，不能共享节点）。
+const baseTree = computed<{ roots: PathNode[] }>(() => {
+  const roots: PathNode[] = []
+  for (const [i, c] of store.cases.entries()) {
+    let level = roots
+    let chain = ''
+    const pathTexts = c.path.map(p => p.text)
+    for (const [d, text] of pathTexts.entries()) {
+      chain = chain + '\u0000' + text
+      let node = level.find(n => n.key === chain)
+      if (!node) {
+        node = { key: chain, name: text, children: [], cases: [], caseCount: 0 }
+        level.push(node)
+      }
+      node.caseCount++
+      if (d < pathTexts.length - 1) level = node.children
+      else node.cases.push({ row: c, idx: i })
+    }
+  }
+  return { roots }
+})
 const tree = computed<{ roots: PathNode[]; hits: number }>(() => {
   const kw = (keyword.value ?? '').trim().toLowerCase()
+  if (!kw) return { roots: baseTree.value.roots, hits: store.cases.length }
   const roots: PathNode[] = []
   let hits = 0
   for (const [i, c] of store.cases.entries()) {
-    if (kw && !(c.mingcheng + c.caseId + c.itemId).toLowerCase().includes(kw)) continue
+    if (!(c.mingcheng + c.caseId + c.itemId).toLowerCase().includes(kw)) continue
     hits++
-    if (kw && hits > SEARCH_RENDER_LIMIT) continue
+    if (hits > SEARCH_RENDER_LIMIT) continue
     let level = roots
     let chain = ''
     const pathTexts = c.path.map(p => p.text)
