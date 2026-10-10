@@ -115,7 +115,10 @@ function gen(): void {
    操作栏随排版落在最底（不再悬浮盖内容），不留大块空窗 */
 .screen {
   display: flex; flex-direction: column;
-  height: calc(100vh - 64px); height: calc(100dvh - 64px); /* 64 = v-app-bar 默认高度 */
+  /* 必须单 100vh 声明：CSS 压缩器会把"先 vh 后 dvh"的双声明回退合并成只留 dvh（2026-10-10
+     Edge 100 实测 bug）——Chromium <108 不认 dvh，整条声明被丢 → .screen 失高 → 整页滚动。
+     内网桌面浏览器无动态视口（dvh 是给移动端地址栏伸缩的），100vh 足够 */
+  height: calc(100vh - 64px); /* 64 = v-app-bar 默认高度 */
 }
 .s2 {
   flex: 1; min-height: 0; overflow: hidden;
