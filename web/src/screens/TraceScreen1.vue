@@ -188,7 +188,10 @@ function issueCounts(): string {
         {{ t.label }}
       </button>
     </div>
-    <p class="tab-hint">{{ tab.hint }}</p>
+    <!-- tab 内容整体过渡（切换类型时淡入淡出，与工具一屏切换同风格） -->
+    <Transition name="tabbody" mode="out-in">
+      <div :key="store.traceType" class="tab-body">
+        <p class="tab-hint">{{ tab.hint }}</p>
 
     <!-- 大纲配对（报告/回归说明 tab） -->
     <div v-if="needAlign" class="align">
@@ -304,6 +307,8 @@ function issueCounts(): string {
       </div>
       <div class="foot">离线运行，文档内容不出本机。</div>
     </template>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -412,4 +417,13 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
   background: rgba(var(--v-theme-primary), 0.1); color: rgb(var(--v-theme-primary));
 }
 .a-item-tag.isSpec { background: rgba(var(--v-theme-success), 0.12); color: rgb(var(--v-theme-success)); }
+</style>
+<style scoped>
+/* tab 内容切换过渡（与工具一屏切换同风格 180ms fade-slide，respect reduced-motion） */
+.tabbody-enter-active, .tabbody-leave-active { transition: opacity 0.18s ease-out, transform 0.18s ease-out; }
+.tabbody-enter-from { opacity: 0; transform: translateY(6px); }
+.tabbody-leave-to { opacity: 0; transform: translateY(-4px); }
+@media (prefers-reduced-motion: reduce) {
+  .tabbody-enter-active, .tabbody-leave-active { transition: none; }
+}
 </style>

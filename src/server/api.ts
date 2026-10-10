@@ -28,6 +28,29 @@ function templateFile(name: string): Buffer {
   return readFileSync(join(process.cwd(), '模板', name))
 }
 
+/**
+ * multipart 文件名兜底：浏览器上传的文件名是标准 UTF-8，不受影响；
+ * Windows 命令行工具（curl）按本地代码页（GBK）发原始字节，服务端 latin1 解码成乱码——
+ * 依次尝试 UTF-8 严格还原、GBK 还原（结果含汉字才采用），中文正常名零误伤。
+ */
+function fixFileName(name: string): string {
+  if (!/[\u0080-ÿ]/.test(name)) return name
+  const bytes = Uint8Array.from([...name].map(c => c.charCodeAt(0)))
+  try {
+    const fixed = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    if (fixed !== name && !fixed.includes('�')) return fixed
+  } catch {
+    // 不是合法 UTF-8 字节序列，继续试 GBK
+  }
+  try {
+    const fixed = new TextDecoder('gbk').decode(bytes)
+    if (/[一-裿]/.test(fixed)) return fixed
+  } catch {
+    // GBK 不可用，保持原样
+  }
+  return name
+}
+
 /** API 路由（F1~F7 的服务端部分） */
 
 /** 核对进度（05：可疑判定唯一入口在前端，服务端只随存档透传展示） */
@@ -185,7 +208,7 @@ async function apiParse(req: Request): Promise<Response> {
   if (!(file instanceof File)) {
     return Response.json({ ok: false, error: '缺少上传文件' }, { status: 400 })
   }
-  const name = file.name || '未命名.docx'
+  const name = fixFileName(file.name || '未命名.docx')
   const bytes = new Uint8Array(await file.arrayBuffer())
   const hash = sha132(bytes)
 
@@ -367,7 +390,7 @@ async function apiTraceParse(req: Request): Promise<Response> {
   if (!(file instanceof File)) {
     return Response.json({ ok: false, error: '缺少上传文件' }, { status: 400 })
   }
-  const name = file.name || '未命名.docx'
+  const name = fixFileName(file.name || '未命名.docx')
   const bytes = new Uint8Array(await file.arrayBuffer())
   const hash = sha132(bytes)
   try {
