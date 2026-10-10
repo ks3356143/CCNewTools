@@ -1,20 +1,31 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useTheme } from 'vuetify'
-import { store, scheduleSettingsSave, showToast } from './store.ts'
+import { store, scheduleSettingsSave, showToast, openTool, goHome } from './store.ts'
 import { loadSettings } from './api.ts'
+import Screen0 from './screens/Screen0.vue'
 import Screen1 from './screens/Screen1.vue'
 import Screen2 from './screens/Screen2.vue'
 import Screen3 from './screens/Screen3.vue'
+import TraceScreen1 from './screens/TraceScreen1.vue'
+import TraceScreen2 from './screens/TraceScreen2.vue'
 
 // vite define 注入（来源根 package.json）；必须先绑到局部常量——模板里直接写裸标识符
 // 会被 Vue 编译成 _ctx.__APP_VERSION__ 属性访问，define 的标识符替换匹配不上
 const appVersion = __APP_VERSION__
 
 const theme = useTheme()
-const STEPS = ['选择大纲', '核对与编辑', '生成文档']
+// 顶栏 stepper 随工具切换（11-工具集首页：顶栏三态）
+const STEPS = {
+  convert: ['选择大纲', '核对与编辑', '生成文档'],
+  trace: ['选大纲', '生成文档']
+} as const
 // 使用说明对话框（08 交付物：内置界面，顶栏 ? 打开）
 const about = ref(false)
+
+/** 当前工具的步骤名与当前步（顶栏居中 stepper；首页态无 stepper） */
+const curSteps = computed(() => (store.view === 'trace' ? STEPS.trace : STEPS.convert))
+const curStep = computed(() => (store.view === 'trace' ? store.traceScreen : store.screen))
 
 onMounted(async () => {
   try {
@@ -34,7 +45,20 @@ function toggleTheme(): void {
   scheduleSettingsSave()
 }
 
+/** stepper 点击守卫（工具一守卫原样保留；工具二同构） */
 function stepClick(n: number): void {
+  if (store.view === 'trace') {
+    if (n === 1) {
+      store.traceScreen = 1
+      return
+    }
+    if (!store.traceParsed) {
+      showToast('请先选择并解析大纲')
+      return
+    }
+    store.traceScreen = 2
+    return
+  }
   if (n === 1) {
     store.screen = 1
     return
@@ -54,24 +78,29 @@ function stepClick(n: number): void {
 <template>
   <v-app>
     <v-app-bar color="appbar" elevation="0">
+      <!-- 工具态：左侧「‹ 工具集」返回；首页态：无 -->
+      <button v-if="store.view !== 'home'" class="back" @click="goHome">
+        <v-icon size="17">mdi-chevron-left</v-icon>
+        <span>工具集</span>
+      </button>
       <div class="mark"><v-icon size="19">mdi-file-word-box</v-icon></div>
-      <span class="app-title">测试文档生成工具</span>
+      <span class="app-title">{{ store.view === 'home' ? '测试文档工具集' : store.view === 'convert' ? '大纲转换' : '追踪文档生成' }}</span>
       <span class="ver">v{{ appVersion }}</span>
       <div class="spacer" />
-      <nav class="stepper">
-        <template v-for="(t, i) in STEPS" :key="t">
+      <nav v-if="store.view !== 'home'" class="stepper">
+        <template v-for="(t, i) in curSteps" :key="t">
           <button
             class="step"
-            :class="{ active: store.screen === i + 1, done: store.screen > i + 1 }"
+            :class="{ active: curStep === i + 1, done: curStep > i + 1 }"
             @click="stepClick(i + 1)"
           >
             <span class="dot">
-              <v-icon v-if="store.screen > i + 1" size="13">mdi-check</v-icon>
+              <v-icon v-if="curStep > i + 1" size="13">mdi-check</v-icon>
               <template v-else>{{ i + 1 }}</template>
             </span>
             <span class="lbl">{{ t }}</span>
           </button>
-          <span v-if="i < 2" class="link" />
+          <span v-if="i < curSteps.length - 1" class="link" />
         </template>
       </nav>
       <div class="spacer" />
@@ -87,9 +116,12 @@ function stepClick(n: number): void {
       <!-- 显式 duration：窗口隐藏时 CSS transitionend 不触发，mode="out-in" 会永久卡在
            leave 阶段（实测复现）——显式值让 Vue 用 setTimeout 定界，不依赖动画事件 -->
       <Transition name="screen" mode="out-in" :duration="180">
-        <Screen1 v-if="store.screen === 1" />
-        <Screen2 v-else-if="store.screen === 2" />
-        <Screen3 v-else />
+        <Screen0 v-if="store.view === 'home'" />
+        <Screen1 v-else-if="store.view === 'convert' && store.screen === 1" />
+        <Screen2 v-else-if="store.view === 'convert' && store.screen === 2" />
+        <Screen3 v-else-if="store.view === 'convert'" />
+        <TraceScreen1 v-else-if="store.traceScreen === 1" />
+        <TraceScreen2 v-else />
       </Transition>
     </v-main>
 
@@ -102,7 +134,7 @@ function stepClick(n: number): void {
       <v-card rounded="lg">
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2" color="primary">mdi-file-word-box</v-icon>
-          <span>测试文档生成工具</span>
+          <span>测试文档工具集</span>
           <span class="about-ver">v{{ appVersion }}</span>
           <v-spacer />
           <v-btn icon size="small" variant="text" @click="about = false">
@@ -114,6 +146,9 @@ function stepClick(n: number): void {
           <div class="sec">打开界面</div>
           <p>双击 exe 启动后会<b>自动打开默认浏览器</b>进入界面；个别机器没设默认浏览器时不弹出，把黑色控制台窗口里显示的地址（默认
             <code>http://127.0.0.1:8300</code>，被占用时自动换下一个端口，以控制台显示为准）抄进浏览器即可。</p>
+
+          <div class="sec">两个工具</div>
+          <p><b>大纲转换</b>：导入测试大纲，自动生成测试说明与测试记录两份 Word 文档。<b>追踪文档生成</b>：导入测试大纲，生成追踪关系文档，复制其中表格贴入自己的文档。</p>
 
           <div class="sec">数据保存在哪里</div>
           <p>exe 旁边的 <code>数据/</code> 文件夹（上传的大纲副本、核对修改、参数设置都在里面，全程不联网）。<b>换电脑</b>：把
@@ -138,8 +173,17 @@ function stepClick(n: number): void {
 .v-app-bar {
   background: linear-gradient(120deg, #33639e 0%, #2D5B91 45%, #234a7c 100%) !important;
 }
+/* 「‹ 工具集」返回（11-工具集首页：顶栏三态） */
+.back {
+  display: flex; align-items: center; gap: 1px;
+  margin-left: 8px; padding: 5px 8px 5px 4px; border-radius: 999px;
+  color: rgba(255, 255, 255, 0.78); font-size: 13px; cursor: pointer;
+  background: none; border: none;
+  transition: background 0.15s, color 0.15s;
+}
+.back:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
 .mark {
-  width: 32px; height: 32px; border-radius: 9px; margin-left: 14px;
+  width: 32px; height: 32px; border-radius: 9px; margin-left: 6px;
   background: rgba(255, 255, 255, 0.18); color: #fff;
   display: flex; align-items: center; justify-content: center;
 }
@@ -151,8 +195,7 @@ function stepClick(n: number): void {
   background: rgba(255, 255, 255, 0.14); border-radius: 999px; padding: 1px 8px;
 }
 .spacer { flex: 1; }
-/* 三屏导航绝对居中（2026-10-01 用户反馈）：左右两侧内容宽度不等（左标题长、右仅一个按钮），
-   两个等宽 spacer 会把导航推偏；改为相对整个顶栏居中，不受两侧宽度影响 */
+/* 工具内 stepper 绝对居中（2026-10-01 用户反馈）：不受两侧宽度影响，首页态不渲染 */
 .stepper { display: flex; align-items: center; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .step { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 999px; color: rgba(255, 255, 255, 0.75); transition: background 0.15s, color 0.15s; }
 .step:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
@@ -175,14 +218,14 @@ function stepClick(n: number): void {
 @media (prefers-reduced-motion: reduce) {
   .screen-enter-active, .screen-leave-active { transition: none; }
 }
-@media (max-width: 940px) { .lbl { display: none; } .link { width: 14px; } }
+@media (max-width: 940px) { .lbl { display: none; } .link { width: 14px; } .back span { display: none; } }
 /* 绝对居中的导航不感知两侧内容，窄窗口靠分档收缩防撞（2026-10-01 用户反馈移动端与版本徽标重叠）：
-   ≤940 藏导航文字、≤700 藏应用标题（图标与版本徽标保留） */
+   ≤940 藏导航文字与返回文字、≤700 藏应用标题（图标与版本徽标保留） */
 @media (max-width: 700px) {
   .app-title { display: none; }
   .step { padding: 5px 5px; }
   .link { width: 10px; margin: 0 2px; }
-  .mark { margin-left: 10px; }
+  .mark { margin-left: 2px; }
   .ver { margin-left: 6px; }
 }
 /* 使用说明对话框（v-dialog 传送到 body 渲染，scoped 属性编译期落在节点上，样式仍生效） */

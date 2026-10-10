@@ -56,6 +56,11 @@ const REC_LOOPS: LoopSpec[] = [
   { field: 'cases', begin: '_CT_BEGIN_', end: '_CT_END_', batchSize: 300 }
 ]
 
+/** 追踪文档的循环区配置（模板/追踪文档模板.docx 由测试说明模板截取追踪章生成，锚点同源继承） */
+const TRACE_LOOPS: LoopSpec[] = [
+  { field: 'traceRows', begin: '_TR_BEGIN_', end: '_TR_END_', batchSize: 1000 }
+]
+
 /** 解析大纲并套回项目内已存编辑（/api/parse 与 打开项目 共用，09） */
 function parseAndRestore(name: string, hash: string, bytes: Uint8Array) {
   const t0 = Date.now()
@@ -118,6 +123,10 @@ export async function handleApi(req: Request, url: URL): Promise<Response> {
     }
     if (url.pathname === '/api/generate' && req.method === 'POST') {
       return await apiGenerate(req)
+    }
+    // 追踪文档生成（工具二，12-追踪文档工具）：与 /api/generate 同源推导 traceRows
+    if (url.pathname === '/api/trace/generate' && req.method === 'POST') {
+      return await apiTraceGenerate(req)
     }
     // 项目制本地数据管理（09）
     if (url.pathname === '/api/projects' && req.method === 'GET') {
@@ -267,5 +276,54 @@ async function apiGenerate(req: Request): Promise<Response> {
     // 固定文件名（2026-10-01 用户定稿）：与模板名区分的短名，不带大纲名前缀
     specName: '测试说明-生成.docx',
     recName: '测试记录-生成.docx'
+  })
+}
+
+/** 追踪文档生成（工具二，12-追踪文档工具）：与 /api/generate 同源推导 traceRows，只出一份追踪文档 */
+async function apiTraceGenerate(req: Request): Promise<Response> {
+  const body = (await req.json()) as { outline: { name: string; hash?: string }; cases: CaseRow[]; configName?: string }
+  const cases = body.cases.filter(c => !c.excluded)
+  if (cases.length === 0) {
+    return Response.json({ ok: false, error: '没有可生成的追踪表行（全部用例被排除？）' }, { status: 400 })
+  }
+  // 追踪表数据推导与 /api/generate 完全同源（列定义见 12-追踪文档工具）
+  const traceRows = cases.map((c, i) => ({
+    no: i + 1,
+    srsChapter: c.srsChapter,
+    srsDesc: c.srsDesc,
+    outlineChapter: c.chapter,
+    itemName: c.itemName,
+    itemItemId: c.itemItemId,
+    caseName: c.mingcheng,
+    caseId: c.caseId
+  }))
+  const configName = body.configName ?? ''
+  const batched = cases.length > BATCH_RENDER_THRESHOLD
+  const t0 = Date.now()
+  const buf = batched
+    ? renderTemplateBatched(templateFile('追踪文档模板.docx'), { traceRows: traceRows, configName: configName }, TRACE_LOOPS)
+    : stripAnchorMarks(renderTemplate(templateFile('追踪文档模板.docx'), { traceRows: traceRows, configName: configName }))
+  const elapsed = Date.now() - t0
+
+  // 落盘交付（10-大文档处理 5.3 规则沿用）：写 数据/生成/<项目id12>/，≤10MB 附 base64 下载
+  const id12 = body.outline.hash ? projectId(body.outline.hash) : null
+  const name = '追踪文档-生成.docx'
+  let files: Array<{ name: string; sizeKB: string; path: string }> = []
+  if (id12) {
+    const dir = join(dataRoot(), '生成', id12)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, name), buf)
+    files.push({ name: name, sizeKB: (buf.length / 1024).toFixed(1), path: join(dir, name) })
+  }
+  const mode = batched ? `分批渲染（${Math.ceil(cases.length / 1000)} 批追踪行）` : '整体渲染'
+  appendLog(`生成追踪文档：${body.outline.name}，${cases.length} 行，${mode} ${elapsed}ms${id12 ? '，已落盘 数据/生成/' + id12 : ''}`)
+  if (body.outline.hash) recordGenerated(body.outline.hash)
+  return Response.json({
+    ok: true,
+    name: name,
+    sizeKB: (buf.length / 1024).toFixed(1),
+    files: files,
+    // ≤10MB 保留下载双轨（习惯延续）；大文档只给落盘路径，免浏览器大内存
+    ...(buf.length <= 10 * 1024 * 1024 ? { doc: buf.toString('base64') } : {})
   })
 }

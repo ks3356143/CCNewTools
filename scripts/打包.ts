@@ -34,7 +34,7 @@ if (!statSync(DIST, { throwIfNoEntry: false })?.isDirectory()) {
 
 // 2. 生成 assets.ts（编译时逐文件 import 嵌入；运行时得到解包路径）
 const distFiles = walk(DIST)
-const tplFiles = ['测试说明模板.docx', '测试记录模板.docx']
+const tplFiles = ['测试说明模板.docx', '测试记录模板.docx', '追踪文档模板.docx']
 const lines: string[] = [
   '// 由 scripts/打包.ts 生成，勿手改（M6 嵌入资产清单；开发形态此文件为空映射，走磁盘）',
   ''
@@ -64,7 +64,7 @@ console.log(`assets.ts：${distFiles.length} 个前端文件 + ${tplFiles.length
 mkdirSync(OUT, { recursive: true })
 const VER = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version as string
 // 产物文件名前缀 CCNewTools（ASCII）——GitHub Release 会剥离附件名中的非 ASCII 字符（踩坑 2026-10-03），
-// 中文名上传后只剩 _v…；产物内部标题/横幅仍是"测试文档生成工具"
+// 中文名上传后只剩 _v…；产物内部标题/横幅为"测试文档工具集"
 const targets: Array<{ target: string; name: string }> = [
   { target: 'bun-windows-x64', name: `CCNewTools_v${VER}_win-x64.exe` },
   { target: 'bun-linux-x64', name: `CCNewTools_v${VER}_linux-x64` }
@@ -76,7 +76,7 @@ for (const t of targets) {
     // Windows 专属：exe 图标 + 版本资源（资源管理器里可见）
     common.push(
       '--windows-icon=资源/app.ico',
-      '--windows-title=测试文档生成工具',
+      '--windows-title=测试文档工具集',
       `--windows-version=${VER}.0`,
       '--windows-publisher=CCNewTools',
       '--windows-description=测试大纲转测试说明/测试记录的离线单文件工具'

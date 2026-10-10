@@ -1,4 +1,4 @@
-import type { CaseRow, GlobalParams, ParseResponse, GenerateResponse, ProjectMeta } from './types.ts'
+import type { CaseRow, GlobalParams, ParseResponse, GenerateResponse, ProjectMeta, GeneratedFile } from './types.ts'
 
 async function post<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, {
@@ -59,6 +59,21 @@ export async function saveSettings(params: GlobalParams, theme: string): Promise
 
 export async function generate(outline: { name: string; hash: string }, cases: CaseRow[], params: GlobalParams): Promise<GenerateResponse> {
   return post<GenerateResponse>('/api/generate', { outline: outline, cases: cases, params: params })
+}
+
+/** 追踪文档生成响应（12-追踪文档工具）：单文档，≤10MB 附 base64 双轨下载 */
+export interface TraceGenerateResponse {
+  ok: boolean
+  error?: string
+  name: string
+  sizeKB: string
+  files?: GeneratedFile[]
+  /** ≤10MB 时携带 base64；大文档只有落盘路径 */
+  doc?: string
+}
+
+export async function traceGenerate(outline: { name: string; hash: string }, cases: CaseRow[], configName: string): Promise<TraceGenerateResponse> {
+  return post<TraceGenerateResponse>('/api/trace/generate', { outline: outline, cases: cases, configName: configName })
 }
 
 /** base64 → 浏览器下载 */

@@ -1,12 +1,15 @@
 import { reactive } from 'vue'
 import type { CaseRow, GlobalParams, GeneratedFile, Issue, ParseResponse, ProjectMeta } from './types.ts'
-import { parseOutline, saveEdits, saveSettings, generate, listProjects, openProject } from './api.ts'
+import { parseOutline, saveEdits, saveSettings, generate, listProjects, openProject, traceGenerate } from './api.ts'
 import { activeSuspects } from './suspect.ts'
 import { DEFAULT_PARAMS } from '../../src/core/domain.ts'
 
 export interface Toast { text: string; show: boolean }
 
 export const store = reactive({
+  /** 顶层视图：首页 / 工具一（大纲转换）/ 工具二（追踪文档生成）——11-工具集首页 */
+  view: 'home' as 'home' | 'convert' | 'trace',
+  /** 工具一屏号（view === 'convert' 时有效）；0 无意义，屏切换由 view 承担 */
   screen: 1 as 1 | 2 | 3,
   theme: 'light',
   parsing: false,
@@ -25,6 +28,18 @@ export const store = reactive({
   /** 可疑跳转的闪烁行（步骤下标，1.6s 后清空；Vue 状态而非手工 DOM class，重渲染不丢） */
   suspectFlash: null as number | null,
   projects: [] as ProjectMeta[],
+  // —— 工具二：追踪文档生成（12-追踪文档工具；与工具一共用解析 API 与项目库，状态独立） ——
+  traceScreen: 1 as 1 | 2,
+  traceParsing: false,
+  traceParsed: false,
+  traceOutline: { name: '', hash: '' } as { name: string; hash: string },
+  traceStats: { items: 0, cases: 0, steps: 0 },
+  traceIssues: [] as Issue[],
+  /** 解析响应携带的参数（题注 configName 来源；工具二无参数卡，只透传） */
+  traceParams: null as GlobalParams | null,
+  traceCases: [] as CaseRow[],
+  traceGenerating: false,
+  traceResult: null as { name: string; sizeKB: string; doc?: string; path?: string } | null,
   toast: { text: '', show: false } as Toast
 })
 
@@ -75,6 +90,123 @@ export async function loadProjects(): Promise<void> {
     store.projects = await listProjects()
   } catch {
     // 静默
+  }
+}
+
+/** 首页 → 进入工具；屏号保留（回首页不丢已上传大纲，重新进入仍在原屏） */
+export function openTool(tool: 'convert' | 'trace'): void {
+  store.view = tool
+}
+
+/** 工具内返回首页；两个工具各自的屏号与解析状态都保留 */
+export function goHome(): void {
+  store.view = 'home'
+}
+
+// —— 工具二：追踪文档生成（12-追踪文档工具） ——
+
+export interface TraceRow {
+  no: number
+  srsChapter: string
+  srsDesc: string
+  outlineChapter: string
+  itemName: string
+  itemItemId: string
+  caseName: string
+  caseId: string
+}
+
+/** 追踪表数据推导（与服务端 /api/trace/generate、/api/generate 同一口径：排除用例不入表） */
+export function traceRowsOf(cases: CaseRow[]): TraceRow[] {
+  return cases
+    .filter(c => !c.excluded)
+    .map((c, i) => ({
+      no: i + 1,
+      srsChapter: c.srsChapter,
+      srsDesc: c.srsDesc,
+      outlineChapter: c.chapter,
+      itemName: c.itemName,
+      itemItemId: c.itemItemId,
+      caseName: c.mingcheng,
+      caseId: c.caseId
+    }))
+}
+
+/** 解析结果落库到工具二字段（与工具一状态互不干扰） */
+function applyTraceParse(res: ParseResponse): void {
+  store.traceOutline = res.outline
+  store.traceStats = res.stats
+  store.traceIssues = res.issues
+  store.traceCases = res.cases
+  store.traceParams = res.params
+  store.traceParsed = true
+  store.traceResult = null
+  if (res.restored.cases > 0) {
+    showToast('已恢复上次编辑：' + res.restored.cases + ' 处（排除的用例同样不入追踪表）')
+  }
+  void loadProjects()
+}
+
+export async function doTraceParse(file: File): Promise<void> {
+  store.traceParsing = true
+  try {
+    const res = await parseOutline(file)
+    if (!res.ok) {
+      showToast(res.error ?? '解析失败')
+      return
+    }
+    applyTraceParse(res)
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : '无法连接本地服务')
+  } finally {
+    store.traceParsing = false
+  }
+}
+
+/** 工具二打开最近项目：免上传重解析，直接进生成屏（12 设计） */
+export async function openTraceProject(id: string): Promise<boolean> {
+  store.traceParsing = true
+  try {
+    const res = await openProject(id)
+    if (!res.ok) {
+      showToast(res.error ?? '打开失败')
+      return false
+    }
+    applyTraceParse(res)
+    store.traceScreen = 2
+    showToast('已打开项目')
+    return true
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : '无法连接本地服务')
+    return false
+  } finally {
+    store.traceParsing = false
+  }
+}
+
+export async function doTraceGenerate(): Promise<boolean> {
+  if (!store.traceParsed || store.traceCases.filter(c => !c.excluded).length === 0) {
+    showToast('没有可生成的追踪表行（全部用例被排除？）')
+    return false
+  }
+  store.traceGenerating = true
+  try {
+    const r = await traceGenerate(
+      store.traceOutline,
+      store.traceCases,
+      store.traceParams?.configName ?? ''
+    )
+    if (!r.ok) {
+      showToast(r.error ?? '生成失败')
+      return false
+    }
+    store.traceResult = { name: r.name, sizeKB: r.sizeKB, doc: r.doc, path: r.files?.[0]?.path }
+    return true
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : '无法连接本地服务')
+    return false
+  } finally {
+    store.traceGenerating = false
   }
 }
 
@@ -252,6 +384,7 @@ export function goCase(idx: number): void {
 }
 
 export function resetAll(): void {
+  store.view = 'home'
   store.screen = 1
   store.parsed = false
   store.cases = []
@@ -261,6 +394,17 @@ export function resetAll(): void {
   store.suspectFlash = null
   store.currentIdx = 0
   store.outline = { name: '', hash: '' }
+  // 工具二状态一并复位（防御性：当前无调用方，保持与轮 10"复位补齐"约定一致）
+  store.traceScreen = 1
+  store.traceParsing = false
+  store.traceParsed = false
+  store.traceOutline = { name: '', hash: '' }
+  store.traceStats = { items: 0, cases: 0, steps: 0 }
+  store.traceIssues = []
+  store.traceParams = null
+  store.traceCases = []
+  store.traceGenerating = false
+  store.traceResult = null
 }
 
 // 调试探针（M5 开发期使用，打包前保留无妨——本地单用户工具）
