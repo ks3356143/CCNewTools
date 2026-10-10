@@ -14,7 +14,9 @@ import type { IssueCollector } from '../domain.ts'
 export interface TraceBuildInput {
   type: 'outline' | 'spec' | 'report' | 'returnSpec'
   /** 大纲侧用例行（outline/spec 直接推导；report/returnSpec 按用例标识对齐） */
-  outlineCases: CaseRow[]
+  outlineCases?: CaseRow[]
+  /** 说明文档解析结果：spec 表的主源（SRS 留空）或 report 的对齐源（自动识别后与 outlineCases 二选一） */
+  specAlign?: ReturnSpecData
   /** 测试记录解析结果（report） */
   records?: RecordCase[]
   /** 回归说明解析结果（returnSpec） */
@@ -134,23 +136,62 @@ function baseOf(caseId: string): string {
   return caseId.replace(/_\d+$/, '')
 }
 
-/** 大纲 cases 的对齐索引：精确 caseId + 去序号 base 双层（撞号取首行） */
-function alignIndexOf(cases: CaseRow[]): {
-  exact: Map<string, CaseRow>
-  base: Map<string, CaseRow>
-} {
-  const exact = new Map<string, CaseRow>()
-  const base = new Map<string, CaseRow>()
-  for (const c of cases) {
-    if (!exact.has(c.caseId)) exact.set(c.caseId, c)
+/** 对齐源条目：按用例标识取"对齐文档侧"的信息（大纲源全有、说明源 SRS 空） */
+interface AlignEntry {
+  srsChapter: string
+  srsDesc: string
+  chapter: string
+  itemName: string
+  itemItemId: string
+  typeName: string
+}
+
+/** 说明（ReturnSpecData）→ 对齐索引：大纲侧信息取用例表追踪关系行，SRS 说明里没有 → 留空 */
+function alignIndexOfSpec(rs: ReturnSpecData): { exact: Map<string, AlignEntry>; base: Map<string, AlignEntry> } {
+  const exact = new Map<string, AlignEntry>()
+  const base = new Map<string, AlignEntry>()
+  for (const c of rs.cases) {
+    if (c.caseId === '') continue
+    const entry: AlignEntry = {
+      srsChapter: '',
+      srsDesc: '',
+      chapter: c.traceChapter,
+      itemName: c.traceItemName,
+      itemItemId: c.traceItemId,
+      typeName: c.typeName
+    }
+    if (!exact.has(c.caseId)) exact.set(c.caseId, entry)
     const b = baseOf(c.caseId)
-    if (!base.has(b)) base.set(b, c)
+    if (!base.has(b)) base.set(b, entry)
   }
   return { exact: exact, base: base }
 }
 
-/** 对齐一个用例标识：先精确，再去序号兜底 */
-function alignCase(idx: { exact: Map<string, CaseRow>; base: Map<string, CaseRow> }, caseId: string): CaseRow | undefined {
+/** 对齐索引统一形态（大纲源与说明源共用） */
+type AlignIdx = { exact: Map<string, AlignEntry>; base: Map<string, AlignEntry> }
+
+/** 大纲 cases → 对齐索引（SRS/大纲章节号/项名/项标识/类型全有） */
+function rowsToAlign(cases: CaseRow[]): AlignIdx {
+  const exact = new Map<string, AlignEntry>()
+  const base = new Map<string, AlignEntry>()
+  for (const c of cases) {
+    const entry: AlignEntry = {
+      srsChapter: c.srsChapter,
+      srsDesc: c.srsDesc,
+      chapter: c.chapter,
+      itemName: c.itemName,
+      itemItemId: c.itemItemId,
+      typeName: c.typeName
+    }
+    if (!exact.has(c.caseId)) exact.set(c.caseId, entry)
+    const b = baseOf(c.caseId)
+    if (!base.has(b)) base.set(b, entry)
+  }
+  return { exact: exact, base: base }
+}
+
+/** 对齐取值：先精确，再去尾序号兜底 */
+function alignGet(idx: AlignIdx, caseId: string): AlignEntry | undefined {
   return idx.exact.get(caseId) ?? idx.base.get(baseOf(caseId))
 }
 
@@ -168,19 +209,19 @@ function deriveRemark(rec: RecordCase): string {
 }
 
 /**
- * 报告追踪表（11 列）：记录解析结果 + 大纲 cases 按用例标识对齐。
- * SRS/大纲章节号/项名/项标识/测试类型来自大纲（记录里没有）；
+ * 报告追踪表（11 列）：记录解析结果 + 对齐源（大纲 cases 或说明文档解析，自动识别后二选一）按用例标识对齐。
+ * SRS/大纲章节号/项名/项标识/测试类型来自对齐源（记录里没有）；
  * 用例名/步骤范围/执行结果/备注来自记录。对不上的行需求列留空 + 告警，不拦截。
+ * SRS 两列仅在配对大纲时有值——说明作源时说明文档里没有 SRS，留空人工补。
  */
-function buildReportTable(records: RecordCase[], outlineCases: CaseRow[], issues: IssueCollector): TraceTable {
-  const idx = alignIndexOf(outlineCases)
+function buildReportTable(records: RecordCase[], align: AlignIdx, issues: IssueCollector): TraceTable {
   const cellsList: string[][] = []
   for (const rec of records) {
-    const c = rec.caseId === '' ? undefined : alignCase(idx, rec.caseId)
+    const c = rec.caseId === '' ? undefined : alignGet(align, rec.caseId)
     if (rec.caseId !== '' && c === undefined) {
       issues.warning(
         'TRACE_ALIGN_MISS',
-        '用例「' + rec.caseName + '」（' + rec.caseId + '）未在大纲中找到对应项，需求列留空，请人工补齐',
+        '用例「' + rec.caseName + '」（' + rec.caseId + '）未在配对文档中找到对应项，需求列留空，请人工补齐',
         rec.caseName
       )
     }
@@ -210,7 +251,7 @@ function buildReportTable(records: RecordCase[], outlineCases: CaseRow[], issues
  * 用例章节号 = 回归说明里用例表所在标题的编号。
  */
 function buildReturnSpecTable(rs: ReturnSpecData, outlineCases: CaseRow[], issues: IssueCollector): TraceTable {
-  const idx = alignIndexOf(outlineCases)
+  const idx = rowsToAlign(outlineCases)
   // 回归说明测试项表的 SRS 按项标识备用（用例行对不上大纲时兜底）
   const srsByItem = new Map<string, { chapter: string; desc: string }>()
   for (const it of rs.items) {
@@ -220,7 +261,7 @@ function buildReturnSpecTable(rs: ReturnSpecData, outlineCases: CaseRow[], issue
   }
   const cellsList: string[][] = []
   for (const rc of rs.cases) {
-    const c = rc.caseId === '' ? undefined : alignCase(idx, rc.caseId)
+    const c = rc.caseId === '' ? undefined : alignGet(idx, rc.caseId)
     if (rc.caseId !== '' && c === undefined) {
       issues.warning(
         'TRACE_ALIGN_MISS',
@@ -260,20 +301,51 @@ function buildReturnSpecTable(rs: ReturnSpecData, outlineCases: CaseRow[], issue
   return { type: 'returnSpec', heads: HEADS_RETURNSPEC, rows: rows }
 }
 
+/**
+ * 说明追踪表（8 列）的说明文档源变体：SRS 两列说明里没有 → 留空人工补；
+ * 大纲章节号/项名/项标识取用例表追踪关系行解析值，vmerge 按"非空列"合并
+ * （SRS 全空 → 按大纲章节号+项名+项标识整块合并）。
+ */
+function buildSpecTableFromSpec(rs: ReturnSpecData, issues: IssueCollector): TraceTable {
+  const cellsList: string[][] = []
+  for (const rc of rs.cases) {
+    if (rc.caseId === '') {
+      issues.warning('TRACE_CASE_NO_ID', '用例「' + rc.caseName + '」没有标识，需求列将留空', rc.caseName)
+    }
+    cellsList.push([
+      String(cellsList.length + 1),
+      '',
+      '',
+      rc.traceChapter,
+      rc.traceItemName,
+      rc.traceItemId,
+      rc.caseName,
+      rc.caseId
+    ])
+  }
+  const rows: TraceRowVM[] = cellsList.map(cells => ({ cells: cells, span: cells.map(() => 1) }))
+  applyVmerge(rows, MERGE_COLS.spec)
+  return { type: 'spec', heads: HEADS_SPEC, rows: rows }
+}
+
 /** 四类追踪表构建统一入口 */
 export function buildTraceTable(input: TraceBuildInput, issues: IssueCollector): TraceTable {
-  // 排除用例不入表（与工具一口径一致）
-  const cases = input.outlineCases.filter(c => !c.excluded)
+  // 排除用例不入表（与工具一口径一致；说明源无编辑存档概念，全量入表）
+  const cases = (input.outlineCases ?? []).filter(c => !c.excluded)
   switch (input.type) {
     case 'outline':
       return buildOutlineTable(cases)
     case 'spec':
+      // 说明文档作源（自动识别后）：SRS 留空，追踪关系取自说明用例表
+      if (input.specAlign) return buildSpecTableFromSpec(input.specAlign, issues)
       return buildSpecTable(cases)
     case 'report': {
       if (!input.records || input.records.length === 0) {
         throw new Error('报告追踪需要测试记录解析结果')
       }
-      return buildReportTable(input.records, cases, issues)
+      // 对齐源二选一：大纲（SRS 自动）或说明文档（SRS 留空）——服务端自动识别后必传其一
+      const align = input.outlineCases !== undefined ? rowsToAlign(cases) : alignIndexOfSpec(input.specAlign ?? { items: [], cases: [] })
+      return buildReportTable(input.records, align, issues)
     }
     case 'returnSpec': {
       if (!input.returnSpec) {

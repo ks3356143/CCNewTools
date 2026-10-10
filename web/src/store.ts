@@ -37,8 +37,10 @@ export const store = reactive({
   traceParsed: false,
   /** 主文档（outline/spec tab=大纲；report=测试记录；returnSpec=回归说明） */
   tracePrimary: { name: '', hash: '' } as { name: string; hash: string },
-  /** report/returnSpec 配对的大纲（需求列来源） */
+  /** report/returnSpec 配对的文档（大纲或说明，自动识别） */
   traceAlignOutline: null as { name: string; hash: string } | null,
+  /** 配对文档识别类型：大纲=SRS 自动填；说明=SRS 留空人工补 */
+  traceAlignKind: null as 'outline' | 'spec' | null,
   traceStats: { items: 0, cases: 0, steps: 0 },
   traceIssues: [] as Issue[],
   /** 统一追踪表（双层表头 + rows[vmerge]）；执行结果列编辑直接改 rows 的 cells */
@@ -136,6 +138,7 @@ function resetTraceParse(): void {
   store.traceParsed = false
   store.tracePrimary = { name: '', hash: '' }
   store.traceAlignOutline = null
+  store.traceAlignKind = null
   store.traceStats = { items: 0, cases: 0, steps: 0 }
   store.traceIssues = []
   store.traceSpec = null
@@ -146,6 +149,7 @@ function resetTraceParse(): void {
 function applyTraceResult(res: TraceParseResponse): void {
   store.tracePrimary = res.primary
   store.traceAlignOutline = res.outline
+  store.traceAlignKind = res.alignKind ?? null
   store.traceStats = res.stats
   store.traceIssues = res.issues
   store.traceSpec = res.spec

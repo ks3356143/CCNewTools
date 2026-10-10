@@ -366,4 +366,32 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     const buf = Buffer.from('not-a-zip')
     expect(applyVmergeToDocx(buf, rows, 2)).toBe(buf)
   })
+
+  test('buildTraceTable 说明源（12 v2.1）：说明追踪表 SRS 留空 + 空列通配合并；报告表说明源对齐', () => {
+    const rsData = {
+      items: [],
+      cases: [
+        { caseName: '用例1', caseId: 'YL_A_001', caseChapter: '6.1.1', traceChapter: '6.2.1.1', traceItemName: '项A', traceItemId: 'XQ_A', typeName: '功能测试' },
+        { caseName: '用例2', caseId: 'YL_A_002', caseChapter: '6.1.1', traceChapter: '6.2.1.1', traceItemName: '项A', traceItemId: 'XQ_A', typeName: '功能测试' }
+      ]
+    }
+    // 说明追踪表：SRS 两列留空，同项两例整块合并（空 SRS 通配参与合并键）
+    const t1 = buildTraceTable({ type: 'spec', specAlign: rsData }, new IssueCollector())
+    expect(t1.rows.length).toBe(2)
+    expect(t1.rows[0].cells[1]).toBe('')
+    expect(t1.rows[0].cells[3]).toBe('6.2.1.1')
+    expect(t1.rows[0].span[1]).toBe(2)
+    expect(t1.rows[1].span[1]).toBe(0)
+    // 报告表说明源：SRS 空 + 大纲章节号/项名/项标识/类型从说明用例表追踪关系行提取
+    const rec: RecordCase = {
+      caseName: '用例1', caseId: 'YL_A_001', traceChapter: '', traceItemName: '', traceItemId: '',
+      stepCount: 1, stepResults: ['通过'], executed: '已执行', problemId: '/', typeName: ''
+    }
+    const t2 = buildTraceTable({ type: 'report', specAlign: rsData, records: [rec] }, new IssueCollector())
+    expect(t2.rows[0].cells[1]).toBe('')
+    expect(t2.rows[0].cells[3]).toBe('6.2.1.1')
+    expect(t2.rows[0].cells[4]).toBe('项A')
+    expect(t2.rows[0].cells[6]).toBe('功能测试')
+    expect(t2.rows[0].cells[7]).toBe('YL_A_001-001')
+  })
 })

@@ -45,13 +45,18 @@ export function traceColumnCount(heads: TraceHeadGroup[]): number {
  */
 export function applyVmerge(rows: TraceRowVM[], mergeCols: number[]): void {
   if (mergeCols.length === 0) return
-  const keyOf = (r: TraceRowVM): string => mergeCols.map(c => r.cells[c]).join('\u0000')
+  // 空列不参与合并键（通配）：说明作源时 SRS 列全空，同测试项的行仍按其余列合并；
+  // 一行有值一行空则键不同，自然不合并
+  const keyOf = (r: TraceRowVM): string =>
+    mergeCols
+      .filter(c => r.cells[c] !== '')
+      .map(c => r.cells[c])
+      .join('\u0000')
   let i = 0
   while (i < rows.length) {
     const key = keyOf(rows[i])
-    // 任一合并列本行为空 → 不参与合并（对齐失败的留空行各自独立）
-    const hasEmpty = mergeCols.some(c => rows[i].cells[c] === '')
-    if (hasEmpty || key === '') {
+    // 本行合并列全空 → 无键可合并，独立成行
+    if (key === '') {
       i++
       continue
     }

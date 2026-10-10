@@ -12,9 +12,17 @@ import { bodyElements, children, localName, textOf, numPrOf, type OfficeFile } f
 import { parseNumbering, createChapterCounter } from './numbering.ts'
 import { parseStyles, headingLevel, styleNumPr } from './styles.ts'
 import { extractItemTable } from './table.ts'
-import { parseCaseRecordTable } from './record.ts'
+import { parseCaseRecordTable, parseRecordTrace } from './record.ts'
 import { parseSrsTrace } from './outline.ts'
-import type { IssueCollector } from '../domain.ts'
+import { KNOWN_TYPE_NAMES, type IssueCollector } from '../domain.ts'
+
+/** heading 栈里最靠前的已知类型名（与 record.ts 同判据） */
+function stackTypeName(stack: Array<{ text: string }>): string {
+  for (const h of stack) {
+    if (KNOWN_TYPE_NAMES.includes(h.text)) return h.text
+  }
+  return ''
+}
 
 /** 回归说明里的一个测试项（「回归测试需求」章） */
 export interface ReturnSpecItem {
@@ -25,12 +33,18 @@ export interface ReturnSpecItem {
   srsDesc: string
 }
 
-/** 回归说明里的一个用例（「测试用例」章） */
+/** 回归说明/说明文档解析出的一个用例（两族文档的用例表同构，通用提取） */
 export interface ReturnSpecCase {
   caseName: string
   caseId: string
   /** 用例章节号 = 用例表所在最近标题的编号 */
   caseChapter: string
+  /** 用例表追踪关系行解析（测试需求分析：章节号+项名 / 测试需求标识：项标识）——说明作报告对齐源时的大纲侧信息 */
+  traceChapter: string
+  traceItemName: string
+  traceItemId: string
+  /** 用例表所在位置的类型名（heading 栈最近已知类型，报告追踪的测试类型列） */
+  typeName: string
 }
 
 export interface ReturnSpecData {
@@ -76,12 +90,15 @@ export function extractReturnSpec(office: OfficeFile, issues: IssueCollector): R
       const rec = parseCaseRecordTable(node)
       if (rec !== null) {
         const top = stack[stack.length - 1]
-        const caseName = rec.labels.get('测试用例名称') ?? ''
-        const caseId = rec.labels.get('标识') ?? ''
+        const trace = parseRecordTrace(rec.labels.get('追踪关系') ?? '')
         cases.push({
-          caseName: caseName,
-          caseId: caseId,
+          caseName: rec.labels.get('测试用例名称') ?? '',
+          caseId: rec.labels.get('标识') ?? '',
           caseChapter: top?.num ?? '',
+          traceChapter: trace.chapter,
+          traceItemName: trace.itemName,
+          traceItemId: trace.itemId,
+          typeName: stackTypeName(stack)
         })
       }
     }

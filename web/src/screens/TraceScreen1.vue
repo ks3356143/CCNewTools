@@ -27,7 +27,7 @@ const wantType = computed<'outline' | 'record' | 'returnSpec'>(() =>
 )
 const visibleProjects = computed(() => store.projects.filter(p => (p.sourceType ?? 'outline') === wantType.value))
 /** 大纲配对候选 = 全部大纲项目 */
-const outlineProjects = computed(() => store.projects.filter(p => (p.sourceType ?? 'outline') === 'outline'))
+const outlineProjects = computed(() => store.projects.filter(p => { const st = p.sourceType ?? 'outline'; return st === 'outline' || st === 'spec' }))
 
 function pick(): void {
   if (phase.value === 'idle') fileInput.value?.click()
@@ -195,7 +195,7 @@ function issueCounts(): string {
       <div class="a-head">
         <v-icon size="16" color="primary">mdi-file-document-outline</v-icon>
         <span>配对大纲<b class="req">*</b></span>
-        <span class="a-note">需求章节号与描述只有大纲里有，必须配对</span>
+        <span class="a-note">从项目库选大纲或说明（或上传新文档自动识别）；说明作源时 SRS 两列留空人工补</span>
       </div>
       <div class="a-body">
         <div class="a-picked">
@@ -219,7 +219,7 @@ function issueCounts(): string {
           @click="chooseAlign(p)"
         >
           <v-icon size="14">{{ alignProject?.id === p.id ? 'mdi-check-circle' : 'mdi-folder-text-outline' }}</v-icon>
-          <span class="a-item-name">{{ stripDocx(p.name) }}</span>
+          <span class="a-item-name">{{ stripDocx(p.name) }}</span><span class="a-item-tag" :class="{ isSpec: (p.sourceType ?? 'outline') === 'spec' }">{{ (p.sourceType ?? 'outline') === 'spec' ? '说明' : '大纲' }}</span>
         </button>
       </div>
     </div>
@@ -236,7 +236,7 @@ function issueCounts(): string {
       <template v-if="phase === 'idle'">
         <v-icon size="42" color="primary">mdi-cloud-upload</v-icon>
         <div class="dt">拖入{{ tab.doc }}，或点击选择</div>
-        <div class="dc">支持 .docx 格式 · 离线运行，文档内容不出本机</div>
+        <div class="dc">支持 .docx 格式 · 离线运行，文档内容不出本机<template v-if="store.traceType === 'spec'">（大纲或说明均可，自动识别；说明作源时需求章节列留空人工补）</template></div>
       </template>
       <template v-else-if="phase === 'parsing'">
         <div class="dt">正在解析…</div>
@@ -285,7 +285,7 @@ function issueCounts(): string {
         <v-alert type="success" variant="tonal" rounded="lg" density="compact" class="ok-alert">
           <span>
             解析完成，识别 <b>{{ store.traceStats.cases }}</b> 个用例，追踪表 <b>{{ store.traceSpec?.rows.length ?? 0 }}</b> 行{{ issueCounts() }}
-            <span v-if="store.traceAlignOutline">；配对大纲 <b>{{ stripDocx(store.traceAlignOutline.name) }}</b></span>
+            <span v-if="store.traceAlignOutline">；配对{{ store.traceAlignKind === 'spec' ? '说明（SRS 列留空人工补）' : '大纲' }} <b>{{ stripDocx(store.traceAlignOutline.name) }}</b></span>
           </span>
         </v-alert>
         <v-alert
@@ -405,4 +405,11 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 .p-nosource { color: rgba(var(--v-theme-on-surface), 0.4); }
 .p-acts { display: flex; align-items: center; gap: 2px; flex: none; }
 .p-del { min-width: 82px; }
+</style>
+<style scoped>
+.a-item-tag {
+  flex: none; font-size: 10.5px; padding: 0 5px; border-radius: 4px;
+  background: rgba(var(--v-theme-primary), 0.1); color: rgb(var(--v-theme-primary));
+}
+.a-item-tag.isSpec { background: rgba(var(--v-theme-success), 0.12); color: rgb(var(--v-theme-success)); }
 </style>

@@ -72,7 +72,7 @@ export interface TraceGenerateResponse {
   doc?: string
 }
 
-/** 追踪解析响应（12-追踪文档工具 v2）：统一 TraceTable + 问题清单 + 配对大纲信息 */
+/** 追踪解析响应（12-追踪文档工具 v2）：统一 TraceTable + 问题清单 + 配对文档信息 */
 export interface TraceParseResponse {
   ok: boolean
   error?: string
@@ -81,6 +81,8 @@ export interface TraceParseResponse {
   issues: Issue[]
   stats: { items: number; cases: number; steps: number }
   outline: { name: string; hash: string } | null
+  /** 配对文档的识别类型（大纲=报告表 SRS 自动填；说明=SRS 留空人工补） */
+  alignKind?: 'outline' | 'spec' | null
   primary: { name: string; hash: string }
 }
 
@@ -112,6 +114,7 @@ export async function traceGenerate(
 export async function traceOpen(id: string, mode?: string): Promise<TraceParseResponse> {
   return post<TraceParseResponse>('/api/trace/open', { id: id, mode: mode })
 }
+
 
 /** base64 → 浏览器下载 */
 export function downloadBase64(base64: string, filename: string): void {

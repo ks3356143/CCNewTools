@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { readDocx } from '../core/parse/docx.ts'
 import { extractOutline } from '../core/parse/outline.ts'
 import { extractRecordCases } from '../core/parse/record.ts'
-import { extractReturnSpec } from '../core/parse/returnspec.ts'
+import { extractReturnSpec, type ReturnSpecData } from '../core/parse/returnspec.ts'
 import { convertToTemplateData } from '../core/convert/index.ts'
 import type { CaseRow } from '../core/convert/rows.ts'
 import { renderTemplate, renderTemplateBatched, stripAnchorMarks, type LoopSpec } from '../core/render/docx.ts'
@@ -299,25 +299,56 @@ async function apiGenerate(req: Request): Promise<Response> {
   })
 }
 
-/** 大纲配对解析：项目库 hash 或上传新大纲 → cases + 信息；失败返回 err（trace/parse 与 trace/open 共用） */
-async function resolveAlignOutline(outlineHash: string, outlineFile: File | null): Promise<{ cases: CaseRow[]; info: { name: string; hash: string } } | { err: string }> {
+/**
+ * 配对文档解析（12 v2.1：自动识别大纲/说明）。
+ * 大纲：SRS/大纲章节号/项名/项标识/类型全有；说明：SRS 没有（留空人工补），其余取用例表追踪关系行。
+ * 项目库 hash 按建档类型分派；上传文件先按大纲解析、失败转说明解析。
+ */
+async function resolveAlign(
+  outlineHash: string,
+  outlineFile: File | null
+): Promise<{ kind: 'outline'; cases: CaseRow[]; info: { name: string; hash: string } } | { kind: 'spec'; rs: ReturnSpecData; info: { name: string; hash: string } } | { err: string }> {
   if (outlineHash !== '') {
     const p = loadProject(outlineHash.slice(0, 12))
-    if (p === null || sourceTypeOf(p.meta) !== 'outline' || !p.meta.hasSource) {
-      return { err: '所选大纲项目无效或没有源文件副本，请重新选择或上传大纲' }
+    if (p === null || !p.meta.hasSource) {
+      return { err: '所选配对项目无效或没有源文件副本，请重新选择或上传' }
     }
-    const ob = new Uint8Array(readFileSync(sourceFileOf(p.meta.id, 'outline')))
-    return { cases: parseOutlineCases(p.meta.name, p.meta.hash, ob).cases, info: { name: p.meta.name, hash: p.meta.hash } }
+    const st = sourceTypeOf(p.meta)
+    if (st === 'outline') {
+      const ob = new Uint8Array(readFileSync(sourceFileOf(p.meta.id, 'outline')))
+      return { kind: 'outline', cases: parseOutlineCases(p.meta.name, p.meta.hash, ob).cases, info: { name: p.meta.name, hash: p.meta.hash } }
+    }
+    if (st === 'spec') {
+      const ob = new Uint8Array(readFileSync(sourceFileOf(p.meta.id, 'spec')))
+      const iss = new IssueCollector()
+      const rs = extractReturnSpec(readDocx(ob), iss)
+      if (rs.cases.length === 0 && rs.items.length === 0) {
+        return { err: '说明项目解析失败，请重新选择或上传' }
+      }
+      return { kind: 'spec', rs: rs, info: { name: p.meta.name, hash: p.meta.hash } }
+    }
+    return { err: '配对文档请选择大纲或说明项目' }
   }
   if (outlineFile !== null) {
     const ob = new Uint8Array(await outlineFile.arrayBuffer())
     const oh = sha132(ob)
-    const n = outlineFile.name || '大纲.docx'
-    const r = parseOutlineCases(n, oh, ob)
-    recordParse(n, oh, ob, r.stats, 'outline')
-    return { cases: r.cases, info: { name: n, hash: oh } }
+    const n = outlineFile.name || '文档.docx'
+    // 自动识别：先按大纲解析（找「测试项及方法」章），失败转说明解析
+    try {
+      const r = parseOutlineCases(n, oh, ob)
+      recordParse(n, oh, ob, r.stats, 'outline')
+      return { kind: 'outline', cases: r.cases, info: { name: n, hash: oh } }
+    } catch {
+      const iss = new IssueCollector()
+      const rs = extractReturnSpec(readDocx(ob), iss)
+      if (rs.cases.length === 0 && rs.items.length === 0) {
+        return { err: '配对文档既不是测试大纲也不是测试说明（未识别到测试项表格或用例表）' }
+      }
+      recordParse(n, oh, ob, { items: rs.items.length, cases: rs.cases.length, steps: 0 }, 'spec')
+      return { kind: 'spec', rs: rs, info: { name: n, hash: oh } }
+    }
   }
-  return { err: '报告/回归说明追踪需要同时提供大纲（从项目库选择或上传）' }
+  return { err: '报告追踪需要同时提供配对文档（大纲或说明，从项目库选择或上传）' }
 }
 
 /**
@@ -343,28 +374,53 @@ async function apiTraceParse(req: Request): Promise<Response> {
     const issues = new IssueCollector()
     const needOutline = mode === 'report' || mode === 'returnSpec'
 
-    // 大纲侧（report/returnSpec 必须配大纲：SRS 与大纲章节号只有大纲里有）
-    let outlineCases: CaseRow[] = []
+    // 配对文档（report 必须配大纲或说明；回归说明仍只配大纲）。自动识别：大纲/说明二选一
+    let alignCases: CaseRow[] = []
+    let alignSpec: ReturnSpecData | null = null
     let outlineInfo: { name: string; hash: string } | null = null
+    let alignKind: 'outline' | 'spec' | null = null
     if (needOutline) {
       const outlineFile = form.get('outlineFile')
-      const aligned = await resolveAlignOutline(String(form.get('outlineHash') ?? ''), outlineFile instanceof File ? outlineFile : null)
+      const aligned = await resolveAlign(String(form.get('outlineHash') ?? ''), outlineFile instanceof File ? outlineFile : null)
       if ('err' in aligned) {
         return Response.json({ ok: false, error: aligned.err }, { status: 400 })
       }
-      outlineCases = aligned.cases
+      if (mode === 'returnSpec' && aligned.kind === 'spec') {
+        return Response.json({ ok: false, error: '回归说明追踪的配对文档请选择测试大纲（回归说明自身编号不能替代大纲章节号）' }, { status: 400 })
+      }
+      alignKind = aligned.kind
       outlineInfo = aligned.info
+      if (aligned.kind === 'outline') alignCases = aligned.cases
+      else alignSpec = aligned.rs
     }
 
     // 主文档解析 + 表构建
     let spec: TraceTable
     let primaryStats: { items: number; cases: number; steps: number } | null = null
     if (mode === 'outline' || mode === 'spec') {
-      const r = parseOutlineCases(name, hash, bytes)
-      outlineCases = r.cases
+      // 主文档自动识别：先按大纲解析（找「测试项及方法」章），失败转说明文档解析
+      let specAlign: ReturnSpecData | null = null
+      let r: { cases: CaseRow[]; stats: { items: number; cases: number; steps: number } }
+      let parsedAs: 'outline' | 'spec' = 'outline'
+      try {
+        r = parseOutlineCases(name, hash, bytes)
+      } catch (e) {
+        const rs = extractReturnSpec(readDocx(bytes), issues)
+        if (rs.cases.length === 0 && rs.items.length === 0) throw e
+        parsedAs = 'spec'
+        specAlign = rs
+        r = { cases: [], stats: { items: rs.items.length, cases: rs.cases.length, steps: 0 } }
+      }
       primaryStats = r.stats
-      spec = buildTraceTable({ type: mode, outlineCases: outlineCases }, issues)
-      recordParse(name, hash, bytes, r.stats, 'outline')
+      if (parsedAs === 'spec') {
+        if (mode === 'outline') {
+          throw new Error('大纲追踪表需要测试大纲（识别到的是说明/回归说明文档，请切到说明追踪）')
+        }
+        spec = buildTraceTable({ type: 'spec', specAlign: specAlign! }, issues)
+      } else {
+        spec = buildTraceTable({ type: mode, outlineCases: r.cases }, issues)
+      }
+      recordParse(name, hash, bytes, r.stats, parsedAs)
       outlineInfo = { name: name, hash: hash }
     } else if (mode === 'report') {
       const office = readDocx(bytes)
@@ -374,7 +430,12 @@ async function apiTraceParse(req: Request): Promise<Response> {
       }
       primaryStats = { items: records.length, cases: records.length, steps: records.reduce((a, r) => a + r.stepCount, 0) }
       recordParse(name, hash, bytes, primaryStats, 'record', outlineInfo?.hash)
-      spec = buildTraceTable({ type: 'report', outlineCases: outlineCases, records: records }, issues)
+      spec = buildTraceTable(
+        alignKind === 'spec'
+          ? { type: 'report', specAlign: alignSpec!, records: records }
+          : { type: 'report', outlineCases: alignCases, records: records },
+        issues
+      )
     } else {
       const office = readDocx(bytes)
       const rs = extractReturnSpec(office, issues)
@@ -383,10 +444,10 @@ async function apiTraceParse(req: Request): Promise<Response> {
       }
       primaryStats = { items: rs.items.length, cases: rs.cases.length, steps: 0 }
       recordParse(name, hash, bytes, primaryStats, 'returnSpec', outlineInfo?.hash)
-      spec = buildTraceTable({ type: 'returnSpec', outlineCases: outlineCases, returnSpec: rs }, issues)
+      spec = buildTraceTable({ type: 'returnSpec', outlineCases: alignCases, returnSpec: rs }, issues)
     }
 
-    appendLog(`追踪解析[${mode}]：${name}，${spec.rows.length} 行${outlineInfo !== null ? '，配对大纲 ' + outlineInfo.name : ''}，告警 ${issues.issues.filter(i => i.level !== 'info').length}`)
+    appendLog(`追踪解析[${mode}]：${name}，${spec.rows.length} 行${outlineInfo !== null ? '，配对' + (alignKind === 'spec' ? '说明' : '大纲') + ' ' + outlineInfo.name : ''}，告警 ${issues.issues.filter(i => i.level !== 'info').length}`)
     return Response.json({
       ok: true,
       traceType: mode,
@@ -394,6 +455,7 @@ async function apiTraceParse(req: Request): Promise<Response> {
       issues: issues.issues,
       stats: primaryStats ?? { items: 0, cases: 0, steps: 0 },
       outline: outlineInfo,
+      alignKind: alignKind,
       primary: { name: name, hash: hash }
     })
   } catch (e) {
@@ -421,19 +483,39 @@ async function apiTraceOpen(req: Request): Promise<Response> {
     const st = sourceTypeOf(p.meta)
     const issues = new IssueCollector()
     const buf = new Uint8Array(readFileSync(sourceFileOf(p.meta.id, st)))
-    if (st === 'outline') {
-      const mode: TraceMode = body.mode === 'outline' ? 'outline' : 'spec'
+    if (st === 'outline' || st === 'spec') {
+      // 大纲项目按 mode 重建（6/8 列表）；说明项目只出说明追踪表（8 列，SRS 留空）
+      if (st === 'spec' && body.mode === 'outline') {
+        return Response.json({ ok: false, error: '大纲追踪表需要测试大纲项目，请在说明追踪下打开该说明项目' }, { status: 400 })
+      }
+      const mode: TraceMode = st === 'spec' ? 'spec' : body.mode === 'outline' ? 'outline' : 'spec'
+      if (st === 'spec') {
+        const iss = new IssueCollector()
+        const rs = extractReturnSpec(readDocx(buf), iss)
+        if (rs.cases.length === 0 && rs.items.length === 0) {
+          return Response.json({ ok: false, error: '说明项目解析失败，请重新上传' }, { status: 400 })
+        }
+        const spec = buildTraceTable({ type: 'spec', specAlign: rs }, issues)
+        appendLog(`追踪打开[spec×说明] ` + p.meta.name)
+        return Response.json({
+          ok: true, traceType: 'spec', spec: spec, issues: issues.issues,
+          stats: { items: rs.items.length, cases: rs.cases.length, steps: 0 },
+          alignKind: 'spec',
+          outline: { name: p.meta.name, hash: p.meta.hash }, primary: { name: p.meta.name, hash: p.meta.hash }
+        })
+      }
       const r = parseOutlineCases(p.meta.name, p.meta.hash, buf)
       const spec = buildTraceTable({ type: mode, outlineCases: r.cases }, issues)
       appendLog(`追踪打开[${mode}] ` + p.meta.name)
       return Response.json({
         ok: true, traceType: mode, spec: spec, issues: issues.issues, stats: r.stats,
+        alignKind: 'outline',
         outline: { name: p.meta.name, hash: p.meta.hash }, primary: { name: p.meta.name, hash: p.meta.hash }
       })
     }
-    const aligned = await resolveAlignOutline(body.alignHash ?? p.meta.alignHash ?? '', null)
+    const aligned = await resolveAlign(body.alignHash ?? p.meta.alignHash ?? '', null)
     if ('err' in aligned) {
-      return Response.json({ ok: false, alignMissing: true, error: '打开该项目需要重新配对大纲：' + aligned.err }, { status: 400 })
+      return Response.json({ ok: false, alignMissing: true, error: '打开该项目需要重新配对文档：' + aligned.err }, { status: 400 })
     }
     let spec: TraceTable
     let stats: { items: number; cases: number; steps: number }
@@ -444,16 +526,22 @@ async function apiTraceOpen(req: Request): Promise<Response> {
         return Response.json({ ok: false, error: '未识别到用例记录表，请重新上传测试记录' }, { status: 400 })
       }
       stats = { items: records.length, cases: records.length, steps: records.reduce((a, r) => a + r.stepCount, 0) }
-      spec = buildTraceTable({ type: 'report', outlineCases: aligned.cases, records: records }, issues)
+      spec = buildTraceTable(
+        aligned.kind === 'spec'
+          ? { type: 'report', specAlign: aligned.rs, records: records }
+          : { type: 'report', outlineCases: aligned.cases, records: records },
+        issues
+      )
     } else {
       const office = readDocx(buf)
       const rs = extractReturnSpec(office, issues)
       stats = { items: rs.items.length, cases: rs.cases.length, steps: 0 }
-      spec = buildTraceTable({ type: 'returnSpec', outlineCases: aligned.cases, returnSpec: rs }, issues)
+      spec = buildTraceTable({ type: 'returnSpec', outlineCases: aligned.kind === 'outline' ? aligned.cases : [], returnSpec: rs }, issues)
     }
-    appendLog(`追踪打开[${st}] ` + p.meta.name + '，配对大纲 ' + aligned.info.name)
+    appendLog(`追踪打开[${st}] ` + p.meta.name + '，配对' + (aligned.kind === 'spec' ? '说明' : '大纲') + ' ' + aligned.info.name)
     return Response.json({
       ok: true, traceType: st, spec: spec, issues: issues.issues, stats: stats,
+      alignKind: aligned.kind,
       outline: aligned.info, primary: { name: p.meta.name, hash: p.meta.hash }
     })
   } catch (e) {

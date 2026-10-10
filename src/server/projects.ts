@@ -26,7 +26,7 @@ export interface ProjectMeta {
   lastGeneratedAt?: string
   hasSource: boolean
   /** 源文档类型（12-追踪文档工具 v2）：outline=大纲（默认，旧数据无此字段） / record=测试记录 / returnSpec=回归说明 */
-  sourceType?: 'outline' | 'record' | 'returnSpec'
+  sourceType?: 'outline' | 'spec' | 'record' | 'returnSpec'
   /** 记录/回归说明项目配对的大纲项目 hash（打开项目时自动重配） */
   alignHash?: string
   stats: ProjectStats | null
@@ -63,11 +63,11 @@ function fileOf(id: string): string {
 }
 
 /** 源副本文件名按类型区分（旧 outline 项目沿用 大纲.docx，历史数据零迁移） */
-export function sourceFileOf(id: string, sourceType: 'outline' | 'record' | 'returnSpec' = 'outline'): string {
+export function sourceFileOf(id: string, sourceType: 'outline' | 'spec' | 'record' | 'returnSpec' = 'outline'): string {
   return join(projectDir(id), sourceType === 'outline' ? '大纲.docx' : '源文档.docx')
 }
 
-export function sourceTypeOf(meta: ProjectMeta): 'outline' | 'record' | 'returnSpec' {
+export function sourceTypeOf(meta: ProjectMeta): 'outline' | 'spec' | 'record' | 'returnSpec' {
   return meta.sourceType ?? 'outline'
 }
 
@@ -110,7 +110,7 @@ export function recordParse(
   hash: string,
   bytes: Uint8Array,
   stats: ProjectStats,
-  sourceType: 'outline' | 'record' | 'returnSpec' = 'outline',
+  sourceType: 'outline' | 'spec' | 'record' | 'returnSpec' = 'outline',
   alignHash?: string
 ): void {
   const id = projectId(hash)
