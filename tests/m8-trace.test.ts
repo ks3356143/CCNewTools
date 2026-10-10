@@ -101,6 +101,10 @@ describe('M8 四套追踪模板', () => {
       expect(xml).toContain('_TR_END_')
       expect(xml).not.toContain('{#cases}')
       expect(xml).not.toContain('{#caselist}')
+      // 全部单元格垂直居中（用户反馈定稿：真实样例全表 valign=center）
+      const tcCount = (xml.match(/<w:tc>/g) ?? []).length
+      const vaCount = (xml.match(/<w:vAlign w:val="center"\/>/g) ?? []).length
+      expect(vaCount).toBeGreaterThanOrEqual(tcCount)
       assertWellFormed(xml)
     }
   })
