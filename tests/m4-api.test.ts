@@ -130,6 +130,38 @@ describe('M4 编辑持久化（05）', () => {
     expect(data.cases[0].steps[0].action).not.toBe('手工改过的操作步骤。')
   })
 
+  test('撞号用例（同 caseId 多次出现）的编辑按出现顺序恢复，不互相覆盖（2026-10-10 实测串扰 bug）', async () => {
+    // 2大纲变种形态：两容器完全复制 → 两个不同测试项同 itemItemId，"每测试项内重编号"生成相同 YL 号
+    const dupDocx = buildDocxBuffer({
+      content: [
+        { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+        { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: itemTable('撞号测试项一', 'XQ_DUP_E', [
+          [DESC, '1.撞号用例甲（XQ_DUP_E001）\n甲综述。'],
+          [METHOD, '1.撞号用例甲（XQ_DUP_E001）\n1）执行甲操作，查看结果是否正确；']
+        ]) },
+        { kind: 'tbl', rows: itemTable('撞号测试项二', 'XQ_DUP_E', [
+          [DESC, '1.撞号用例乙（XQ_DUP_E001）\n乙综述。'],
+          [METHOD, '1.撞号用例乙（XQ_DUP_E001）\n1）执行乙操作，查看结果是否正确；']
+        ]) }
+      ]
+    })
+    const first = await parse('撞号大纲.docx', dupDocx)
+    // 撞号形态成立：两个测试项各自生成 YL_DUP_E_001（轮 15 定稿：标识写重复照原样生成）
+    expect(first.cases.length).toBe(2)
+    expect(first.cases[0].caseId).toBe(first.cases[1].caseId)
+    first.cases[0].excluded = true
+    first.cases[1].reviewed = true
+    await fetch(URL0 + '/api/edits', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ outline: first.outline, cases: first.cases }) })
+
+    const second = await parse('撞号大纲.docx', dupDocx)
+    // 按出现顺序一一配对：第 1 实例恢复排除、第 2 实例恢复已核对——互不串扰
+    expect(second.cases[0].excluded).toBe(true)
+    expect(second.cases[0].reviewed).toBe(false)
+    expect(second.cases[1].reviewed).toBe(true)
+    expect(second.cases[1].excluded).toBe(false)
+  })
+
   test('用户手动新增的步骤重开后保留（超出解析数的存档步骤不丢）', async () => {
     const first = await parse('测试大纲A.docx', sampleDocx())
     const cases = first.cases

@@ -41,22 +41,29 @@ export interface RestoreResult {
 
 /**
  * 把已存的编辑套回新解析的数据：
- * - 按用例标识（caseId）找到对应用例；
+ * - 按用例标识（caseId）找到对应用例；**同 caseId 多次出现（撞号大纲）按出现顺序一一配对**——
+ *   Map 单值键会被撞号兄弟互相覆盖，排除/核对标记串扰丢失（2026-10-10 实测：2大纲变种
+ *   21 组撞号，排除 YL_SU_BZXF_001 后重开被同号实例盖回）。保存序=解析序，同哈希下顺序稳定；
  * - 按步骤序号逐条套用已存文本，与当前不同的计入"恢复"；
  * - 步骤数变化时：用户手动新增的步骤（存档多出的部分）原样保留；存档不足（删除过）的部分以新解析补足，该用例计入恢复。
  * 存档里找不到对应用例的（大纲删了用例）计入 skipped。
  */
 export function mergeRestored(fresh: CaseRow[], storedCases: StoredCase[]): RestoreResult {
-  const byId = new Map<string, StoredCase>()
-  for (const s of storedCases) byId.set(s.caseId, s)
+  const byId = new Map<string, StoredCase[]>()
+  for (const s of storedCases) {
+    const q = byId.get(s.caseId)
+    if (q) q.push(s)
+    else byId.set(s.caseId, [s])
+  }
 
   let restoredCases = 0
   let restoredSteps = 0
-  const used = new Set<string>()
+  const used = new Set<StoredCase>()
   const cases = fresh.map(row => {
-    const s = byId.get(row.caseId)
+    const q = byId.get(row.caseId)
+    const s = q !== undefined && q.length > 0 ? q.shift() : undefined
     if (!s) return row
-    used.add(row.caseId)
+    used.add(s)
     const steps = row.steps.map((step, i) => {
       const saved = s.steps[i]
       if (!saved) return step
@@ -87,8 +94,8 @@ export function mergeRestored(fresh: CaseRow[], storedCases: StoredCase[]): Rest
   })
 
   let skippedCases = 0
-  for (const s of storedCases) {
-    if (!used.has(s.caseId)) skippedCases++
+  for (const q of byId.values()) {
+    skippedCases += q.length // 队列剩余 = fresh 中无对应用的存档（大纲删了用例/多余撞号存档）
   }
   return { cases: cases, restoredCases: restoredCases, restoredSteps: restoredSteps, skippedCases: skippedCases }
 }

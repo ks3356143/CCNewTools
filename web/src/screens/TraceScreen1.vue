@@ -66,7 +66,8 @@ function fmtTime(iso: string): string {
   return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + hh + ':' + mm
 }
 async function openOne(p: ProjectMeta): Promise<void> {
-  if (phase.value !== 'idle') return
+  // 解析中禁止重复触发；done 态允许换项目（否则打开 A 后回步 1 无法换 B——实测发现的死路）
+  if (phase.value === 'parsing') return
   fileName.value = p.name
   progress.value = 0
   phase.value = 'parsing'
@@ -157,12 +158,16 @@ function excludedCount(): number {
         <v-icon size="40" color="success">mdi-check-circle</v-icon>
         <div class="dt">解析完成</div>
         <div class="dc">文件：<b>{{ fileName }}</b></div>
+        <!-- done 态保留重选入口：否则打开项目后回步 1 无路径换大纲（2026-10-10 实测死路修复） -->
+        <button type="button" class="re-pick" @click.stop="phase = 'idle'">
+          <v-icon size="14">mdi-refresh</v-icon>重新选择大纲
+        </button>
       </template>
     </div>
     <input ref="fileInput" type="file" accept=".docx" hidden @change="onFile" />
 
-    <!-- 最近项目（与工具一共用项目库） -->
-    <div v-if="phase === 'idle' && store.projects.length > 0" class="projects">
+    <!-- 最近项目（与工具一共用项目库）：idle 与 done 态都可见（done 态也要能换项目） -->
+    <div v-if="store.projects.length > 0" class="projects">
       <div class="p-head">
         <span class="p-title">最近项目</span>
         <v-btn size="x-small" variant="text" color="error" :class="{ armed: clearArmed }" @click="clearAll">
@@ -235,6 +240,14 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 .drop :deep(.v-icon) { transition: transform 0.2s ease-out; }
 .drop:hover :deep(.v-icon) { transform: translateY(-3px); }
 .dt { margin-top: 12px; font-size: 15.5px; font-weight: 550; }
+/* done 态的重选入口（小字按钮，不抢主视觉） */
+.re-pick {
+  margin-top: 12px; display: inline-flex; align-items: center; gap: 4px;
+  border: none; background: rgba(var(--v-theme-primary), 0.08); color: rgb(var(--v-theme-primary));
+  font-size: 12.5px; font-weight: 550; padding: 4px 12px; border-radius: 999px; cursor: pointer;
+  transition: background 0.15s;
+}
+.re-pick:hover { background: rgba(var(--v-theme-primary), 0.16); }
 .dc { margin-top: 5px; font-size: 12.5px; color: rgba(var(--v-theme-on-surface), 0.6); }
 .dn { margin-top: 13px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.65); }
 .dn b { color: rgb(var(--v-theme-on-surface)); }
