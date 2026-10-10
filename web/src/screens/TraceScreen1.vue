@@ -198,7 +198,7 @@ function issueCounts(): string {
       <div class="a-head">
         <v-icon size="16" color="primary">mdi-file-document-outline</v-icon>
         <span>配对大纲<b class="req">*</b></span>
-        <span class="a-note">从项目库选大纲或说明（或上传新文档自动识别）；说明作源时 SRS 两列留空人工补</span>
+        <span class="a-note">从项目库选大纲或说明，或上传新文档自动识别；说明作源时 SRS 列留空人工补</span>
       </div>
       <div class="a-body">
         <div class="a-picked">
@@ -313,7 +313,7 @@ function issueCounts(): string {
 </template>
 
 <style scoped>
-.wrap { max-width: 680px; margin: 26px auto 0; padding: 0 22px 40px; }
+.wrap { max-width: 760px; margin: 26px auto 0; padding: 0 22px 40px; }
 .hero { text-align: center; }
 .badge {
   width: 68px; height: 68px; border-radius: 18px; margin: 0 auto 18px;
