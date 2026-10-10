@@ -34,6 +34,9 @@ export interface CaseRow {
   /** 需求规格说明章节号/描述（追踪表用，来自大纲追踪关系行） */
   srsChapter: string
   srsDesc: string
+  /** 研制任务书章节号/名称（大纲追踪表用；老文档没有 → '/'） */
+  taskBookChapter: string
+  taskBookName: string
   /** 期望结果来源（9.5）：通过准则 / 方法切分 / 静态模板 */
   expectSource: string
   /** 可疑步骤数（界面用） */
@@ -204,6 +207,8 @@ export function buildRow(item: TestItem, c: RawCase, params: GlobalParams, issue
     itemItemId: item.itemId,
     srsChapter: item.traceSrs.chapter,
     srsDesc: item.traceSrs.desc,
+    taskBookChapter: item.traceTask?.chapter ?? '/',
+    taskBookName: item.traceTask?.desc ?? '/',
     expectSource: expectSource,
     suspectCount: suspectCount,
     reviewed: false,

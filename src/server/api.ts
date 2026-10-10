@@ -8,7 +8,7 @@ import { convertToTemplateData } from '../core/convert/index.ts'
 import type { CaseRow } from '../core/convert/rows.ts'
 import { renderTemplate, renderTemplateBatched, stripAnchorMarks, type LoopSpec } from '../core/render/docx.ts'
 import { applyVmergeToDocx } from '../core/render/vmerge.ts'
-import { buildTraceTable, TYPE_VARS, TRACE_TEMPLATE_NAMES } from '../core/trace/build.ts'
+import { buildTraceTable, TYPE_VARS, TRACE_TEMPLATE_NAMES, OUTLINE_VARS, OUTLINE_TASK_VARS, OUTLINE_TEMPLATE, OUTLINE_TASK_TEMPLATE } from '../core/trace/build.ts'
 import type { TraceRowVM, TraceTable } from '../core/trace/table.ts'
 import { IssueCollector, DEFAULT_PARAMS, type GlobalParams } from '../core/domain.ts'
 import { sha132, mergeRestored, EDIT_STATE_VERSION, type EditState, type StoredCase } from '../core/persistence.ts'
@@ -592,10 +592,26 @@ async function apiTraceGenerate(req: Request): Promise<Response> {
   if (!Array.isArray(rows) || rows.length === 0 || !Array.isArray(rows[0]?.cells)) {
     return Response.json({ ok: false, error: '没有可生成的追踪表行' }, { status: 400 })
   }
-  const vars = TYPE_VARS[body.traceType]
-  const colN = vars.length
+  // 大纲表按形态分派：7 列 = 无任务书（任务书块整块省略）、9 列 = 含任务书（用户裁定动态表头）
+  const colN = rows[0].cells.length
+  let vars: string[]
+  let tmplName: string
+  if (body.traceType === 'outline') {
+    if (colN === OUTLINE_VARS.length) {
+      vars = OUTLINE_VARS
+      tmplName = OUTLINE_TEMPLATE
+    } else if (colN === OUTLINE_TASK_VARS.length) {
+      vars = OUTLINE_TASK_VARS
+      tmplName = OUTLINE_TASK_TEMPLATE
+    } else {
+      return Response.json({ ok: false, error: '追踪表行数据与列数不符，请回到第 1 步重新解析' }, { status: 400 })
+    }
+  } else {
+    vars = TYPE_VARS[body.traceType]
+    tmplName = TRACE_TEMPLATE_NAMES[body.traceType]
+  }
   for (const r of rows) {
-    if (!Array.isArray(r.cells) || r.cells.length !== colN) {
+    if (!Array.isArray(r.cells) || r.cells.length !== vars.length) {
       return Response.json({ ok: false, error: '追踪表行数据与列数不符，请回到第 1 步重新解析' }, { status: 400 })
     }
   }
@@ -608,7 +624,7 @@ async function apiTraceGenerate(req: Request): Promise<Response> {
   const settings = loadSettings()
   const configName = body.configName ?? settings.params?.configName ?? ''
   const t0 = Date.now()
-  const tmpl = templateFile(TRACE_TEMPLATE_NAMES[body.traceType])
+  const tmpl = templateFile(tmplName)
   const buf0 = rows.length > BATCH_RENDER_THRESHOLD
     ? renderTemplateBatched(tmpl, { traceRows: data, configName: body.configName ?? '' }, TRACE_LOOPS)
     : stripAnchorMarks(renderTemplate(tmpl, { traceRows: data, configName: body.configName ?? '' }))

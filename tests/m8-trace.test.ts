@@ -123,10 +123,26 @@ describe('M8 四套追踪模板', () => {
     }
   })
 
-  test('大纲模板表头：需求来源（软件研制任务书/软件需求规格说明）', () => {
+  test('大纲模板表头（2026-10-10 改版）：SRS/大纲两块 + 无任务书块', () => {
     const text = textOf(readFileSync(join(import.meta.dir, '../模板/追踪-大纲模板.docx')))
-    for (const h of ['需求来源', '软件研制任务书', '软件需求规格说明', '测试项标识', '测试类型', '备注']) {
+    for (const h of ['软件需求规格说明', '章节号', '章节名称', '软件测试大纲', '大纲章节号', '测试项名称', '测试项标识', '备注']) {
       expect(text).toContain(h)
+    }
+    // 任务书块整块省略（无任务书形态）
+    expect(text).not.toContain('软件研制任务书')
+    expect(text).toContain('{srsName}')
+    expect(text).toContain('{outlineChapter}')
+    expect(text).toContain('{itemName}')
+    expect(text).not.toContain('{typeName}')
+  })
+
+  test('含任务书大纲模板表头：9 列（任务书块在前）', () => {
+    const text = textOf(readFileSync(join(import.meta.dir, '../模板/追踪-大纲-含任务书模板.docx')))
+    for (const h of ['软件研制任务书', '章节号', '章节名称', '软件需求规格说明', '软件测试大纲', '大纲章节号', '测试项名称', '测试项标识', '备注']) {
+      expect(text).toContain(h)
+    }
+    for (const v of ['{taskBookChapter}', '{taskBookName}', '{srsChapter}', '{srsName}']) {
+      expect(text).toContain(v)
     }
   })
 
@@ -325,10 +341,61 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     path: [], typeName: '功能测试', groupName: null, itemName: '项A', chapter: '6.2.1.1',
     itemId: 'XQ_A', caseId: 'YL_A_001', mingcheng: '用例', summary: '', init: '', constraint: '',
     steps: [], designer: '', testTime: '', tester: '', monitor: '', trace: '', itemItemId: 'XQ_A',
-    srsChapter: '/', srsDesc: '/', expectSource: '方法切分', suspectCount: 0,
+    srsChapter: '/', srsDesc: '/', taskBookChapter: '/', taskBookName: '/', expectSource: '方法切分', suspectCount: 0,
     reviewed: false, excluded: false, dismissedSuspects: [],
     ...over
   } as CaseRow)
+
+  test('buildTraceTable outline（2026-10-10 改版）：无任务书 7 列 / 有任务书 9 列 + 类型列去除', () => {
+    // 全部无任务书 → 7 列基形，SRS 无对应 '--'
+    const t7 = buildTraceTable({ type: 'outline', outlineCases: [mkCase({ srsChapter: '3.1', srsDesc: '参数' })] }, new IssueCollector())
+    expect(t7.heads.reduce((a, g) => a + g.cols.length, 0)).toBe(7)
+    expect(t7.heads.map(h => h.group)).toEqual(['', '软件需求规格说明', '软件测试大纲', ''])
+    expect(t7.rows[0].cells).toEqual(['1', '3.1', '参数', '6.2.1.1', '项A', 'XQ_A', '/'])
+    const t7miss = buildTraceTable({ type: 'outline', outlineCases: [mkCase({})] }, new IssueCollector())
+    expect(t7miss.rows[0].cells[1]).toBe('--')
+    expect(t7miss.rows[0].cells[2]).toBe('--')
+    // 任一行有任务书 → 9 列（任务书块插入），无的行 '--'
+    const mixed = [
+      mkCase({ srsChapter: '3.1', srsDesc: '参数', taskBookChapter: '3.2', taskBookName: '指令要求' }),
+      mkCase({ srsChapter: '3.3', srsDesc: '查询', chapter: '6.2.1.2', itemItemId: 'XQ_B', itemName: '项B' })
+    ]
+    const t9 = buildTraceTable({ type: 'outline', outlineCases: mixed }, new IssueCollector())
+    expect(t9.heads.reduce((a, g) => a + g.cols.length, 0)).toBe(9)
+    expect(t9.heads.map(h => h.group)).toEqual(['', '软件研制任务书', '软件需求规格说明', '软件测试大纲', ''])
+    expect(t9.rows[0].cells[1]).toBe('3.2')
+    expect(t9.rows[0].cells[2]).toBe('指令要求')
+    expect(t9.rows[1].cells[1]).toBe('--')
+    expect(t9.rows[1].cells[2]).toBe('--')
+    // '/' 视为无任务书（不触发 9 列）
+    const tSlash = buildTraceTable({ type: 'outline', outlineCases: [mkCase({ taskBookChapter: '/', taskBookName: '/' })] }, new IssueCollector())
+    expect(tSlash.heads.reduce((a, g) => a + g.cols.length, 0)).toBe(7)
+  })
+
+  test('outline 渲染：两套模板按列数分派，产物落位无残留', () => {
+    // 7 列走无任务书模板
+    const buf7 = renderTemplate(readFileSync(join(import.meta.dir, '../模板/追踪-大纲模板.docx')), {
+      traceRows: [{ no: '1', srsChapter: '3.1', srsName: '参数管理', outlineChapter: '6.2.1.1', itemName: '项A', itemItemId: 'XQ_A', remark: '/' }],
+      configName: 'C'
+    })
+    const out7 = stripAnchorMarks(buf7)
+    expect(out7.subarray(0, 2).toString()).toBe('PK')
+    const text7 = textOf(out7)
+    expect(text7).toContain('参数管理')
+    for (const bad of ['{srsName}', '{no}', '_TR_BEGIN_']) expect(text7.includes(bad)).toBe(false)
+    assertWellFormed(xmlOf(out7))
+    // 9 列走含任务书模板
+    const buf9 = renderTemplate(readFileSync(join(import.meta.dir, '../模板/追踪-大纲-含任务书模板.docx')), {
+      traceRows: [{ no: '1', taskBookChapter: '3.2', taskBookName: '指令要求', srsChapter: '3.1', srsName: '参数管理', outlineChapter: '6.2.1.1', itemName: '项A', itemItemId: 'XQ_A', remark: '/' }],
+      configName: 'C'
+    })
+    const out9 = stripAnchorMarks(buf9)
+    expect(out9.subarray(0, 2).toString()).toBe('PK')
+    const text9 = textOf(out9)
+    expect(text9).toContain('指令要求')
+    for (const bad of ['{taskBookChapter}', '{taskBookName}', '_TR_BEGIN_']) expect(text9.includes(bad)).toBe(false)
+    assertWellFormed(xmlOf(out9))
+  })
 
   test('buildTraceTable spec：vmerge 整块合并 + 排除用例不入表', () => {
     

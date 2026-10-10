@@ -34,7 +34,7 @@ if (!statSync(DIST, { throwIfNoEntry: false })?.isDirectory()) {
 
 // 2. 生成 assets.ts（编译时逐文件 import 嵌入；运行时得到解包路径）
 const distFiles = walk(DIST)
-const tplFiles = ['测试说明模板.docx', '测试记录模板.docx', '追踪-大纲模板.docx', '追踪-说明模板.docx', '追踪-报告模板.docx', '追踪-回归模板.docx']
+const tplFiles = ['测试说明模板.docx', '测试记录模板.docx', '追踪-大纲模板.docx', '追踪-大纲-含任务书模板.docx', '追踪-说明模板.docx', '追踪-报告模板.docx', '追踪-回归模板.docx']
 const lines: string[] = [
   '// 由 scripts/打包.ts 生成，勿手改（M6 嵌入资产清单；开发形态此文件为空映射，走磁盘）',
   ''

@@ -177,7 +177,8 @@ function assembleItem(
     cases: cases,
     criteriaCases: critCell.entries,
     criteriaOrphans: critCell.orphanItems,
-    traceSrs: parseSrsTrace(t.traceText)
+    traceSrs: parseTraceRel(t.traceText).srs,
+    traceTask: parseTraceRel(t.traceText).task
   }
   resolveCriteria(item, issues)
   resolveSummaries(item, issues)
@@ -200,11 +201,45 @@ function assembleItem(
   return item
 }
 
-/** 追踪关系格 → 需求规格说明的章节号与描述（追踪表用）。"/"或空 → 两条斜杠。 */
-export function parseSrsTrace(text: string): { chapter: string; desc: string } {
+/**
+ * 追踪关系格 → 研制任务书 + 需求规格说明两块（大纲追踪表 2026-10-10 改版）。
+ * 格内多行常是软换行（w:br 被拼成一行），按文档标签切分而非按行：
+ * 识别"（软件）研制任务书 3.2节 名称"与"（软件）需求规格说明 4.4节 名称"；
+ * 无标签裸文本兜底老写法"4.3.1.2 章节名称"（整段当 SRS，与旧版逐字节一致）；"/"或空 → 双斜杠。
+ */
+export function parseTraceRel(text: string): { task: { chapter: string; desc: string }; srs: { chapter: string; desc: string } } {
   const t = text.trim()
-  if (t === '' || t === '/' || t === '／') return { chapter: '/', desc: '/' }
-  const m = /》\s*([0-9][0-9.]*)\s*(.*)/.exec(t) ?? /^([0-9][0-9.]*)\s+(.*)$/.exec(t)
-  if (m === null) return { chapter: '/', desc: '/' }
-  return { chapter: m[1], desc: (m[2] ?? '').trim() !== '' ? m[2].trim() : '/' }
+  const empty = { chapter: '/', desc: '/' }
+  if (t === '' || t === '/' || t === '／') return { task: empty, srs: empty }
+  const task = { chapter: '/', desc: '/' }
+  const srs = { chapter: '/', desc: '/' }
+  // 标签段截断：描述到下一个文档标签（或字符串尾）为止，防单行混排时吞掉后续标签
+  const cutDesc = (s: string): string => {
+    const m = /(?:软件)?(?:研制)?任务书\s*》?\s*[0-9]|(?:软件)?需求规格说明\s*》?\s*[0-9]/.exec(s)
+    return (m !== null ? s.slice(0, m.index) : s).trim()
+  }
+  const mt = /(?:研制)?任务书\s*》?\s*([0-9][0-9.]*)\s*节?\s*/.exec(t)
+  if (mt !== null) {
+    task.chapter = mt[1]
+    task.desc = cutDesc(t.slice(mt.index + mt[0].length)) || '/'
+  }
+  const ms = /需求规格说明\s*》?\s*([0-9][0-9.]*)\s*节?\s*/.exec(t)
+  if (ms !== null) {
+    srs.chapter = ms[1]
+    srs.desc = cutDesc(t.slice(ms.index + ms[0].length)) || '/'
+  }
+  // 无标签裸文本兜底：老写法"4.3.1.2 章节名称"整段当 SRS（与旧版逐字节一致）
+  if (srs.chapter === '/' && task.chapter === '/') {
+    const m = /》\s*([0-9][0-9.]*)\s*(.*)/.exec(t) ?? /^([0-9][0-9.]*)\s+(.*)$/.exec(t)
+    if (m !== null) {
+      srs.chapter = m[1]
+      srs.desc = (m[2] ?? '').trim() !== '' ? m[2].trim() : '/'
+    }
+  }
+  return { task: task, srs: srs }
+}
+
+/** 追踪关系格 → 需求规格说明的章节号与描述（说明/回归表的追踪行解析沿用）。"/"或空 → 两条斜杠。 */
+export function parseSrsTrace(text: string): { chapter: string; desc: string } {
+  return parseTraceRel(text).srs
 }

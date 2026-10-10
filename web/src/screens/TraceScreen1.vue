@@ -313,7 +313,7 @@ function issueCounts(): string {
 </template>
 
 <style scoped>
-.wrap { max-width: 760px; margin: 26px auto 0; padding: 0 22px 40px; }
+.wrap { max-width: 960px; margin: 26px auto 0; padding: 0 22px 40px; }
 .hero { text-align: center; }
 .badge {
   width: 68px; height: 68px; border-radius: 18px; margin: 0 auto 18px;

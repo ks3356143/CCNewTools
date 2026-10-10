@@ -125,6 +125,8 @@ export interface TestItem {
   criteriaOrphans?: string[]
   /** 追踪关系格解析出的需求规格说明信息（追踪表用） */
   traceSrs: { chapter: string; desc: string }
+  /** 追踪关系格解析出的研制任务书信息（大纲追踪表用；老文档通常没有 → undefined） */
+  traceTask?: { chapter: string; desc: string }
 }
 
 export interface ParsedOutline {
