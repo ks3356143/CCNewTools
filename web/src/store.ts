@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
-import type { CaseRow, GlobalParams, GeneratedFile, Issue, ParseResponse, ProjectMeta } from './types.ts'
-import { parseOutline, saveEdits, saveSettings, generate, listProjects, openProject, traceGenerate } from './api.ts'
+import type { CaseRow, GlobalParams, GeneratedFile, Issue, ParseResponse, ProjectMeta, TraceTable, TraceRowVM, TraceType } from './types.ts'
+import type { TraceParseResponse } from './api.ts'
+import { parseOutline, saveEdits, saveSettings, generate, listProjects, openProject, traceParse, traceGenerate, traceOpen } from './api.ts'
 import { activeSuspects } from './suspect.ts'
 import { DEFAULT_PARAMS } from '../../src/core/domain.ts'
 
@@ -28,16 +29,20 @@ export const store = reactive({
   /** 可疑跳转的闪烁行（步骤下标，1.6s 后清空；Vue 状态而非手工 DOM class，重渲染不丢） */
   suspectFlash: null as number | null,
   projects: [] as ProjectMeta[],
-  // —— 工具二：追踪文档生成（12-追踪文档工具；与工具一共用解析 API 与项目库，状态独立） ——
+  // —— 工具二：追踪文档生成（12-追踪文档工具 v2：四 tab 四类表；与工具一共用项目库，状态独立） ——
   traceScreen: 1 as 1 | 2,
+  /** 当前 tab：大纲追踪 / 说明追踪 / 报告追踪 / 回归说明追踪 */
+  traceType: 'spec' as TraceType,
   traceParsing: false,
   traceParsed: false,
-  traceOutline: { name: '', hash: '' } as { name: string; hash: string },
+  /** 主文档（outline/spec tab=大纲；report=测试记录；returnSpec=回归说明） */
+  tracePrimary: { name: '', hash: '' } as { name: string; hash: string },
+  /** report/returnSpec 配对的大纲（需求列来源） */
+  traceAlignOutline: null as { name: string; hash: string } | null,
   traceStats: { items: 0, cases: 0, steps: 0 },
   traceIssues: [] as Issue[],
-  /** 解析响应携带的参数（题注 configName 来源；工具二无参数卡，只透传） */
-  traceParams: null as GlobalParams | null,
-  traceCases: [] as CaseRow[],
+  /** 统一追踪表（双层表头 + rows[vmerge]）；执行结果列编辑直接改 rows 的 cells */
+  traceSpec: null as TraceTable | null,
   traceGenerating: false,
   traceResult: null as { name: string; sizeKB: string; doc?: string; path?: string } | null,
   toast: { text: '', show: false } as Toast
@@ -103,59 +108,62 @@ export function goHome(): void {
   store.view = 'home'
 }
 
-// —— 工具二：追踪文档生成（12-追踪文档工具） ——
+// —— 工具二：追踪文档生成（12-追踪文档工具 v2） ——
 
-export interface TraceRow {
-  no: number
-  srsChapter: string
-  srsDesc: string
-  outlineChapter: string
-  itemName: string
-  itemItemId: string
-  caseName: string
-  caseId: string
+/** 追踪四 tab 定义（TraceScreen1 渲染用） */
+export const TRACE_TABS: Array<{ key: TraceType; label: string; doc: string; hint: string }> = [
+  { key: 'outline', label: '大纲追踪', doc: '大纲.docx', hint: '生成大纲附件2「测试项与软件需求规格说明对照表」' },
+  { key: 'spec', label: '说明追踪', doc: '大纲.docx', hint: '生成测试说明「需求的可追踪性」追踪表' },
+  { key: 'report', label: '报告追踪', doc: '测试记录.docx', hint: '生成报告附件2「软件满足软件需求规格说明对照表」' },
+  { key: 'returnSpec', label: '回归说明', doc: '回归说明.docx', hint: '生成回归说明「需求的可追踪性」需求追溯表' }
+]
+
+/** report/returnSpec 需要配对大纲（SRS 与大纲章节号只有大纲里有） */
+export function traceNeedsOutline(t: TraceType): boolean {
+  return t === 'report' || t === 'returnSpec'
 }
 
-/** 追踪表数据推导（与服务端 /api/trace/generate、/api/generate 同一口径：排除用例不入表） */
-export function traceRowsOf(cases: CaseRow[]): TraceRow[] {
-  return cases
-    .filter(c => !c.excluded)
-    .map((c, i) => ({
-      no: i + 1,
-      srsChapter: c.srsChapter,
-      srsDesc: c.srsDesc,
-      outlineChapter: c.chapter,
-      itemName: c.itemName,
-      itemItemId: c.itemItemId,
-      caseName: c.mingcheng,
-      caseId: c.caseId
-    }))
+/** 切换 tab：丢弃旧解析结果（不同 tab 的表结构与上传要求不同） */
+export function setTraceType(t: TraceType): void {
+  if (store.traceType === t) return
+  store.traceType = t
+  resetTraceParse()
+  store.traceScreen = 1
 }
 
-/** 解析结果落库到工具二字段（与工具一状态互不干扰） */
-function applyTraceParse(res: ParseResponse): void {
-  store.traceOutline = res.outline
+function resetTraceParse(): void {
+  store.traceParsing = false
+  store.traceParsed = false
+  store.tracePrimary = { name: '', hash: '' }
+  store.traceAlignOutline = null
+  store.traceStats = { items: 0, cases: 0, steps: 0 }
+  store.traceIssues = []
+  store.traceSpec = null
+  store.traceResult = null
+}
+
+/** 追踪解析结果落库（trace/parse 与 trace/open 共用） */
+function applyTraceResult(res: TraceParseResponse): void {
+  store.tracePrimary = res.primary
+  store.traceAlignOutline = res.outline
   store.traceStats = res.stats
   store.traceIssues = res.issues
-  store.traceCases = res.cases
-  store.traceParams = res.params
+  store.traceSpec = res.spec
   store.traceParsed = true
   store.traceResult = null
-  if (res.restored.cases > 0) {
-    showToast('已恢复上次编辑：' + res.restored.cases + ' 处（排除的用例同样不入追踪表）')
-  }
   void loadProjects()
 }
 
-export async function doTraceParse(file: File): Promise<void> {
+/** 四 tab 上传解析：主文档 + report/returnSpec 的大纲配对（项目库 hash 或新文件） */
+export async function doTraceParse(file: File, outline?: { hash?: string; file?: File }): Promise<void> {
   store.traceParsing = true
   try {
-    const res = await parseOutline(file)
+    const res = await traceParse(store.traceType, file, outline)
     if (!res.ok) {
       showToast(res.error ?? '解析失败')
       return
     }
-    applyTraceParse(res)
+    applyTraceResult(res)
   } catch (e) {
     showToast(e instanceof Error ? e.message : '无法连接本地服务')
   } finally {
@@ -163,16 +171,16 @@ export async function doTraceParse(file: File): Promise<void> {
   }
 }
 
-/** 工具二打开最近项目：免上传重解析，直接进生成屏（12 设计） */
+/** 追踪工具打开最近项目：服务端按项目类型重建追踪表（outline 项目按当前 tab 的表型） */
 export async function openTraceProject(id: string): Promise<boolean> {
   store.traceParsing = true
   try {
-    const res = await openProject(id)
+    const res = await traceOpen(id, store.traceType)
     if (!res.ok) {
       showToast(res.error ?? '打开失败')
       return false
     }
-    applyTraceParse(res)
+    applyTraceResult(res)
     store.traceScreen = 2
     showToast('已打开项目')
     return true
@@ -185,17 +193,13 @@ export async function openTraceProject(id: string): Promise<boolean> {
 }
 
 export async function doTraceGenerate(): Promise<boolean> {
-  if (!store.traceParsed || store.traceCases.filter(c => !c.excluded).length === 0) {
-    showToast('没有可生成的追踪表行（全部用例被排除？）')
+  if (!store.traceParsed || store.traceSpec === null || store.traceSpec.rows.length === 0) {
+    showToast('没有可生成的追踪表行')
     return false
   }
   store.traceGenerating = true
   try {
-    const r = await traceGenerate(
-      store.traceOutline,
-      store.traceCases,
-      store.traceParams?.configName ?? ''
-    )
+    const r = await traceGenerate(store.traceType, store.traceSpec.rows, store.tracePrimary, '')
     if (!r.ok) {
       showToast(r.error ?? '生成失败')
       return false
@@ -396,15 +400,9 @@ export function resetAll(): void {
   store.outline = { name: '', hash: '' }
   // 工具二状态一并复位（防御性：当前无调用方，保持与轮 10"复位补齐"约定一致）
   store.traceScreen = 1
-  store.traceParsing = false
-  store.traceParsed = false
-  store.traceOutline = { name: '', hash: '' }
-  store.traceStats = { items: 0, cases: 0, steps: 0 }
-  store.traceIssues = []
-  store.traceParams = null
-  store.traceCases = []
+  store.traceType = 'spec'
   store.traceGenerating = false
-  store.traceResult = null
+  resetTraceParse()
 }
 
 // 调试探针（M5 开发期使用，打包前保留无妨——本地单用户工具）

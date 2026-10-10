@@ -2,8 +2,12 @@
 import type { CaseRow } from '../../src/core/convert/rows.ts'
 import type { Issue } from '../../src/core/domain.ts'
 import type { GlobalParams } from '../../src/core/domain.ts'
+import type { TraceTable, TraceRowVM, TraceHeadGroup } from '../../src/core/trace/table.ts'
 
-export type { CaseRow, Issue, GlobalParams }
+export type { CaseRow, Issue, GlobalParams, TraceTable, TraceRowVM, TraceHeadGroup }
+
+/** 追踪工具的四种表类型（12-追踪文档工具 v2） */
+export type TraceType = 'outline' | 'spec' | 'report' | 'returnSpec'
 
 export interface ParseResponse {
   ok: boolean

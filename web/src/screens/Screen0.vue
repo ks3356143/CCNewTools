@@ -15,9 +15,9 @@ const TOOLS = [
     key: 'trace' as const,
     icon: 'mdi-link-variant',
     name: '追踪文档生成',
-    desc: '测试大纲 → 追踪关系文档',
-    note: '生成"大纲 ↔ 需求规格说明"追踪表，复制进自有文档',
-    steps: ['选大纲', '生成下载']
+    desc: '大纲 / 记录 / 回归说明 → 四类追踪表',
+    note: '大纲·说明·报告·回归说明四种追踪表，纵向合并，复制贴入自有文档',
+    steps: ['选类型', '生成下载']
   }
 ]
 </script>

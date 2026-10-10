@@ -1,4 +1,4 @@
-import type { CaseRow, GlobalParams, ParseResponse, GenerateResponse, ProjectMeta, GeneratedFile } from './types.ts'
+import type { CaseRow, GlobalParams, ParseResponse, GenerateResponse, ProjectMeta, GeneratedFile, Issue } from './types.ts'
 
 async function post<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, {
@@ -72,8 +72,45 @@ export interface TraceGenerateResponse {
   doc?: string
 }
 
-export async function traceGenerate(outline: { name: string; hash: string }, cases: CaseRow[], configName: string): Promise<TraceGenerateResponse> {
-  return post<TraceGenerateResponse>('/api/trace/generate', { outline: outline, cases: cases, configName: configName })
+/** 追踪解析响应（12-追踪文档工具 v2）：统一 TraceTable + 问题清单 + 配对大纲信息 */
+export interface TraceParseResponse {
+  ok: boolean
+  error?: string
+  traceType: 'outline' | 'spec' | 'report' | 'returnSpec'
+  spec: import('../../src/core/trace/table.ts').TraceTable
+  issues: Issue[]
+  stats: { items: number; cases: number; steps: number }
+  outline: { name: string; hash: string } | null
+  primary: { name: string; hash: string }
+}
+
+/** 追踪解析（四 tab 第 1 步）：主文档 + 可选大纲（report/returnSpec 必须） */
+export async function traceParse(
+  mode: string,
+  file: File,
+  outline?: { hash?: string; file?: File }
+): Promise<TraceParseResponse> {
+  const form = new FormData()
+  form.append('mode', mode)
+  form.append('file', file)
+  if (outline?.hash) form.append('outlineHash', outline.hash)
+  if (outline?.file) form.append('outlineFile', outline.file)
+  const res = await fetch('/api/trace/parse', { method: 'POST', body: form })
+  return (await res.json()) as TraceParseResponse
+}
+
+export async function traceGenerate(
+  traceType: string,
+  rows: import('../../src/core/trace/table.ts').TraceRowVM[],
+  primary: { name: string; hash?: string },
+  configName: string
+): Promise<TraceGenerateResponse> {
+  return post<TraceGenerateResponse>('/api/trace/generate', { traceType: traceType, rows: rows, primary: primary, configName: configName })
+}
+
+/** 追踪工具打开最近项目（按项目 sourceType 重建追踪表；outline 项目用当前 tab 的 mode） */
+export async function traceOpen(id: string, mode?: string): Promise<TraceParseResponse> {
+  return post<TraceParseResponse>('/api/trace/open', { id: id, mode: mode })
 }
 
 /** base64 → 浏览器下载 */

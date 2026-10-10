@@ -1,16 +1,33 @@
 <script setup lang="ts">
-import { ref, useTemplateRef, onMounted } from 'vue'
-import { store, doTraceParse, loadProjects, openTraceProject, showToast } from '../store.ts'
+import { ref, computed, useTemplateRef, onMounted, watch } from 'vue'
+import { store, TRACE_TABS, traceNeedsOutline, setTraceType, doTraceParse, loadProjects, openTraceProject, showToast } from '../store.ts'
 import { deleteProject } from '../api.ts'
-import type { ProjectMeta } from '../types.ts'
+import type { ProjectMeta, TraceType } from '../types.ts'
 
-// 结构复用 Screen1（拖拽上传 / 最近项目 / 解析概要），无核对跳转——追踪表是机械映射（12 设计）
+// 四 tab 追踪（12-追踪文档工具 v2）：主文档上传 + report/returnSpec 的大纲配对 + 按类型过滤的最近项目
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
+const outlineInput = useTemplateRef<HTMLInputElement>('outlineInput')
 const dragging = ref(false)
 const phase = ref<'idle' | 'parsing' | 'done'>('idle')
 const fileName = ref('')
 const progress = ref(0)
 const bigFile = ref(false)
+/** report/returnSpec 配对的大纲：项目库 hash 或新上传文件 */
+const alignProject = ref<ProjectMeta | null>(null)
+const alignFileName = ref('')
+
+const tab = computed(() => TRACE_TABS.find(t => t.key === store.traceType)!)
+const needAlign = computed(() => traceNeedsOutline(store.traceType))
+const alignReady = computed(() => alignProject.value !== null || alignFileName.value !== '')
+const alignLabel = computed(() => alignProject.value?.name ?? alignFileName.value)
+
+/** 最近项目按 tab 源类型过滤（outline 大纲项目两个大纲 tab 共用） */
+const wantType = computed<'outline' | 'record' | 'returnSpec'>(() =>
+  store.traceType === 'report' ? 'record' : store.traceType === 'returnSpec' ? 'returnSpec' : 'outline'
+)
+const visibleProjects = computed(() => store.projects.filter(p => (p.sourceType ?? 'outline') === wantType.value))
+/** 大纲配对候选 = 全部大纲项目 */
+const outlineProjects = computed(() => store.projects.filter(p => (p.sourceType ?? 'outline') === 'outline'))
 
 function pick(): void {
   if (phase.value === 'idle') fileInput.value?.click()
@@ -25,24 +42,54 @@ function onDrop(e: DragEvent): void {
   const f = e.dataTransfer?.files?.[0]
   if (f) void startParse(f)
 }
+function pickOutline(): void {
+  outlineInput.value?.click()
+}
+function onOutlineFile(e: Event): void {
+  const f = (e.target as HTMLInputElement).files?.[0]
+  if (f) {
+    alignProject.value = null
+    alignFileName.value = f.name
+    outlineFileRef = f
+  }
+}
+function chooseAlign(p: ProjectMeta): void {
+  alignFileName.value = ''
+  alignProject.value = p
+}
+
 async function startParse(f: File): Promise<void> {
+  if (needAlign.value && !alignReady.value) {
+    showToast('请先选择或上传配对的大纲')
+    return
+  }
   fileName.value = f.name
   bigFile.value = f.size > 20 * 1024 * 1024
   progress.value = 0
   phase.value = 'parsing'
   requestAnimationFrame(() => (progress.value = 70))
-  await doTraceParse(f)
+  const outline = alignProject.value ? { hash: alignProject.value.hash } : alignFileName.value !== '' && outlineFileRef.value ? { file: outlineFileRef.value } : undefined
+  await doTraceParse(f, outline)
   progress.value = 100
   phase.value = store.traceParsed ? 'done' : 'idle'
 }
+/** 上传的大纲 File 暂存（startParse 用；不能放进 reactive，File 对象代理会丢） */
+let outlineFileRef: File | null = null
 
 onMounted(() => {
-  // 已有解析结果时（从第 2 步返回/回首页再进）直接呈现概要态
   if (store.traceParsed) {
     phase.value = 'done'
-    fileName.value = store.traceOutline.name
+    fileName.value = store.tracePrimary.name
   }
   void loadProjects()
+})
+
+// 切 tab 丢弃解析结果时，本屏的展示状态同步复位（store 已被 setTraceType 重置，
+// phase 若留在 done 态会显示上一轮文件与"生成"入口，误导用户）
+watch(() => store.traceType, () => {
+  phase.value = 'idle'
+  fileName.value = ''
+  progress.value = 0
 })
 
 const clearArmed = ref(false)
@@ -66,7 +113,6 @@ function fmtTime(iso: string): string {
   return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + hh + ':' + mm
 }
 async function openOne(p: ProjectMeta): Promise<void> {
-  // 解析中禁止重复触发；done 态允许换项目（否则打开 A 后回步 1 无法换 B——实测发现的死路）
   if (phase.value === 'parsing') return
   fileName.value = p.name
   progress.value = 0
@@ -76,7 +122,7 @@ async function openOne(p: ProjectMeta): Promise<void> {
     await openTraceProject(p.id)
   } finally {
     progress.value = 100
-    phase.value = 'idle' // 成功时已切到第 2 步，这里只是复位本屏状态
+    phase.value = 'idle' // 成功时已切第 2 步，此处仅复位本屏
   }
 }
 async function removeOne(p: ProjectMeta): Promise<void> {
@@ -92,6 +138,7 @@ async function removeOne(p: ProjectMeta): Promise<void> {
     showToast('删除失败')
     return
   }
+  if (alignProject.value?.id === p.id) alignProject.value = null
   showToast('已删除项目')
   await loadProjects()
 }
@@ -103,11 +150,11 @@ async function clearAll(): Promise<void> {
   }
   clearTimeout(confirmTimer)
   clearArmed.value = false
-  for (const p of [...store.projects]) {
+  for (const p of [...visibleProjects.value]) {
     await deleteProject(p.id).catch(() => false)
   }
   await loadProjects()
-  showToast('已清空全部项目')
+  showToast('已清空本类项目')
 }
 
 function issueCounts(): string {
@@ -119,23 +166,66 @@ function issueCounts(): string {
   if (c.info) parts.push(c.info + ' 提示')
   return parts.length ? ' · ' + parts.join(' · ') : ''
 }
-/** 追踪表行数 = 未排除用例数（与服务端生成口径一致） */
-function traceRowCount(): number {
-  return store.traceCases.filter(c => !c.excluded).length
-}
-function excludedCount(): number {
-  return store.traceCases.filter(c => c.excluded).length
-}
 </script>
 
 <template>
   <div class="wrap">
     <div class="hero">
       <div class="badge"><v-icon size="34">mdi-link-variant</v-icon></div>
-      <h1>生成追踪文档</h1>
-      <p>导入第三方测试大纲（.docx），自动生成"大纲 ↔ 需求规格说明"追踪关系文档，<br />复制其中表格贴入你的文档。</p>
+      <h1>生成追踪表</h1>
+      <p>选择追踪类型，导入对应文档，自动生成追踪表，复制贴入你的文档。</p>
     </div>
 
+    <!-- 四 tab -->
+    <div class="tabs" role="tablist">
+      <button
+        v-for="t in TRACE_TABS" :key="t.key"
+        type="button" role="tab"
+        class="tab" :class="{ on: store.traceType === t.key }"
+        :aria-selected="store.traceType === t.key"
+        @click="setTraceType(t.key as TraceType)"
+      >
+        {{ t.label }}
+      </button>
+    </div>
+    <p class="tab-hint">{{ tab.hint }}</p>
+
+    <!-- 大纲配对（报告/回归说明 tab） -->
+    <div v-if="needAlign" class="align">
+      <div class="a-head">
+        <v-icon size="16" color="primary">mdi-file-document-outline</v-icon>
+        <span>配对大纲<b class="req">*</b></span>
+        <span class="a-note">需求章节号与描述只有大纲里有，必须配对</span>
+      </div>
+      <div class="a-body">
+        <div class="a-picked">
+          <template v-if="alignLabel">
+            <v-icon size="15" color="success">mdi-check-circle</v-icon>
+            <span class="a-name">{{ stripDocx(alignLabel) }}</span>
+            <v-btn size="x-small" variant="text" @click="alignProject = null; alignFileName = ''">重选</v-btn>
+          </template>
+          <template v-else>
+            <span class="a-empty">未选择</span>
+          </template>
+        </div>
+        <v-btn size="small" variant="tonal" color="primary" @click="pickOutline">
+          <v-icon size="15" class="mr-1">mdi-upload</v-icon>上传新大纲
+        </v-btn>
+      </div>
+      <div v-if="outlineProjects.length > 0" class="a-list">
+        <button
+          v-for="p in outlineProjects.slice(0, 4)" :key="p.id"
+          type="button" class="a-item" :class="{ on: alignProject?.id === p.id }"
+          @click="chooseAlign(p)"
+        >
+          <v-icon size="14">{{ alignProject?.id === p.id ? 'mdi-check-circle' : 'mdi-folder-text-outline' }}</v-icon>
+          <span class="a-item-name">{{ stripDocx(p.name) }}</span>
+        </button>
+      </div>
+    </div>
+    <input ref="outlineInput" type="file" accept=".docx" hidden @change="onOutlineFile" />
+
+    <!-- 主文档上传 -->
     <div
       class="drop"
       :class="{ over: dragging, parsing: phase === 'parsing' }"
@@ -145,11 +235,11 @@ function excludedCount(): number {
     >
       <template v-if="phase === 'idle'">
         <v-icon size="42" color="primary">mdi-cloud-upload</v-icon>
-        <div class="dt">拖入文件，或点击选择</div>
+        <div class="dt">拖入{{ tab.doc }}，或点击选择</div>
         <div class="dc">支持 .docx 格式 · 离线运行，文档内容不出本机</div>
       </template>
       <template v-else-if="phase === 'parsing'">
-        <div class="dt">正在解析大纲…</div>
+        <div class="dt">正在解析…</div>
         <div class="bar"><i :style="{ width: progress + '%' }" /></div>
         <div class="dn">文件：<b>{{ fileName }}</b></div>
         <div v-if="bigFile" class="dn big">文件较大（正文超 20MB 走分块解析），预计需要 1~2 分钟，请耐心等待</div>
@@ -158,29 +248,28 @@ function excludedCount(): number {
         <v-icon size="40" color="success">mdi-check-circle</v-icon>
         <div class="dt">解析完成</div>
         <div class="dc">文件：<b>{{ fileName }}</b></div>
-        <!-- done 态保留重选入口：否则打开项目后回步 1 无路径换大纲（2026-10-10 实测死路修复） -->
         <button type="button" class="re-pick" @click.stop="phase = 'idle'">
-          <v-icon size="14">mdi-refresh</v-icon>重新选择大纲
+          <v-icon size="14">mdi-refresh</v-icon>重新选择
         </button>
       </template>
     </div>
     <input ref="fileInput" type="file" accept=".docx" hidden @change="onFile" />
 
-    <!-- 最近项目（与工具一共用项目库）：idle 与 done 态都可见（done 态也要能换项目） -->
-    <div v-if="store.projects.length > 0" class="projects">
+    <!-- 最近项目（按 tab 类型过滤） -->
+    <div v-if="visibleProjects.length > 0" class="projects">
       <div class="p-head">
-        <span class="p-title">最近项目</span>
+        <span class="p-title">最近{{ tab.label }}项目</span>
         <v-btn size="x-small" variant="text" color="error" :class="{ armed: clearArmed }" @click="clearAll">
           <v-icon v-if="clearArmed" size="13" class="mr-1">mdi-alert</v-icon>{{ clearArmed ? '确认清空？' : '清空全部' }}
         </v-btn>
       </div>
       <div class="p-list">
-        <div v-for="p in store.projects" :key="p.id" class="p-row">
+        <div v-for="p in visibleProjects" :key="p.id" class="p-row">
           <v-icon size="19" class="p-icon">mdi-folder-text-outline</v-icon>
           <div class="p-main">
             <div class="p-name">{{ stripDocx(p.name) }}</div>
             <div class="p-meta">
-              <span>{{ fmtTime(p.updatedAt) }}</span><span v-if="p.stats"> · {{ p.stats.cases }} 用例</span><span v-if="p.progress"> · 已核对 {{ p.progress?.reviewed }}</span><span v-if="!p.hasSource" class="p-nosource"> · 无源文件副本</span>
+              <span>{{ fmtTime(p.updatedAt) }}</span><span v-if="p.stats"> · {{ p.stats.cases }} 例</span><span v-if="!p.hasSource" class="p-nosource"> · 无源文件副本</span>
             </div>
           </div>
           <div class="p-acts">
@@ -195,8 +284,8 @@ function excludedCount(): number {
       <div class="result">
         <v-alert type="success" variant="tonal" rounded="lg" density="compact" class="ok-alert">
           <span>
-            解析完成，共 <b>{{ store.traceStats.items }}</b> 个测试项、<b>{{ store.traceStats.cases }}</b> 个测试用例，追踪表 <b>{{ traceRowCount() }}</b> 行{{ issueCounts() }}
-            <span v-if="excludedCount() > 0">；<b>{{ excludedCount() }}</b> 个已排除用例未入表</span>
+            解析完成，识别 <b>{{ store.traceStats.cases }}</b> 个用例，追踪表 <b>{{ store.traceSpec?.rows.length ?? 0 }}</b> 行{{ issueCounts() }}
+            <span v-if="store.traceAlignOutline">；配对大纲 <b>{{ stripDocx(store.traceAlignOutline.name) }}</b></span>
           </span>
         </v-alert>
         <v-alert
@@ -209,7 +298,7 @@ function excludedCount(): number {
 
         <div class="cta">
           <v-btn color="primary" rounded="pill" size="large" @click="store.traceScreen = 2">
-            生成追踪文档<v-icon size="17" class="ml-2">mdi-arrow-right</v-icon>
+            生成追踪表<v-icon size="17" class="ml-2">mdi-arrow-right</v-icon>
           </v-btn>
         </div>
       </div>
@@ -230,8 +319,40 @@ function excludedCount(): number {
 }
 h1 { font-size: 23px; font-weight: 650; }
 p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14px; }
+
+.tabs { display: flex; gap: 6px; margin-top: 22px; }
+.tab {
+  flex: 1; padding: 9px 0; border-radius: 10px; border: 1px solid rgba(var(--v-theme-outline), 0.7);
+  background: rgb(var(--v-theme-surface)); color: rgba(var(--v-theme-on-surface), 0.75);
+  font-size: 13.5px; font-weight: 550; cursor: pointer; transition: all 0.15s;
+}
+.tab:hover { border-color: rgb(var(--v-theme-primary)); color: rgb(var(--v-theme-primary)); }
+.tab.on {
+  background: rgba(var(--v-theme-primary), 0.1); border-color: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-primary)); font-weight: 600;
+}
+.tab-hint { text-align: center; font-size: 12.5px; margin-top: 8px; color: rgba(var(--v-theme-on-surface), 0.55); }
+
+.align { margin-top: 14px; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(var(--v-theme-primary), 0.4); background: rgba(var(--v-theme-primary), 0.045); }
+.a-head { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; }
+.a-head .req { color: rgb(var(--v-theme-error)); margin-left: 1px; }
+.a-note { font-weight: 450; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.55); }
+.a-body { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 10px; }
+.a-picked { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
+.a-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.a-empty { font-size: 12.5px; color: rgba(var(--v-theme-on-surface), 0.5); }
+.a-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.a-item {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 100%;
+  padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(var(--v-theme-outline), 0.7);
+  background: rgb(var(--v-theme-surface)); font-size: 12px; cursor: pointer; transition: all 0.15s;
+}
+.a-item:hover { border-color: rgb(var(--v-theme-primary)); }
+.a-item.on { border-color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.1); color: rgb(var(--v-theme-primary)); }
+.a-item-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .drop {
-  margin-top: 24px; padding: 42px 28px; border-radius: 16px; text-align: center;
+  margin-top: 16px; padding: 42px 28px; border-radius: 16px; text-align: center;
   border: 1.6px dashed rgba(var(--v-theme-outline), 1); background: rgb(var(--v-theme-surface));
   cursor: pointer; transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
@@ -240,7 +361,6 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 .drop :deep(.v-icon) { transition: transform 0.2s ease-out; }
 .drop:hover :deep(.v-icon) { transform: translateY(-3px); }
 .dt { margin-top: 12px; font-size: 15.5px; font-weight: 550; }
-/* done 态的重选入口（小字按钮，不抢主视觉） */
 .re-pick {
   margin-top: 12px; display: inline-flex; align-items: center; gap: 4px;
   border: none; background: rgba(var(--v-theme-primary), 0.08); color: rgb(var(--v-theme-primary));
@@ -257,7 +377,6 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 
 .result { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
 .ok-alert { font-size: 13.5px; text-align: left; }
-/* 问题清单行：工具二无核对屏，仅展示不可跳转 */
 .row-alert { font-size: 13.5px; text-align: left; }
 .iss-text { text-align: left; }
 

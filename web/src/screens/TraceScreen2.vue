@@ -1,21 +1,32 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { store, traceRowsOf, doTraceGenerate, showToast } from '../store.ts'
+import { store, doTraceGenerate, showToast } from '../store.ts'
 import { downloadBase64 } from '../api.ts'
+import { headRowsOf } from '../../../src/core/trace/table.ts'
+import type { TraceRowVM } from '../types.ts'
 
-// 第 2 步：追踪表预览 + 复制表格（HTML 直贴 Word）+ 下载 docx（12-追踪文档工具）
-const rows = computed(() => traceRowsOf(store.traceCases))
-const excludedCount = computed(() => store.traceCases.filter(c => c.excluded).length)
+// 第 2 步：追踪表预览（双层表头 + vmerge rowspan）+ 执行结果编辑 + 复制/下载（12 v2）
 
-/** 预览行上限（大文档 3 万行 DOM 不可行；复制与下载不受此限——数据驱动，不依赖 DOM） */
+const spec = computed(() => store.traceSpec)
+const rows = computed<TraceRowVM[]>(() => spec.value?.rows ?? [])
+const editableCol = computed(() => spec.value?.editableCol)
+const headTop = computed(() => (spec.value ? headRowsOf(spec.value.heads)[0] : []))
+const headSub = computed(() => (spec.value ? headRowsOf(spec.value.heads)[1] : []))
+const totalCols = computed(() => spec.value?.heads.reduce((a, g) => a + g.cols.length, 0) ?? 0)
+
+/** 预览行上限（复制/下载不受此限）；截断处的合并块 rowspan 收缩到边界，不出"悬空合并" */
 const PREVIEW_LIMIT = 200
-const previewRows = computed(() => rows.value.slice(0, PREVIEW_LIMIT))
-
-const HEADS = ['序号', '需求规格说明章节号', '需求规格说明描述', '大纲章节号', '测试项名称', '测试项标识', '测试用例名称', '测试用例标识']
-
-function rowCells(r: (typeof rows.value)[number]): string[] {
-  return [String(r.no), r.srsChapter, r.srsDesc, r.outlineChapter, r.itemName, r.itemItemId, r.caseName, r.caseId]
-}
+const previewRows = computed<TraceRowVM[]>(() => {
+  const all = rows.value
+  if (all.length <= PREVIEW_LIMIT) return all
+  return all.slice(0, PREVIEW_LIMIT).map(r => ({
+    cells: r.cells,
+    span: r.span.map(s => s)
+  })).map((r, i) => {
+    r.span = r.span.map(s => (s > 1 && i + s > PREVIEW_LIMIT ? PREVIEW_LIMIT - i : s))
+    return r
+  })
+})
 
 onMounted(() => {
   if (!store.traceParsed) {
@@ -24,17 +35,42 @@ onMounted(() => {
   }
 })
 
-/** 复制表格：text/html（Word 直贴成真表格）+ text/plain（TSV 兜底） */
+/** 报告追踪的执行结果列编辑（直接改 store.rows，生成随请求发送） */
+function onEditResult(i: number, e: Event): void {
+  const v = (e.target as HTMLInputElement).value
+  if (store.traceSpec !== null) store.traceSpec.rows[i].cells[9] = v
+}
+
+/** 复制表格：text/html（含 colspan/rowspan，Word 直贴成合并单元格）+ text/plain TSV 兜底 */
 async function copyTable(): Promise<void> {
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const cell = (s: string) => `<td style="border:1px solid #7f7f7f;padding:4px 6px">${esc(s)}</td>`
-  const headCell = (s: string) => `<th style="border:1px solid #7f7f7f;padding:4px 6px;background:#f2f2f2">${esc(s)}</th>`
-  const html =
-    '<table border="1" cellspacing="0" style="border-collapse:collapse;font-family:宋体;font-size:10.5pt">' +
-    '<tr>' + HEADS.map(headCell).join('') + '</tr>' +
-    rows.value.map(r => '<tr>' + rowCells(r).map(cell).join('') + '</tr>').join('') +
-    '</table>'
-  const tsv = [HEADS.join('\t'), ...rows.value.map(r => rowCells(r).join('\t'))].join('\r\n')
+  const st = 'border:1px solid #7f7f7f;padding:4px 6px;vertical-align:middle'
+  // 表头
+  let html = '<table border="1" cellspacing="0" style="border-collapse:collapse;font-family:宋体;font-size:10.5pt"><thead>'
+  html += '<tr>' + headTop.value.map(h => `<th colspan="${h.colspan}" rowspan="${h.rowspan}" style="${st};background:#f2f2f2;font-family:黑体">${esc(h.text)}</th>`).join('') + '</tr>'
+  if (headSub.value.length > 0) {
+    html += '<tr>' + headSub.value.map(h => `<th style="${st};background:#f2f2f2;font-family:黑体">${esc(h.text)}</th>`).join('') + '</tr>'
+  }
+  html += '</thead><tbody>'
+  const tsvRows: string[] = []
+  for (const r of rows.value) {
+    html += '<tr>'
+    const tsv: string[] = []
+    for (let c = 0; c < totalCols.value; c++) {
+      if (r.span[c] === 0) {
+        tsv.push('')
+        continue
+      }
+      const rs = r.span[c] > 1 ? ` rowspan="${r.span[c]}"` : ''
+      const text = r.cells[c]
+      html += `<td${rs} style="${st}">${esc(text)}</td>`
+      tsv.push(text)
+    }
+    html += '</tr>'
+    tsvRows.push(tsv.join('\t'))
+  }
+  html += '</tbody></table>'
+  const tsv = [...headTop.value.map(h => h.text), ...(headSub.value.length ? [headSub.value.map(h => h.text).join('\t')] : []), ...tsvRows].join('\r\n')
   try {
     await navigator.clipboard.write([
       new ClipboardItem({
@@ -42,7 +78,7 @@ async function copyTable(): Promise<void> {
         'text/plain': new Blob([tsv], { type: 'text/plain' })
       })
     ])
-    showToast('已复制到剪贴板，可直接粘贴进 Word（保留表格格式）')
+    showToast('已复制到剪贴板，可直接粘贴进 Word（保留合并单元格）')
   } catch {
     try {
       await navigator.clipboard.writeText(tsv)
@@ -64,12 +100,14 @@ async function download(): Promise<void> {
 <template>
   <div class="wrap">
     <div class="head">
-      <h1>追踪文档</h1>
+      <h1>追踪表</h1>
       <p class="sub">
-        来源：<b>{{ store.traceOutline.name }}</b>
-        · {{ store.traceStats.items }} 测试项 / {{ store.traceStats.cases }} 用例
+        来源：<b>{{ store.tracePrimary.name }}</b>
+        <template v-if="store.traceAlignOutline"> · 配对大纲：<b>{{ store.traceAlignOutline.name }}</b></template>
         · 追踪表 <b class="n">{{ rows.length }}</b> 行
-        <span v-if="excludedCount > 0" class="ex">（{{ excludedCount }} 个已排除用例未入表）</span>
+      </p>
+      <p v-if="editableCol !== undefined" class="sub edit-hint">
+        <v-icon size="13">mdi-pencil</v-icon> 执行结果列可直接编辑（默认"通过"，对不上的行已留空），改完再复制或下载
       </p>
     </div>
 
@@ -77,17 +115,27 @@ async function download(): Promise<void> {
     <div class="pv-card">
       <div class="pv-head">
         <span>表格预览</span>
-        <span v-if="rows.length > PREVIEW_LIMIT" class="pv-note">仅显示前 {{ PREVIEW_LIMIT }} 行，完整内容以下载文档为准</span>
-        <span v-else-if="rows.length === 0" class="pv-note warn">没有可生成的行（全部用例被排除）</span>
+        <span v-if="rows.length > PREVIEW_LIMIT" class="pv-note">仅显示前 {{ PREVIEW_LIMIT }} 行，完整内容以下载文档与复制为准</span>
+        <span v-else-if="rows.length === 0" class="pv-note warn">没有可生成的行</span>
       </div>
       <div class="pv-scroll">
         <table>
           <thead>
-            <tr><th v-for="h in HEADS" :key="h">{{ h }}</th></tr>
+            <tr><th v-for="(h, i) in headTop" :key="'t' + i" :colspan="h.colspan" :rowspan="h.rowspan">{{ h.text }}</th></tr>
+            <tr v-if="headSub.length > 0"><th v-for="(h, i) in headSub" :key="'s' + i">{{ h.text }}</th></tr>
           </thead>
           <tbody>
-            <tr v-for="r in previewRows" :key="r.no">
-              <td v-for="(c, i) in rowCells(r)" :key="i" :class="{ num: i === 0 }">{{ c }}</td>
+            <tr v-for="(r, i) in previewRows" :key="i">
+              <template v-for="c in totalCols" :key="c">
+                <td v-if="r.span[c - 1] !== 0" :rowspan="r.span[c - 1] > 1 ? r.span[c - 1] : undefined" :class="{ num: c === 1, editable: c - 1 === editableCol }">
+                  <input
+                    v-if="c - 1 === editableCol"
+                    class="res-input" :value="r.cells[c - 1]"
+                    @input="onEditResult(i, $event)"
+                  />
+                  <template v-else>{{ r.cells[c - 1] }}</template>
+                </td>
+              </template>
             </tr>
           </tbody>
         </table>
@@ -107,9 +155,9 @@ async function download(): Promise<void> {
         <v-icon size="17" class="mr-2">mdi-download</v-icon>下载追踪文档
       </v-btn>
     </div>
-    <p class="hint">复制表格后可直接粘贴进 Word（保留表格格式）；下载的 .docx 与工具一生成的测试说明中追踪表样式一致。</p>
+    <p class="hint">复制表格后可直接粘贴进 Word（保留表格格式与合并单元格）；下载的 .docx 与对应文档中的追踪表样式一致。</p>
 
-    <!-- 生成结果：下载双轨（≤10MB base64 / 大文档给落盘路径） -->
+    <!-- 生成结果：下载双轨 -->
     <v-card v-if="store.traceResult" rounded="14" elevation="1" class="res">
       <div class="res-row">
         <v-icon size="19" color="success">mdi-check-circle</v-icon>
@@ -126,12 +174,12 @@ async function download(): Promise<void> {
 </template>
 
 <style scoped>
-.wrap { max-width: 980px; margin: 26px auto 0; padding: 0 22px 40px; }
+.wrap { max-width: 1100px; margin: 26px auto 0; padding: 0 22px 40px; }
 .head h1 { font-size: 21px; font-weight: 650; }
 .sub { margin-top: 6px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.65); }
 .sub b { color: rgb(var(--v-theme-on-surface)); }
 .sub .n { color: rgb(var(--v-theme-primary)); }
-.ex { color: rgb(var(--v-theme-warning)); }
+.edit-hint { display: flex; align-items: center; gap: 3px; color: rgb(var(--v-theme-primary)); }
 
 .pv-card {
   margin-top: 18px; border-radius: 14px; overflow: hidden;
@@ -146,7 +194,7 @@ async function download(): Promise<void> {
 }
 .pv-note { font-weight: 450; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.55); }
 .pv-note.warn { color: rgb(var(--v-theme-warning)); }
-.pv-scroll { max-height: 480px; overflow: auto; }
+.pv-scroll { max-height: 520px; overflow: auto; }
 .pv-empty { padding: 40px; text-align: center; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.5); }
 
 table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -154,18 +202,28 @@ thead th {
   position: sticky; top: 0; z-index: 1;
   background: rgba(var(--v-theme-primary), 0.07);
   color: rgb(var(--v-theme-primary));
-  font-weight: 600; text-align: left; white-space: nowrap;
-  padding: 8px 10px;
+  font-weight: 600; text-align: center; white-space: nowrap;
+  padding: 7px 9px;
   border-bottom: 1px solid rgba(var(--v-theme-outline), 0.7);
 }
+thead tr:first-child th { border-bottom: none; }
+thead tr:last-child th { top: 32px; }
 tbody td {
-  padding: 6px 10px; white-space: nowrap;
+  padding: 5px 9px; white-space: nowrap; vertical-align: middle;
   border-bottom: 1px solid rgba(var(--v-theme-outline), 0.35);
+  border-right: 1px solid rgba(var(--v-theme-outline), 0.22);
   color: rgba(var(--v-theme-on-surface), 0.85);
 }
 tbody tr:nth-child(even):not(:hover) { background: rgba(var(--v-theme-primary), 0.025); }
 tbody tr:hover { background: rgba(var(--v-theme-primary), 0.05); }
 td.num { font-variant-numeric: tabular-nums; color: rgba(var(--v-theme-on-surface), 0.55); }
+td.editable { padding: 2px 5px; }
+.res-input {
+  width: 100%; min-width: 64px; border: 1px dashed rgba(var(--v-theme-primary), 0.55);
+  border-radius: 6px; padding: 3px 6px; font-size: 12.5px;
+  background: transparent; color: rgb(var(--v-theme-on-surface));
+}
+.res-input:focus { outline: none; border-color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.05); }
 
 .acts { display: flex; justify-content: center; gap: 14px; margin-top: 20px; }
 .acts :deep(.v-btn:first-child) {

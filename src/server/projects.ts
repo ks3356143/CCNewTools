@@ -25,6 +25,10 @@ export interface ProjectMeta {
   updatedAt: string
   lastGeneratedAt?: string
   hasSource: boolean
+  /** 源文档类型（12-追踪文档工具 v2）：outline=大纲（默认，旧数据无此字段） / record=测试记录 / returnSpec=回归说明 */
+  sourceType?: 'outline' | 'record' | 'returnSpec'
+  /** 记录/回归说明项目配对的大纲项目 hash（打开项目时自动重配） */
+  alignHash?: string
   stats: ProjectStats | null
   progress: ProjectProgress | null
 }
@@ -58,8 +62,13 @@ function fileOf(id: string): string {
   return join(projectDir(id), '项目.json')
 }
 
-export function sourceFileOf(id: string): string {
-  return join(projectDir(id), '大纲.docx')
+/** 源副本文件名按类型区分（旧 outline 项目沿用 大纲.docx，历史数据零迁移） */
+export function sourceFileOf(id: string, sourceType: 'outline' | 'record' | 'returnSpec' = 'outline'): string {
+  return join(projectDir(id), sourceType === 'outline' ? '大纲.docx' : '源文档.docx')
+}
+
+export function sourceTypeOf(meta: ProjectMeta): 'outline' | 'record' | 'returnSpec' {
+  return meta.sourceType ?? 'outline'
 }
 
 export function loadProject(id: string): ProjectFile | null {
@@ -96,7 +105,14 @@ export function deleteProject(id: string): void {
 }
 
 /** 上传/打开解析成功后建档或更新：写源副本、刷统计，已有编辑保留不动 */
-export function recordParse(name: string, hash: string, bytes: Uint8Array, stats: ProjectStats): void {
+export function recordParse(
+  name: string,
+  hash: string,
+  bytes: Uint8Array,
+  stats: ProjectStats,
+  sourceType: 'outline' | 'record' | 'returnSpec' = 'outline',
+  alignHash?: string
+): void {
   const id = projectId(hash)
   const now = new Date().toISOString()
   const prev = loadProject(id)
@@ -108,12 +124,15 @@ export function recordParse(name: string, hash: string, bytes: Uint8Array, stats
     updatedAt: now,
     lastGeneratedAt: prev?.meta.lastGeneratedAt,
     hasSource: true,
+    sourceType: sourceType,
     stats: stats,
     progress: prev?.meta.progress ?? null
   }
+  if (alignHash !== undefined && alignHash !== '') meta.alignHash = alignHash
+  else if (prev?.meta.alignHash !== undefined) meta.alignHash = prev.meta.alignHash
   saveProjectFile(id, { meta: meta, edits: prev?.edits ?? null })
   mkdirSync(projectDir(id), { recursive: true })
-  writeFileSync(sourceFileOf(id), bytes)
+  writeFileSync(sourceFileOf(id, sourceType), bytes)
 }
 
 /** 版本闸与旧 loadEditState 一致：版本不符整体作废 */

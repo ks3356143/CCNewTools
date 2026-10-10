@@ -1,16 +1,20 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { zipSync, strToU8 } from 'fflate'
 import PizZip from 'pizzip'
 import { DOMParser } from '@xmldom/xmldom'
 import { buildDocxBuffer, itemTable, DESC, METHOD } from './helpers/ooxml.ts'
 import { handle } from '../src/server/app.ts'
-import { renderTemplate, renderTemplateBatched, stripAnchorMarks, type LoopSpec } from '../src/core/render/docx.ts'
-import { readFileSync } from 'node:fs'
+import { renderTemplate, stripAnchorMarks } from '../src/core/render/docx.ts'
+import { applyVmergeToDocx } from '../src/core/render/vmerge.ts'
+import { buildTraceTable } from '../src/core/trace/build.ts'
+import { IssueCollector } from '../src/core/domain.ts'
+import type { TraceRowVM, TraceTable } from '../src/core/trace/table.ts'
+import type { CaseRow } from '../src/core/convert/rows.ts'
+import type { RecordCase } from '../src/core/parse/record.ts'
 
-/** M8 追踪文档工具（F10/12 号设计）：模板渲染 + /api/trace/generate 端到端 */
+/** M8 追踪文档工具（F10/12 号设计 v2）：四套模板 + /api/trace/parse + /api/trace/generate 端到端 */
 
 beforeAll(() => {
   process.env.CC_DATA_DIR = mkdtempSync(join(tmpdir(), 'cc-m8-'))
@@ -22,12 +26,10 @@ function start(): string {
 }
 const URL0 = start()
 
-const TRACE_TPL = readFileSync(join(import.meta.dir, '../模板/追踪文档模板.docx'))
-const TRACE_LOOPS: LoopSpec[] = [
-  { field: 'traceRows', begin: '_TR_BEGIN_', end: '_TR_END_', batchSize: 1000 }
-]
+const TPL_NAMES = ['追踪-大纲模板.docx', '追踪-说明模板.docx', '追踪-报告模板.docx', '追踪-回归模板.docx'] as const
 
-function sampleDocx(): Buffer {
+/** 合成大纲：功能测试 XQ_A_B 下两个用例（同 SRS 同项 → 说明表出 vmerge 合并组） */
+function sampleOutline(): Buffer {
   return buildDocxBuffer({
     content: [
       { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
@@ -43,11 +45,33 @@ function sampleDocx(): Buffer {
   })
 }
 
-async function parse(name: string, buf: Buffer): Promise<any> {
-  const form = new FormData()
-  form.append('file', new File([new Uint8Array(buf)], name))
-  const res = await fetch(URL0 + '/api/parse', { method: 'POST', body: form })
-  return res.json()
+/** 合成测试记录：一张用例记录表（YL_A_B_001，2 步全通过、无问题单） */
+export function sampleRecordTable(caseId: string, caseName: string, results: string[], problem: string): { kind: 'tbl'; rows: any[][] } {
+  return {
+    kind: 'tbl',
+    rows: [
+      [{ text: '' }],
+      [{ text: '测试用例名称' }, { text: caseName }, { text: '标识' }, { text: caseId }],
+      [{ text: '追踪关系' }, { text: '软件测试依据：软件测评大纲\n测试需求分析：6.2.1.1 某测试项\n测试需求标识：XQ_A_B' }],
+      [{ text: '测试步骤' }],
+      [{ text: '序号' }, { text: '输入及操作' }, { text: '期望结果与评估标准' }, { text: '实测结果' }, { text: '通过与否' }],
+      ...results.map((r, i) => [{ text: String(i + 1) }, { text: '执行操作' + (i + 1) }, { text: '结果正确' }, { text: '' }, { text: r }]),
+      [{ text: '执行状态' }, { text: '已执行' }, { text: '测试时间' }, { text: '2026-08-18' }],
+      [{ text: '测试人员' }, { text: '张三' }, { text: '监测人员' }, { text: '李四' }],
+      [{ text: '问题单标识' }, { text: problem }],
+      [{ text: '备注' }, { text: '/' }]
+    ]
+  }
+}
+
+function sampleRecord(): Buffer {
+  return buildDocxBuffer({
+    content: [
+      { kind: 'p', para: { text: '测试记录', heading: 1 } },
+      { kind: 'p', para: { text: '功能测试', heading: 2 } },
+      sampleRecordTable('YL_A_B_001', '用例一', ['通过', '通过'], '/')
+    ]
+  })
 }
 
 function xmlOf(buf: Buffer): string {
@@ -56,7 +80,7 @@ function xmlOf(buf: Buffer): string {
 function textOf(buf: Buffer): string {
   return xmlOf(buf).replace(/<[^>]+>/g, '')
 }
-/** XML 良构断言（@xmldom/xmldom 0.9 的 onError 签名；error/fatalError 计 0 条才算过） */
+/** XML 良构断言（@xmldom/xmldom 0.9 的 onError 签名） */
 function assertWellFormed(xml: string): void {
   const errors: string[] = []
   new DOMParser({
@@ -67,115 +91,279 @@ function assertWellFormed(xml: string): void {
   expect(errors).toEqual([])
 }
 
-describe('M8 追踪文档模板', () => {
-  test('模板结构：追踪章标题 + 题注 + 8 列表头，无工具一循环段残留', () => {
-    const xml = xmlOf(TRACE_TPL)
-    expect(xml).toContain('需求的可追踪性')
-    // 题注断言打在剥标签文本上（{configName} 与"需求追踪表"在 XML 里分属两个 run）
-    expect(textOf(TRACE_TPL as unknown as Buffer)).toContain('{configName}需求追踪表')
-    for (const h of ['序号', '需求规格说明章节号', '需求规格说明描述', '大纲章节号', '测试项名称', '测试项标识', '测试用例名称', '测试用例标识']) {
-      expect(textOf(TRACE_TPL as unknown as Buffer)).toContain(h)
+describe('M8 四套追踪模板', () => {
+  test('每套模板：双层表头 + 锚点 + traceRows 循环，无工具一循环段残留，XML 良构', () => {
+    for (const name of TPL_NAMES) {
+      const buf = readFileSync(join(import.meta.dir, '../模板/' + name))
+      const xml = xmlOf(buf)
+      expect(xml).toContain('{#traceRows}')
+      expect(xml).toContain('_TR_BEGIN_')
+      expect(xml).toContain('_TR_END_')
+      expect(xml).not.toContain('{#cases}')
+      expect(xml).not.toContain('{#caselist}')
+      assertWellFormed(xml)
     }
-    expect(xml).toContain('{#traceRows}')
-    expect(xml).not.toContain('{#cases}')
-    expect(xml).not.toContain('{#caselist}')
   })
 
-  test('渲染：数据全落位、无残留占位符、XML 良构', () => {
-    const rows = [
-      { no: 1, srsChapter: '3.1', srsDesc: '参数管理', outlineChapter: '6.2.1.4.1', itemName: '参数管理测试', itemItemId: 'XQ_A_B', caseName: '用例一', caseId: 'YL_A_B_001' },
-      { no: 2, srsChapter: '3.1', srsDesc: '参数管理', outlineChapter: '6.2.1.4.1', itemName: '参数管理测试', itemItemId: 'XQ_A_B', caseName: '用例二', caseId: 'YL_A_B_002' }
-    ]
-    const buf = stripAnchorMarks(renderTemplate(TRACE_TPL, { traceRows: rows, configName: 'XX星测控软件' }))
-    expect(buf.subarray(0, 2).toString()).toBe('PK')
-    const text = textOf(buf)
-    expect(text).toContain('XX星测控软件需求追踪表')
-    for (const s of ['YL_A_B_001', 'YL_A_B_002', '6.2.1.4.1', '3.1', '参数管理']) {
-      expect(text).toContain(s)
+  test('说明模板表头：分组行（软件需求规格说明/软件测试大纲/测试用例）+ 子列行', () => {
+    const text = textOf(readFileSync(join(import.meta.dir, '../模板/追踪-说明模板.docx')))
+    for (const h of ['序号', '软件需求规格说明', '章节号', '章节描述', '软件测试大纲', '大纲章节号', '测试项名称', '测试项标识', '测试用例', '测试用例名称', '测试用例标识']) {
+      expect(text).toContain(h)
     }
-    for (const bad of ['{traceRows}', '{no}', '{srsChapter}', '{caseId}', '{configName}', '_TR_BEGIN_', '_TR_END_']) {
+  })
+
+  test('报告模板表头：11 列（含测试类型/执行结果/备注）', () => {
+    const text = textOf(readFileSync(join(import.meta.dir, '../模板/追踪-报告模板.docx')))
+    for (const h of ['测评大纲', '测试类型', '测试用例标识', '名称', '执行结果', '备注']) {
+      expect(text).toContain(h)
+    }
+  })
+
+  test('大纲模板表头：需求来源（软件研制任务书/软件需求规格说明）', () => {
+    const text = textOf(readFileSync(join(import.meta.dir, '../模板/追踪-大纲模板.docx')))
+    for (const h of ['需求来源', '软件研制任务书', '软件需求规格说明', '测试项标识', '测试类型', '备注']) {
+      expect(text).toContain(h)
+    }
+  })
+
+  test('回归模板表头：9 列（含用例章节号）', () => {
+    const text = textOf(readFileSync(join(import.meta.dir, '../模板/追踪-回归模板.docx')))
+    for (const h of ['测评大纲', '用例章节号', '测试用例名称', '测试用例标识']) {
+      expect(text).toContain(h)
+    }
+  })
+
+  test('渲染：占位符变量与模板循环行一致，数据全落位无残留', () => {
+    const buf = readFileSync(join(import.meta.dir, '../模板/追踪-报告模板.docx'))
+    const rows = [
+      { no: '1', srsChapter: '3.1', srsDesc: '参数管理', outlineChapter: '6.2.1.4.1', itemName: '参数管理测试', itemItemId: 'XQ_A_B', typeName: '功能测试', caseId: 'YL_A_B_001-001~002', caseName: '用例一', result: '通过', remark: '--' }
+    ]
+    const out = stripAnchorMarks(renderTemplate(buf, { traceRows: rows, configName: 'C' }))
+    expect(out.subarray(0, 2).toString()).toBe('PK')
+    const text = textOf(out)
+    expect(text).toContain('YL_A_B_001-001~002')
+    expect(text).toContain('通过')
+    for (const bad of ['{traceRows}', '{no}', '{caseId}', '{result}', '{configName}', '_TR_BEGIN_', '_TR_END_']) {
       expect(text.includes(bad)).toBe(false)
     }
-    assertWellFormed(xmlOf(buf))
-  })
-
-  test('分批渲染与整体渲染产物一致（剥离锚点后逐字节）', () => {
-    const rows = Array.from({ length: 1201 }, (_, i) => ({
-      no: i + 1, srsChapter: '3.' + (i % 9 + 1), srsDesc: '描述' + i, outlineChapter: '6.2.' + i,
-      itemName: '项' + (i % 7), itemItemId: 'XQ_' + (i % 7), caseName: '用例' + i, caseId: 'YL_' + i
-    }))
-    const whole = stripAnchorMarks(renderTemplate(TRACE_TPL, { traceRows: rows, configName: 'C' }))
-    const batched = stripAnchorMarks(renderTemplateBatched(TRACE_TPL, { traceRows: rows, configName: 'C' }, TRACE_LOOPS))
-    expect(xmlOf(batched)).toBe(xmlOf(whole))
+    assertWellFormed(xmlOf(out))
   })
 })
 
-describe('M8 /api/trace/generate', () => {
-  test('端到端：解析 → 生成追踪文档（base64 双轨、行数据正确）', async () => {
-    const data = await parse('测试大纲T.docx', sampleDocx())
-    expect(data.ok).toBe(true)
-    const cases = data.cases as any[]
-    expect(cases.length).toBe(2)
+async function postForm(path: string, form: FormData): Promise<any> {
+  const res = await fetch(URL0 + path, { method: 'POST', body: form })
+  return { status: res.status, body: await res.json() }
+}
+
+function formWithFile(mode: string, buf: Buffer, name: string): FormData {
+  const form = new FormData()
+  form.append('mode', mode)
+  form.append('file', new File([new Uint8Array(buf)], name))
+  return form
+}
+
+describe('M8 /api/trace/parse（四 tab 第 1 步）', () => {
+  test('spec：大纲 → 说明追踪表，同项两例出 vmerge 合并组', async () => {
+    const r = await postForm('/api/trace/parse', formWithFile('spec', sampleOutline(), '大纲T.docx'))
+    expect(r.status).toBe(200)
+    expect(r.body.ok).toBe(true)
+    expect(r.body.traceType).toBe('spec')
+    const spec = r.body.spec as TraceTable
+    expect(spec.heads.reduce((a: number, g: any) => a + g.cols.length, 0)).toBe(8)
+    expect(spec.rows.length).toBe(2)
+    // 同 SRS 同项：第 0 行 1~5 列 span=2，第 1 行同列 span=0
+    expect(spec.rows[0].span[1]).toBe(2)
+    expect(spec.rows[1].span[1]).toBe(0)
+    expect(spec.rows[1].span[6]).toBe(1)
+  })
+
+  test('report：记录 + 项目库大纲 → 11 列对齐（步骤范围/执行结果/备注自动推导）', async () => {
+    // 先上传大纲建档（拿 outlineHash）
+    const f0 = new FormData()
+    f0.append('file', new File([new Uint8Array(sampleOutline())], '大纲T.docx'))
+    const pr = await (await fetch(URL0 + '/api/parse', { method: 'POST', body: f0 })).json()
+    expect(pr.ok).toBe(true)
+    const form = new FormData()
+    form.append('mode', 'report')
+    form.append('file', new File([new Uint8Array(sampleRecord())], '记录T.docx'))
+    form.append('outlineHash', pr.outline.hash)
+    const r = await postForm('/api/trace/parse', form)
+    expect(r.status).toBe(200)
+    const spec = r.body.spec as TraceTable
+    expect(spec.heads.reduce((a: number, g: any) => a + g.cols.length, 0)).toBe(11)
+    expect(spec.rows.length).toBe(1)
+    expect(spec.rows[0].cells[7]).toBe('YL_A_B_001-001~002')
+    expect(spec.rows[0].cells[9]).toBe('通过')
+    expect(spec.rows[0].cells[10]).toBe('--')
+    expect(spec.rows[0].cells[6]).toBe('功能测试')
+    expect(spec.editableCol).toBe(9)
+  })
+
+  test('report：缺大纲 → 400 明确报错', async () => {
+    const r = await postForm('/api/trace/parse', formWithFile('report', sampleRecord(), '记录T.docx'))
+    expect(r.status).toBe(400)
+    expect(r.body.ok).toBe(false)
+    expect(r.body.error).toContain('大纲')
+  })
+
+  test('returnSpec：回归说明 + 大纲 → 9 列（用例章节号/SRS 优先回归说明）', async () => {
+    const ret = buildDocxBuffer({
+      content: [
+        { kind: 'p', para: { text: '软件更改部分', heading: 1 } },
+        { kind: 'p', para: { text: '回归测试需求', heading: 2, numId: 1, ilvl: 1 } },
+        {
+          kind: 'tbl',
+          rows: itemTable('某测试项', 'XQ_A_B', [
+            [{ text: '追踪关系' }, { text: '《XX需求规格说明》3.1 参数管理' }]
+          ])
+        },
+        { kind: 'p', para: { text: '测试用例', heading: 1, numId: 1, ilvl: 0 } },
+        sampleRecordTable('YL_A_B_001', '用例一', ['通过'], '/')
+      ]
+    })
+    const pr = await (await fetch(URL0 + '/api/parse', { method: 'POST', body: (() => { const f = new FormData(); f.append('file', new File([new Uint8Array(sampleOutline())], '大纲T.docx')); return f })() })).json()
+    const form = new FormData()
+    form.append('mode', 'returnSpec')
+    form.append('file', new File([new Uint8Array(ret)], '回归说明T.docx'))
+    form.append('outlineHash', pr.outline.hash)
+    const r = await postForm('/api/trace/parse', form)
+    expect(r.status).toBe(200)
+    const spec = r.body.spec as TraceTable
+    expect(spec.heads.reduce((a: number, g: any) => a + g.cols.length, 0)).toBe(9)
+    expect(spec.rows.length).toBe(1)
+    // SRS 取回归说明追踪关系行（3.1），大纲章节号取大纲（6.2.1.4.x），用例章节号来自回归说明编号
+    expect(spec.rows[0].cells[1]).toBe('3.1')
+    expect(spec.rows[0].cells[3]).not.toBe('')
+    expect(spec.rows[0].cells[6]).not.toBe('')
+    expect(spec.rows[0].cells[8]).toBe('YL_A_B_001')
+  })
+
+  test('未知类型 → 400', async () => {
+    const r = await postForm('/api/trace/parse', formWithFile('bogus', sampleOutline(), 'x.docx'))
+    expect(r.status).toBe(400)
+  })
+})
+
+describe('M8 /api/trace/generate（rows 渲染 + vMerge 后处理）', () => {
+  test('端到端：rows（含 span）→ 生成 → vMerge XML 标记正确、续行文本清空', async () => {
+    const rows: TraceRowVM[] = [
+      { cells: ['1', '3.1', '参数管理', '6.2.1.4.1', '参数管理测试', 'XQ_A_B', '用例一', 'YL_A_B_001'], span: [1, 2, 2, 2, 2, 2, 1, 1] },
+      { cells: ['2', '3.1', '参数管理', '6.2.1.4.1', '参数管理测试', 'XQ_A_B', '用例二', 'YL_A_B_002'], span: [1, 0, 0, 0, 0, 0, 1, 1] }
+    ]
     const res = await fetch(URL0 + '/api/trace/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ outline: data.outline, cases: cases, configName: 'XX星测控软件' })
+      body: JSON.stringify({ traceType: 'spec', rows: rows, primary: { name: '大纲T.docx', hash: null }, configName: 'XX星测控软件' })
     })
     const r = await res.json()
     expect(r.ok).toBe(true)
     expect(r.name).toBe('追踪文档-生成.docx')
-    expect(r.doc).toBeTruthy()
     const buf = Buffer.from(r.doc, 'base64')
     expect(buf.subarray(0, 2).toString()).toBe('PK')
+    const xml = xmlOf(buf)
+    // 数据行 5 列合并 + 表头"序号"独立列自带的 1 组 = 6 restart / 6 continue
+    expect((xml.match(/<w:vMerge w:val="restart"\/>/g) ?? []).length).toBe(6)
+    expect((xml.match(/<w:vMerge\/>/g) ?? []).length).toBe(6)
     const text = textOf(buf)
     expect(text).toContain('YL_A_B_001')
     expect(text).toContain('YL_A_B_002')
-    expect(text).toContain('XX星测控软件需求追踪表')
-    // 生成文档也过 officecli 语义级校验由发版验证覆盖；这里保 XML 良构
-    assertWellFormed(xmlOf(buf))
+    // 题注 configName 由服务端设置取（测试环境为空 → 题注仅"需求追踪表"）
+    expect(text).toContain('需求追踪表')
+    assertWellFormed(xml)
   })
 
-  test('排除用例不入追踪表（与工具一口径一致）', async () => {
-    const data = await parse('测试大纲T.docx', sampleDocx())
-    const cases = (data.cases as any[]).map((c, i) => (i === 0 ? { ...c, excluded: true } : c))
+  test('执行结果编辑值随 rows 进入产物', async () => {
+    const rows: TraceRowVM[] = [
+      { cells: ['1', '', '', '', '', '', '手工用例', 'YL_X_001', '手工用例', '未通过', 'PT_T_1'], span: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] }
+    ]
     const res = await fetch(URL0 + '/api/trace/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ outline: data.outline, cases: cases })
+      body: JSON.stringify({ traceType: 'report', rows: rows, primary: { name: '记录T.docx' } })
     })
     const r = await res.json()
     expect(r.ok).toBe(true)
     const text = textOf(Buffer.from(r.doc, 'base64'))
-    expect(text).not.toContain('YL_A_B_001')
-    expect(text).toContain('YL_A_B_002')
+    expect(text).toContain('未通过')
+    expect(text).toContain('PT_T_1')
   })
 
-  test('全部排除 → 400 明确报错', async () => {
-    const data = await parse('测试大纲T.docx', sampleDocx())
-    const cases = (data.cases as any[]).map(c => ({ ...c, excluded: true }))
+  test('行数据列数不符 → 400', async () => {
+    const rows = [{ cells: ['1', 'x'], span: [1, 1] }]
     const res = await fetch(URL0 + '/api/trace/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ outline: data.outline, cases: cases })
+      body: JSON.stringify({ traceType: 'spec', rows: rows, primary: { name: 'x' } })
     })
     expect(res.status).toBe(400)
-    const r = await res.json()
-    expect(r.ok).toBe(false)
-    expect(r.error).toContain('全部')
   })
 
-  test('落盘交付：数据/生成/<项目>/ 出现追踪文档', async () => {
-    const data = await parse('测试大纲T.docx', sampleDocx())
+  test('落盘交付：primary.hash 存在时写 数据/生成/<项目>/', async () => {
+    const pr = await (await fetch(URL0 + '/api/parse', { method: 'POST', body: (() => { const f = new FormData(); f.append('file', new File([new Uint8Array(sampleOutline())], '大纲T.docx')); return f })() })).json()
+    const rows: TraceRowVM[] = [
+      { cells: ['1', '3.1', '参数管理', '6.2.1.4.1', '参数管理测试', 'XQ_A_B', '用例一', 'YL_A_B_001'], span: [1, 1, 1, 1, 1, 1, 1, 1] }
+    ]
     const res = await fetch(URL0 + '/api/trace/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ outline: data.outline, cases: data.cases })
+      body: JSON.stringify({ traceType: 'spec', rows: rows, primary: { name: '大纲T.docx', hash: pr.outline.hash } })
     })
     const r = await res.json()
     expect(r.ok).toBe(true)
-    expect(r.files).toBeTruthy()
-    expect(r.files[0].name).toBe('追踪文档-生成.docx')
     expect(r.files[0].path).toContain(join('生成', ''))
     expect(r.sizeKB).toBeTruthy()
+  })
+})
+
+describe('M8 vmerge 后处理与表构建单元', () => {
+  const mkCase = (over: Partial<CaseRow>): CaseRow => ({
+    head2: null, head3: null, head4: null, head5: null, head6: null,
+    path: [], typeName: '功能测试', groupName: null, itemName: '项A', chapter: '6.2.1.1',
+    itemId: 'XQ_A', caseId: 'YL_A_001', mingcheng: '用例', summary: '', init: '', constraint: '',
+    steps: [], designer: '', testTime: '', tester: '', monitor: '', trace: '', itemItemId: 'XQ_A',
+    srsChapter: '/', srsDesc: '/', expectSource: '方法切分', suspectCount: 0,
+    reviewed: false, excluded: false, dismissedSuspects: [],
+    ...over
+  } as CaseRow)
+
+  test('buildTraceTable spec：vmerge 整块合并 + 排除用例不入表', () => {
+    
+    const cases = [
+      mkCase({ caseId: 'YL_A_001', mingcheng: '用例1', srsChapter: '3.1', srsDesc: '参数' }),
+      mkCase({ caseId: 'YL_A_002', mingcheng: '用例2', srsChapter: '3.1', srsDesc: '参数', excluded: true }),
+      mkCase({ caseId: 'YL_B_001', mingcheng: '用例3', srsChapter: '3.2', srsDesc: '查询', chapter: '6.2.1.2', itemItemId: 'XQ_B', itemName: '项B' })
+    ]
+    const t = buildTraceTable({ type: 'spec', outlineCases: cases }, new IssueCollector())
+    expect(t.rows.length).toBe(2)
+    expect(t.rows[0].span[1]).toBe(1) // 同项的第二例被排除 → 无合并
+  })
+
+  test('buildTraceTable report：标识去序号兜底 + miss 告警 + 执行结果推导', () => {
+    
+    const cases = [mkCase({ caseId: 'YL_A_001', srsChapter: '3.1', srsDesc: '参数' })]
+    const rec = (over: Partial<RecordCase>): RecordCase => ({
+      caseName: '用例', caseId: 'YL_A_001', traceChapter: '', traceItemName: '', traceItemId: '',
+      stepCount: 2, stepResults: ['通过', '通过'], executed: '已执行', problemId: '/', typeName: '', ...over
+    } as RecordCase)
+    const iss1 = new IssueCollector()
+    const t1 = buildTraceTable({ type: 'report', outlineCases: cases, records: [rec({ caseId: 'YL_A' })] }, iss1)
+    expect(t1.rows[0].cells[3]).toBe('6.2.1.1') // base 兜底命中
+    expect(iss1.issues.length).toBe(0)
+    const iss2 = new IssueCollector()
+    const t2 = buildTraceTable({ type: 'report', outlineCases: cases, records: [rec({ caseId: 'YL_NOPE_009' })] }, iss2)
+    expect(t2.rows[0].cells[3]).toBe('')
+    expect(iss2.issues.filter(i => i.code === 'TRACE_ALIGN_MISS').length).toBe(1)
+    // 执行结果：有未通过步骤 → 留空；有问题单 → 留空+备注=问题单
+    const t3 = buildTraceTable({ type: 'report', outlineCases: cases, records: [rec({ stepResults: ['通过', '未通过'] })] }, new IssueCollector())
+    expect(t3.rows[0].cells[9]).toBe('')
+    const t4 = buildTraceTable({ type: 'report', outlineCases: cases, records: [rec({ problemId: 'PT_1' })] }, new IssueCollector())
+    expect(t4.rows[0].cells[9]).toBe('')
+    expect(t4.rows[0].cells[10]).toBe('PT_1')
+  })
+
+  test('applyVmergeToDocx：无合并需求时零改动', () => {
+    const rows: TraceRowVM[] = [{ cells: ['1', 'a'], span: [1, 1] }]
+    const buf = Buffer.from('not-a-zip')
+    expect(applyVmergeToDocx(buf, rows, 2)).toBe(buf)
   })
 })

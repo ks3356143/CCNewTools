@@ -2,15 +2,20 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { readDocx } from '../core/parse/docx.ts'
 import { extractOutline } from '../core/parse/outline.ts'
+import { extractRecordCases } from '../core/parse/record.ts'
+import { extractReturnSpec } from '../core/parse/returnspec.ts'
 import { convertToTemplateData } from '../core/convert/index.ts'
 import type { CaseRow } from '../core/convert/rows.ts'
 import { renderTemplate, renderTemplateBatched, stripAnchorMarks, type LoopSpec } from '../core/render/docx.ts'
+import { applyVmergeToDocx } from '../core/render/vmerge.ts'
+import { buildTraceTable, TYPE_VARS, TRACE_TEMPLATE_NAMES } from '../core/trace/build.ts'
+import type { TraceRowVM, TraceTable } from '../core/trace/table.ts'
 import { IssueCollector, DEFAULT_PARAMS, type GlobalParams } from '../core/domain.ts'
 import { sha132, mergeRestored, EDIT_STATE_VERSION, type EditState, type StoredCase } from '../core/persistence.ts'
 import { loadSettings, saveSettings, dataRoot, type Settings } from './store.ts'
 import {
   listProjects, loadProject, deleteProject, recordParse, recordGenerated,
-  loadProjectEdits, saveProjectEdits, projectId, sourceFileOf
+  loadProjectEdits, saveProjectEdits, projectId, sourceFileOf, sourceTypeOf
 } from './projects.ts'
 import { appendLog } from './log.ts'
 import { EMBEDDED_TEMPLATES } from './assets.ts'
@@ -56,10 +61,19 @@ const REC_LOOPS: LoopSpec[] = [
   { field: 'cases', begin: '_CT_BEGIN_', end: '_CT_END_', batchSize: 300 }
 ]
 
-/** 追踪文档的循环区配置（模板/追踪文档模板.docx 由测试说明模板截取追踪章生成，锚点同源继承） */
+/** 追踪文档的循环区配置（模板/追踪-*.docx 四套模板锚点同构，循环字段同名 traceRows） */
 const TRACE_LOOPS: LoopSpec[] = [
   { field: 'traceRows', begin: '_TR_BEGIN_', end: '_TR_END_', batchSize: 1000 }
 ]
+
+const TRACE_MODES = ['outline', 'spec', 'report', 'returnSpec'] as const
+type TraceMode = (typeof TRACE_MODES)[number]
+
+/** 解析大纲 → 转换层用例行（恢复编辑保持排除口径；trace/parse 的大纲通道与 /api/parse 同源） */
+function parseOutlineCases(name: string, hash: string, bytes: Uint8Array): { cases: CaseRow[]; stats: { items: number; cases: number; steps: number } } {
+  const r = parseAndRestore(name, hash, bytes)
+  return { cases: r.cases, stats: r.stats }
+}
 
 /** 解析大纲并套回项目内已存编辑（/api/parse 与 打开项目 共用，09） */
 function parseAndRestore(name: string, hash: string, bytes: Uint8Array) {
@@ -124,7 +138,13 @@ export async function handleApi(req: Request, url: URL): Promise<Response> {
     if (url.pathname === '/api/generate' && req.method === 'POST') {
       return await apiGenerate(req)
     }
-    // 追踪文档生成（工具二，12-追踪文档工具）：与 /api/generate 同源推导 traceRows
+    // 追踪工具（工具二，12-追踪文档工具 v2）：四类追踪表
+    if (url.pathname === '/api/trace/parse' && req.method === 'POST') {
+      return await apiTraceParse(req)
+    }
+    if (url.pathname === '/api/trace/open' && req.method === 'POST') {
+      return await apiTraceOpen(req)
+    }
     if (url.pathname === '/api/trace/generate' && req.method === 'POST') {
       return await apiTraceGenerate(req)
     }
@@ -279,34 +299,214 @@ async function apiGenerate(req: Request): Promise<Response> {
   })
 }
 
-/** 追踪文档生成（工具二，12-追踪文档工具）：与 /api/generate 同源推导 traceRows，只出一份追踪文档 */
-async function apiTraceGenerate(req: Request): Promise<Response> {
-  const body = (await req.json()) as { outline: { name: string; hash?: string }; cases: CaseRow[]; configName?: string }
-  const cases = body.cases.filter(c => !c.excluded)
-  if (cases.length === 0) {
-    return Response.json({ ok: false, error: '没有可生成的追踪表行（全部用例被排除？）' }, { status: 400 })
+/** 大纲配对解析：项目库 hash 或上传新大纲 → cases + 信息；失败返回 err（trace/parse 与 trace/open 共用） */
+async function resolveAlignOutline(outlineHash: string, outlineFile: File | null): Promise<{ cases: CaseRow[]; info: { name: string; hash: string } } | { err: string }> {
+  if (outlineHash !== '') {
+    const p = loadProject(outlineHash.slice(0, 12))
+    if (p === null || sourceTypeOf(p.meta) !== 'outline' || !p.meta.hasSource) {
+      return { err: '所选大纲项目无效或没有源文件副本，请重新选择或上传大纲' }
+    }
+    const ob = new Uint8Array(readFileSync(sourceFileOf(p.meta.id, 'outline')))
+    return { cases: parseOutlineCases(p.meta.name, p.meta.hash, ob).cases, info: { name: p.meta.name, hash: p.meta.hash } }
   }
-  // 追踪表数据推导与 /api/generate 完全同源（列定义见 12-追踪文档工具）
-  const traceRows = cases.map((c, i) => ({
-    no: i + 1,
-    srsChapter: c.srsChapter,
-    srsDesc: c.srsDesc,
-    outlineChapter: c.chapter,
-    itemName: c.itemName,
-    itemItemId: c.itemItemId,
-    caseName: c.mingcheng,
-    caseId: c.caseId
-  }))
-  const configName = body.configName ?? ''
-  const batched = cases.length > BATCH_RENDER_THRESHOLD
+  if (outlineFile !== null) {
+    const ob = new Uint8Array(await outlineFile.arrayBuffer())
+    const oh = sha132(ob)
+    const n = outlineFile.name || '大纲.docx'
+    const r = parseOutlineCases(n, oh, ob)
+    recordParse(n, oh, ob, r.stats, 'outline')
+    return { cases: r.cases, info: { name: n, hash: oh } }
+  }
+  return { err: '报告/回归说明追踪需要同时提供大纲（从项目库选择或上传）' }
+}
+
+/**
+ * 追踪解析（12-追踪文档工具 v2）：四 tab 的第 1 步。
+ * multipart: file=主文档（outline/spec=大纲；report=测试记录；returnSpec=回归说明），
+ * mode=四类之一；report/returnSpec 另需大纲（outlineHash=项目库选现有，或 outlineFile=上传新大纲）。
+ * 返回统一 TraceTable（双层表头 + rows[vmerge 标记] + 问题清单）。
+ */
+async function apiTraceParse(req: Request): Promise<Response> {
+  const form = await req.formData()
+  const mode = String(form.get('mode') ?? '') as TraceMode
+  if (!TRACE_MODES.includes(mode)) {
+    return Response.json({ ok: false, error: '未知追踪类型 ' + mode }, { status: 400 })
+  }
+  const file = form.get('file')
+  if (!(file instanceof File)) {
+    return Response.json({ ok: false, error: '缺少上传文件' }, { status: 400 })
+  }
+  const name = file.name || '未命名.docx'
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const hash = sha132(bytes)
+  try {
+    const issues = new IssueCollector()
+    const needOutline = mode === 'report' || mode === 'returnSpec'
+
+    // 大纲侧（report/returnSpec 必须配大纲：SRS 与大纲章节号只有大纲里有）
+    let outlineCases: CaseRow[] = []
+    let outlineInfo: { name: string; hash: string } | null = null
+    if (needOutline) {
+      const outlineFile = form.get('outlineFile')
+      const aligned = await resolveAlignOutline(String(form.get('outlineHash') ?? ''), outlineFile instanceof File ? outlineFile : null)
+      if ('err' in aligned) {
+        return Response.json({ ok: false, error: aligned.err }, { status: 400 })
+      }
+      outlineCases = aligned.cases
+      outlineInfo = aligned.info
+    }
+
+    // 主文档解析 + 表构建
+    let spec: TraceTable
+    let primaryStats: { items: number; cases: number; steps: number } | null = null
+    if (mode === 'outline' || mode === 'spec') {
+      const r = parseOutlineCases(name, hash, bytes)
+      outlineCases = r.cases
+      primaryStats = r.stats
+      spec = buildTraceTable({ type: mode, outlineCases: outlineCases }, issues)
+      recordParse(name, hash, bytes, r.stats, 'outline')
+      outlineInfo = { name: name, hash: hash }
+    } else if (mode === 'report') {
+      const office = readDocx(bytes)
+      const records = extractRecordCases(office, issues)
+      if (records.length === 0) {
+        return Response.json({ ok: false, error: issues.issues.find(i => i.level === 'error')?.message ?? '未识别到用例记录表' }, { status: 400 })
+      }
+      primaryStats = { items: records.length, cases: records.length, steps: records.reduce((a, r) => a + r.stepCount, 0) }
+      recordParse(name, hash, bytes, primaryStats, 'record', outlineInfo?.hash)
+      spec = buildTraceTable({ type: 'report', outlineCases: outlineCases, records: records }, issues)
+    } else {
+      const office = readDocx(bytes)
+      const rs = extractReturnSpec(office, issues)
+      if (rs.cases.length === 0 && rs.items.length === 0) {
+        return Response.json({ ok: false, error: issues.issues.find(i => i.level === 'error')?.message ?? '未识别到回归说明的测试项与用例表' }, { status: 400 })
+      }
+      primaryStats = { items: rs.items.length, cases: rs.cases.length, steps: 0 }
+      recordParse(name, hash, bytes, primaryStats, 'returnSpec', outlineInfo?.hash)
+      spec = buildTraceTable({ type: 'returnSpec', outlineCases: outlineCases, returnSpec: rs }, issues)
+    }
+
+    appendLog(`追踪解析[${mode}]：${name}，${spec.rows.length} 行${outlineInfo !== null ? '，配对大纲 ' + outlineInfo.name : ''}，告警 ${issues.issues.filter(i => i.level !== 'info').length}`)
+    return Response.json({
+      ok: true,
+      traceType: mode,
+      spec: spec,
+      issues: issues.issues,
+      stats: primaryStats ?? { items: 0, cases: 0, steps: 0 },
+      outline: outlineInfo,
+      primary: { name: name, hash: hash }
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    appendLog(`追踪解析[${mode}] ${name}（${(bytes.length / 1048576).toFixed(1)}MB）失败：${msg}`)
+    return Response.json({ ok: false, error: msg }, { status: 400 })
+  }
+}
+
+/**
+ * 追踪工具打开最近项目（12 v2）：按项目 sourceType 分派重建追踪表。
+ * outline 项目按 mode（outline/spec）重建；record/returnSpec 用 meta.alignHash
+ * （或请求指定）从项目库重配大纲。
+ */
+async function apiTraceOpen(req: Request): Promise<Response> {
+  const body = (await req.json()) as { id: string; mode?: TraceMode; alignHash?: string }
+  const p = loadProject(body.id)
+  if (p === null) {
+    return Response.json({ ok: false, error: '项目不存在' }, { status: 400 })
+  }
+  if (!p.meta.hasSource) {
+    return Response.json({ ok: false, needsSource: true, error: '该项目没有源文件副本，请重新上传原文档', name: p.meta.name }, { status: 400 })
+  }
+  try {
+    const st = sourceTypeOf(p.meta)
+    const issues = new IssueCollector()
+    const buf = new Uint8Array(readFileSync(sourceFileOf(p.meta.id, st)))
+    if (st === 'outline') {
+      const mode: TraceMode = body.mode === 'outline' ? 'outline' : 'spec'
+      const r = parseOutlineCases(p.meta.name, p.meta.hash, buf)
+      const spec = buildTraceTable({ type: mode, outlineCases: r.cases }, issues)
+      appendLog(`追踪打开[${mode}] ` + p.meta.name)
+      return Response.json({
+        ok: true, traceType: mode, spec: spec, issues: issues.issues, stats: r.stats,
+        outline: { name: p.meta.name, hash: p.meta.hash }, primary: { name: p.meta.name, hash: p.meta.hash }
+      })
+    }
+    const aligned = await resolveAlignOutline(body.alignHash ?? p.meta.alignHash ?? '', null)
+    if ('err' in aligned) {
+      return Response.json({ ok: false, alignMissing: true, error: '打开该项目需要重新配对大纲：' + aligned.err }, { status: 400 })
+    }
+    let spec: TraceTable
+    let stats: { items: number; cases: number; steps: number }
+    if (st === 'record') {
+      const office = readDocx(buf)
+      const records = extractRecordCases(office, issues)
+      if (records.length === 0) {
+        return Response.json({ ok: false, error: '未识别到用例记录表，请重新上传测试记录' }, { status: 400 })
+      }
+      stats = { items: records.length, cases: records.length, steps: records.reduce((a, r) => a + r.stepCount, 0) }
+      spec = buildTraceTable({ type: 'report', outlineCases: aligned.cases, records: records }, issues)
+    } else {
+      const office = readDocx(buf)
+      const rs = extractReturnSpec(office, issues)
+      stats = { items: rs.items.length, cases: rs.cases.length, steps: 0 }
+      spec = buildTraceTable({ type: 'returnSpec', outlineCases: aligned.cases, returnSpec: rs }, issues)
+    }
+    appendLog(`追踪打开[${st}] ` + p.meta.name + '，配对大纲 ' + aligned.info.name)
+    return Response.json({
+      ok: true, traceType: st, spec: spec, issues: issues.issues, stats: stats,
+      outline: aligned.info, primary: { name: p.meta.name, hash: p.meta.hash }
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    appendLog('ERROR 追踪打开失败 ' + msg)
+    return Response.json({ ok: false, error: msg }, { status: 400 })
+  }
+}
+
+/**
+ * 追踪文档生成（12-追踪文档工具 v2）：前端送来编辑后的 rows（执行结果列可改），
+ * 按类型选四套模板渲染 + vMerge 后处理。
+ */
+async function apiTraceGenerate(req: Request): Promise<Response> {
+  const body = (await req.json()) as {
+    traceType: TraceMode
+    rows: TraceRowVM[]
+    primary: { name: string; hash?: string }
+    configName?: string
+  }
+  if (!TRACE_MODES.includes(body.traceType)) {
+    return Response.json({ ok: false, error: '未知追踪类型' }, { status: 400 })
+  }
+  const rows = body.rows
+  if (!Array.isArray(rows) || rows.length === 0 || !Array.isArray(rows[0]?.cells)) {
+    return Response.json({ ok: false, error: '没有可生成的追踪表行' }, { status: 400 })
+  }
+  const vars = TYPE_VARS[body.traceType]
+  const colN = vars.length
+  for (const r of rows) {
+    if (!Array.isArray(r.cells) || r.cells.length !== colN) {
+      return Response.json({ ok: false, error: '追踪表行数据与列数不符，请回到第 1 步重新解析' }, { status: 400 })
+    }
+  }
+  const data = rows.map(r => {
+    const o: Record<string, string> = {}
+    vars.forEach((v, i) => (o[v] = r.cells[i]))
+    return o
+  })
+  // 题注 configName 服务端从设置取（追踪工具无参数卡，12 v2 起前端不传）
+  const settings = loadSettings()
+  const configName = body.configName ?? settings.params?.configName ?? ''
   const t0 = Date.now()
-  const buf = batched
-    ? renderTemplateBatched(templateFile('追踪文档模板.docx'), { traceRows: traceRows, configName: configName }, TRACE_LOOPS)
-    : stripAnchorMarks(renderTemplate(templateFile('追踪文档模板.docx'), { traceRows: traceRows, configName: configName }))
+  const tmpl = templateFile(TRACE_TEMPLATE_NAMES[body.traceType])
+  const buf0 = rows.length > BATCH_RENDER_THRESHOLD
+    ? renderTemplateBatched(tmpl, { traceRows: data, configName: body.configName ?? '' }, TRACE_LOOPS)
+    : stripAnchorMarks(renderTemplate(tmpl, { traceRows: data, configName: body.configName ?? '' }))
+  // vMerge 后处理：按 span 标记对数据行做纵向合并（双层表头 = 2 行）
+  const buf = applyVmergeToDocx(buf0, rows, 2)
   const elapsed = Date.now() - t0
 
   // 落盘交付（10-大文档处理 5.3 规则沿用）：写 数据/生成/<项目id12>/，≤10MB 附 base64 下载
-  const id12 = body.outline.hash ? projectId(body.outline.hash) : null
+  const id12 = body.primary.hash ? projectId(body.primary.hash) : null
   const name = '追踪文档-生成.docx'
   let files: Array<{ name: string; sizeKB: string; path: string }> = []
   if (id12) {
@@ -315,9 +515,10 @@ async function apiTraceGenerate(req: Request): Promise<Response> {
     writeFileSync(join(dir, name), buf)
     files.push({ name: name, sizeKB: (buf.length / 1024).toFixed(1), path: join(dir, name) })
   }
-  const mode = batched ? `分批渲染（${Math.ceil(cases.length / 1000)} 批追踪行）` : '整体渲染'
-  appendLog(`生成追踪文档：${body.outline.name}，${cases.length} 行，${mode} ${elapsed}ms${id12 ? '，已落盘 数据/生成/' + id12 : ''}`)
-  if (body.outline.hash) recordGenerated(body.outline.hash)
+  const batched = rows.length > BATCH_RENDER_THRESHOLD
+  const mode = batched ? `分批渲染（${Math.ceil(rows.length / 1000)} 批追踪行）` : '整体渲染'
+  appendLog(`生成追踪文档[${body.traceType}]：${body.primary.name}，${rows.length} 行，${mode} ${elapsed}ms${id12 ? '，已落盘 数据/生成/' + id12 : ''}`)
+  if (body.primary.hash) recordGenerated(body.primary.hash)
   return Response.json({
     ok: true,
     name: name,
