@@ -81,7 +81,13 @@ function reqEmpty(v: string | undefined): boolean {
    填写即熄（class 由 reqEmpty 驱动）；静态光晕不涉动画，reduced-motion 无需处理 */
 .body :deep(.reqglow .v-field) {
   background: rgba(var(--v-theme-warning), 0.055);
-  box-shadow: 0 0 0 1.5px rgba(var(--v-theme-warning), 0.4), 0 0 14px rgba(var(--v-theme-warning), 0.2);
+  box-shadow: 0 0 12px rgba(var(--v-theme-warning), 0.16);
+}
+/* 描边染色走 Vuetify 原生 outline（fieldset 有标签缺口，硬环 box-shadow 会从标签文字后穿过） */
+.body :deep(.reqglow .v-field__outline__start),
+.body :deep(.reqglow .v-field__outline__end) {
+  border-color: rgba(var(--v-theme-warning), 0.55);
+  transition: border-color 0.25s;
 }
 .body :deep(.reqglow .v-field-label) { color: rgb(var(--v-theme-warning)); }
 /* 光晕亮灭走过渡，填写瞬间柔和熄灭 */
