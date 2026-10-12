@@ -89,13 +89,7 @@ async function copyTable(): Promise<void> {
   }
 }
 
-/** 复制表格前光标聚光（与工具屏卡片同款语言）：光标位置写 CSS 变量，零重渲染 */
-function trackGlow(e: MouseEvent): void {
-  const el = e.currentTarget as HTMLElement
-  const r = el.getBoundingClientRect()
-  el.style.setProperty('--mx', `${e.clientX - r.left}px`)
-  el.style.setProperty('--my', `${e.clientY - r.top}px`)
-}
+/** 追踪表预览卡 hover 只作用边框（与工具一第二屏同轮移除跟随柔光，用户"挡视野"） */
 
 async function download(): Promise<void> {
   const ok = await doTraceGenerate()
@@ -124,7 +118,7 @@ async function download(): Promise<void> {
     </div>
 
     <!-- 追踪表预览 -->
-    <div class="pv-card glass" @mousemove="trackGlow">
+    <div class="pv-card glass">
       <div class="pv-head">
         <span>表格预览</span>
         <span v-if="rows.length > PREVIEW_LIMIT" class="pv-note">仅显示前 {{ PREVIEW_LIMIT }} 行，完整内容以下载文档与复制为准</span>
@@ -196,28 +190,13 @@ async function download(): Promise<void> {
 .edit-hint { display: flex; align-items: center; gap: 3px; color: rgb(var(--v-theme-primary)); }
 
 .pv-card {
-  --mx: 50%; --my: 0%;
   position: relative;
   margin-top: 18px; border-radius: 14px; overflow: hidden;
   animation: ambRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: 80ms;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.pv-card::before {
-  content: ''; position: absolute; inset: -1px; z-index: 1;
-  border-radius: inherit;
-  background: radial-gradient(
-    320px circle at var(--mx) var(--my),
-    rgba(var(--v-theme-primary), 0.4),
-    rgba(var(--v-theme-primary), 0.1) 45%,
-    transparent 72%
-  );
-  opacity: 0; transition: opacity 0.25s;
-  pointer-events: none;
-}
-.pv-card:hover::before { opacity: 0.45; }
-@media (prefers-reduced-motion: reduce) {
-  .pv-card::before { transition: none; }
-}
+.pv-card:hover { border-color: rgba(var(--v-theme-primary), 0.55); }
 .pv-head {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 14px; font-size: 13px; font-weight: 600;

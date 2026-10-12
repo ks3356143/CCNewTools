@@ -15,7 +15,7 @@ function reqEmpty(v: string | undefined): boolean {
 </script>
 
 <template>
-  <v-card rounded="14" elevation="1" class="pcard">
+  <v-card rounded="8" elevation="1" class="pcard">
     <div class="head" @click="open = !open">
       <span class="t">全局参数</span>
       <span class="sub">对所有用例生效，正式版会记住上次填写内容</span>
@@ -83,9 +83,11 @@ function reqEmpty(v: string | undefined): boolean {
   background: rgba(var(--v-theme-warning), 0.055);
   box-shadow: 0 0 12px rgba(var(--v-theme-warning), 0.16);
 }
-/* 描边染色走 Vuetify 原生 outline（fieldset 有标签缺口，硬环 box-shadow 会从标签文字后穿过） */
+/* 描边染色走 Vuetify 原生 outline（fieldset 有标签缺口，硬环 box-shadow 会从标签文字后穿过）；
+   缺口列的下边框由 __notch::after 画出（不染它就是用户指认的"文字下面的黑线"） */
 .body :deep(.reqglow .v-field__outline__start),
-.body :deep(.reqglow .v-field__outline__end) {
+.body :deep(.reqglow .v-field__outline__end),
+.body :deep(.reqglow .v-field__outline__notch::after) {
   border-color: rgba(var(--v-theme-warning), 0.55);
   transition: border-color 0.25s;
 }
