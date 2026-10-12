@@ -169,9 +169,32 @@ function stepClick(n: number): void {
 </template>
 
 <style scoped>
-/* 顶栏品牌渐变（2026-10-02 用户要求"全局上一点颜色"）：主色同系深浅渐变 */
+/* 顶栏品牌渐变（2026-10-02 用户要求"全局上一点颜色"）：主色同系深浅渐变；
+   2026-10-12 顶栏氛围（与首页"蓝调鎏光"同族）：鎏光扫掠 + 底缘辉光。
+   扫光画在 ::before z-index:-1（fixed 根即层叠上下文：在根渐变之上、内容之下），
+   transform 合成层动画零重绘；overflow hidden 裁掉出界光带 */
 .v-app-bar {
   background: linear-gradient(120deg, #33639e 0%, #2D5B91 45%, #234a7c 100%) !important;
+  overflow: hidden;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.16), 0 8px 24px -8px rgba(23, 48, 84, 0.4);
+}
+.v-app-bar::before {
+  content: '';
+  position: absolute; top: 0; bottom: 0; left: -40%; width: 60%;
+  background: linear-gradient(105deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 30%,
+    rgba(190, 215, 240, 0.16) 50%,
+    rgba(255, 255, 255, 0.05) 70%,
+    rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-15%);
+  animation: barSheen 16s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes barSheen { to { transform: translateX(235%); } }
+@media (prefers-reduced-motion: reduce) {
+  .v-app-bar::before { display: none; }
 }
 /* 「‹ 工具集」返回（11-工具集首页：顶栏三态） */
 .back {
