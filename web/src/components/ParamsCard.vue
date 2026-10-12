@@ -7,6 +7,11 @@ const open = ref(true)
 function onInput(): void {
   scheduleSettingsSave()
 }
+
+/** 必填荧光（2026-10-12 用户"必填的没有提示，整个荧光"）：空值时琥珀柔光，填写即熄 */
+function reqEmpty(v: string | undefined): boolean {
+  return !v || !v.trim()
+}
 </script>
 
 <template>
@@ -36,8 +41,8 @@ function onInput(): void {
           <div class="grid4">
             <v-text-field v-model="store.params.designer" label="设计人员" variant="outlined" density="compact" hide-details persistent-placeholder @update:model-value="onInput" />
             <v-text-field v-model="store.params.testTime" label="测试时间" type="date" variant="outlined" density="compact" hide-details persistent-placeholder @update:model-value="onInput" />
-            <v-text-field v-model="store.params.tester" label="测试人员 *" placeholder="必填" variant="outlined" density="compact" hide-details persistent-placeholder @update:model-value="onInput" />
-            <v-text-field v-model="store.params.monitor" label="监测人员 *" placeholder="必填" variant="outlined" density="compact" hide-details persistent-placeholder @update:model-value="onInput" />
+            <v-text-field v-model="store.params.tester" :class="{ reqglow: reqEmpty(store.params.tester) }" label="测试人员 *" placeholder="必填" variant="outlined" density="compact" hide-details persistent-placeholder @update:model-value="onInput" />
+            <v-text-field v-model="store.params.monitor" :class="{ reqglow: reqEmpty(store.params.monitor) }" label="监测人员 *" placeholder="必填" variant="outlined" density="compact" hide-details persistent-placeholder @update:model-value="onInput" />
           </div>
         </div>
       </div>
@@ -72,6 +77,15 @@ function onInput(): void {
 .body-wrap.closed .body { visibility: hidden; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-top: 12px; }
 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 16px; margin-top: 12px; }
+/* 必填荧光（用户"必填的没有提示，整个荧光"）：空值必填框琥珀柔光环绕 + 标签染色，
+   填写即熄（class 由 reqEmpty 驱动）；静态光晕不涉动画，reduced-motion 无需处理 */
+.body :deep(.reqglow .v-field) {
+  background: rgba(var(--v-theme-warning), 0.055);
+  box-shadow: 0 0 0 1.5px rgba(var(--v-theme-warning), 0.4), 0 0 14px rgba(var(--v-theme-warning), 0.2);
+}
+.body :deep(.reqglow .v-field-label) { color: rgb(var(--v-theme-warning)); }
+/* 光晕亮灭走过渡，填写瞬间柔和熄灭 */
+.body :deep(.v-field) { transition: box-shadow 0.25s, background 0.25s; }
 @media (max-width: 960px) { .grid2, .grid4 { grid-template-columns: 1fr; } }
 /* 永久浮起 label（Material persistent label，2026-10-09 内网实测"字体显大突兀"）：
    Vuetify outlined 空值时 label 以 16px 大字停在框内（超长 label 更甚），有值才浮成
