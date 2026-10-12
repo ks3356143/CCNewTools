@@ -114,9 +114,9 @@ function renumber(): void {
 .c { text-align: center; }
 .c-no { width: 44px; color: rgba(var(--v-theme-on-surface), 0.6); font-variant-numeric: tabular-nums; }
 .c-act { width: 42%; }
-/* 操作列：4 个 32px 图标按钮 + gap/padding = 140px，列宽必须盖住（2026-10-02 用户反馈"操作图标显示不全"，
-   旧值 92/104px 盒子溢出被表格裁切）；右侧留 12px 与边框的呼吸距（用户反馈"按钮离边框太近"） */
-.c-ops { width: 160px; }
+/* 操作列：按钮加到 36px 提升可点性（UX 准则 44px 触控的桌面折中；本机 DPR 下
+   32px 偏小误触率高），4×36 + gap2×3 + box padding 2×2 = 156，列宽 172 盖住 */
+.c-ops { width: 172px; }
 td.editable, .edit { outline: none; cursor: text; min-height: 22px; }
 .edit { padding: 2px 6px; border: 1px dashed rgba(var(--v-theme-outline), 0.45); border-radius: 6px; }
 .edit:hover { border-color: rgba(var(--v-theme-primary), 0.5); background: rgba(var(--v-theme-primary), 0.06); }
@@ -129,9 +129,9 @@ tr.suspect td:first-child { box-shadow: inset 3px 0 0 rgb(var(--v-theme-error));
   background: rgba(var(--v-theme-error), 0.14); border-radius: 999px; padding: 2px 9px;
 }
 .fix { margin-left: 4px; text-decoration: underline; text-underline-offset: 3px; font-size: 11.5px; color: rgb(var(--v-theme-primary)); }
-.ops { width: 160px; padding-left: 4px; padding-right: 12px; }
-.ops .ops-box { display: inline-flex; gap: 2px; background: rgba(var(--v-theme-primary), 0.06); border-radius: 8px; padding: 3px; }
-.ops .ops-box .v-btn { --v-btn-size: 24px; color: rgba(var(--v-theme-on-surface), 0.55); }
+.ops { width: 172px; padding-left: 4px; padding-right: 12px; }
+.ops .ops-box { display: inline-flex; gap: 2px; background: rgba(var(--v-theme-primary), 0.06); border-radius: 8px; padding: 2px; }
+.ops .ops-box .v-btn { --v-btn-size: 26px; height: 36px; width: 36px; color: rgba(var(--v-theme-on-surface), 0.55); }
 .sus-note { font-size: 12px; color: rgb(var(--v-theme-error)); padding: 8px 14px; border-top: 1px dashed rgba(var(--v-theme-error), 0.4); }
 tr.suspect.flash td { animation: sus-flash 1.6s ease-out; }
 @keyframes sus-flash { 0% { box-shadow: inset 0 0 0 2px rgb(var(--v-theme-error)); } 100% { box-shadow: inset 0 0 0 2px transparent; } }

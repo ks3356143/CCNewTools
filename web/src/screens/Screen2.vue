@@ -152,13 +152,7 @@ function gen(): void {
     0 10px 30px -13px rgba(45, 91, 145, 0.42);
 }
 .v-theme--dark .left { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(45, 91, 145, 0.5); }
-
-/* 玻璃高光条：面板顶部一道 1px 渐变亮线（左亮右隐），呼应顶栏底缘辉光 */
-.left::after {
-  content: ''; position: absolute; left: 12px; right: 40%; top: 0; height: 1px;
-  background: linear-gradient(90deg, rgba(var(--v-theme-primary), 0.55), transparent);
-  z-index: 2; pointer-events: none;
-}
+/* （2026-10-12）顶部玻璃高光条已删：本机 DPR 下渲染成突兀实线，用户指认"这蓝色的是什么" */
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-bottom: 8px; padding-right: 12px; }
 /* 纵向 flex 里子项默认会被压缩（全局参数卡片被裁掉半截的根因），一律按自然高度排 */
 .main > * { flex: none; }

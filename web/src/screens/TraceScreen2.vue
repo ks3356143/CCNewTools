@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { store, doTraceGenerate, showToast } from '../store.ts'
 import { downloadBase64 } from '../api.ts'
 import { headRowsOf } from '../../../src/core/trace/table.ts'
@@ -91,6 +91,21 @@ async function copyTable(): Promise<void> {
 
 /** 追踪表预览卡 hover 只作用边框（与工具一第二屏同轮移除跟随柔光，用户"挡视野"） */
 
+/** 双层 sticky 表头第二行 top 动态测量（审计项：32px 硬编码在行高变化/缩放下会错位） */
+const theadSubTop = ref(32)
+let theadRO: ResizeObserver | undefined
+function measureThead(): void {
+  const tr = document.querySelector('.pv-scroll thead tr')
+  if (tr) theadSubTop.value = Math.round(tr.getBoundingClientRect().height)
+}
+onMounted(() => {
+  measureThead()
+  theadRO = new ResizeObserver(measureThead)
+  const thead = document.querySelector('.pv-scroll thead')
+  if (thead) theadRO.observe(thead)
+})
+onUnmounted(() => theadRO?.disconnect())
+
 async function download(): Promise<void> {
   const ok = await doTraceGenerate()
   if (ok && store.traceResult?.doc) {
@@ -128,7 +143,7 @@ async function download(): Promise<void> {
         <table>
           <thead>
             <tr><th v-for="(h, i) in headTop" :key="'t' + i" :colspan="h.colspan" :rowspan="h.rowspan">{{ h.text }}</th></tr>
-            <tr v-if="headSub.length > 0"><th v-for="(h, i) in headSub" :key="'s' + i">{{ h.text }}</th></tr>
+            <tr v-if="headSub.length > 0"><th v-for="(h, i) in headSub" :key="'s' + i" :style="{ top: theadSubTop + 'px' }">{{ h.text }}</th></tr>
           </thead>
           <tbody>
             <tr v-for="(r, i) in previewRows" :key="i">
@@ -218,7 +233,7 @@ thead th {
   border-bottom: 1px solid rgba(var(--v-theme-outline), 0.7);
 }
 thead tr:first-child th { border-bottom: none; }
-thead tr:last-child th { top: 32px; }
+/* 第二行表头 top 由 onMounted 实测行高绑定（原 32px 硬编码已删） */
 tbody td {
   padding: 5px 9px; white-space: nowrap; vertical-align: middle;
   border-bottom: 1px solid rgba(var(--v-theme-outline), 0.35);
