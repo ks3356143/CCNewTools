@@ -382,3 +382,57 @@ describe('M2 标题槽位（2026-10-01 层级镜像改造）', () => {
     expect(r2.head5).toBeNull()
   })
 })
+
+describe('M2 容器-类型语义重组（2026-10-12 内网 WQ 大纲反馈）', () => {
+  /** WQ 形态：类型标题与配置项容器同级交错（WPS 编辑后级别漂移/内容直挂），镜像前重组 */
+  function wqItem(name: string, itemId: string, path: Array<{ level: number; text: string }>, typeName: string): TestItem {
+    return {
+      name, itemId, chapter: '6.2',
+      path,
+      typeName, groupName: null, itemName: name,
+      description: { shared: null, entries: [] },
+      cases: [{ itemId: itemId + '01', name: name + '用例', summary: '', steps: [{ no: 1, text: '执行检查；' }] }],
+      criteriaCases: [],
+      traceSrs: { chapter: '/', desc: '/' }
+    }
+  }
+  const C = 'WQ敏捷研发软件配置项测试'
+  const outline: ParsedOutline = {
+    items: [
+      wqItem('参数查询项', 'XQ_A', [{ level: 2, text: C }, { level: 5, text: '参数查询项' }], '参数查询项'),
+      wqItem('参数设置项', 'XQ_B', [{ level: 2, text: '功能测试' }, { level: 5, text: '参数设置项' }], '功能测试'),
+      // 同名容器带尾随空格（WPS 污染形态）：按去空白核名归并
+      wqItem('通信控制项', 'XQ_C', [{ level: 2, text: C + ' ' }, { level: 5, text: '通信控制项' }], '通信控制项'),
+      wqItem('遥控指令项', 'XQ_D', [{ level: 2, text: '功能测试' }, { level: 5, text: '遥控指令项' }], '功能测试'),
+      // 非容器非类型的顶层标题（分系统类）：容器状态复位
+      wqItem('智能处理项', 'XQ_E', [{ level: 2, text: '智能赋能核心业务' }, { level: 5, text: '智能处理项' }], '智能处理项'),
+      wqItem('后续验证项', 'XQ_F', [{ level: 2, text: '功能测试' }, { level: 5, text: '后续验证项' }], '功能测试')
+    ],
+    issues: [], stats: { items: 6, cases: 6, steps: 6 }
+  }
+
+  test('类型挂回最近容器 + 同名容器/类型收拢为一次', () => {
+    const d = convertToTemplateData(outline, DEFAULT_PARAMS)
+    const r = d.cases.map(c => c)
+    // 容器首现：head2 出一次
+    expect(r[0].head2).toBe(C)
+    expect(r[0].head3).toBe('参数查询项')
+    // 类型组挂回容器：功能测试出一次，项落 head4
+    expect(r[1].head2).toBeNull()
+    expect(r[1].head3).toBe('功能测试')
+    expect(r[1].head4).toBe('参数设置项')
+    // 同名容器（带尾随空格）归并：head2 不重出，直挂项继续嵌容器下
+    expect(r[2].head2).toBeNull()
+    expect(r[2].head3).toBe('通信控制项')
+    // 同祖先下同名类型收拢：不再重出功能测试，项流入首次标题下（head4）
+    expect(r[3].head2).toBeNull()
+    expect(r[3].head3).toBeNull()
+    expect(r[3].head4).toBe('遥控指令项')
+    // 非容器非类型顶层标题：独立成节并复位容器状态
+    expect(r[4].head2).toBe('智能赋能核心业务')
+    expect(r[4].head3).toBe('智能处理项')
+    // 复位后类型无容器可挂：保持原样独立成节
+    expect(r[5].head2).toBe('功能测试')
+    expect(r[5].head3).toBe('后续验证项')
+  })
+})

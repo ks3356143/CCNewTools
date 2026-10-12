@@ -52,8 +52,9 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
       const lvl = headingLevel(node, styles)
       if (lvl === null) continue
       // 标题内的软换行（br）视为同一标题的排版断行，直接删除——层名参与类型匹配，
-      // "功能\n测试" 不能因断行而识别失败
-      const text = textOf(node).replace(/\n/g, '').trim()
+      // "功能\n测试" 不能因断行而识别失败；零宽字符一并剥离（WPS 编辑常残留
+      // U+200B/U+FEFF 等不可见字符，会让"同名"容器在前缀去重里判异）
+      const text = textOf(node).replace(/\n/g, '').replace(/[​‌‍﻿]/g, '').trim()
       // 空标题（只挂编号没写文字）不进栈：进栈会以空名参与类型/组判定
       if (text === '') continue
       // 编号可能在段落直接格式或标题样式定义里（真实大纲：heading1-9 样式各带 numId+ilvl）

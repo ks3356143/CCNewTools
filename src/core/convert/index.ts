@@ -1,5 +1,5 @@
-import type { ParsedOutline, GlobalParams } from '../domain.ts'
-import { IssueCollector } from '../domain.ts'
+import type { ParsedOutline, GlobalParams, PathEntry } from '../domain.ts'
+import { IssueCollector, KNOWN_TYPE_NAMES } from '../domain.ts'
 import { buildRow, type CaseRow } from './rows.ts'
 
 /** "测试说明"章的用例清单行（老说明第 4 章格式：序号/用例名称/用例标识/测试用例综述） */
@@ -45,6 +45,21 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
   const prevPrefix: string[] = ['', '', '', '', '']
   let warnedDeepPath = ''
 
+  // —— 容器-类型语义重组（2026-10-12 内网 WQ 大纲反馈）——
+  // 内网大纲经 WPS 等工具编辑后，类型标题可能与配置项容器写成同级（项内容直挂其下），
+  // 文档镜像后出现「配置项测试/功能测试」同级反复。重组：path[0] 命中已知类型名时挂到
+  // 最近一个「×××配置项测试」容器下；同名容器（去空白核名相同，WPS 可能留不可见差异）
+  // 的 path[0] 统一用首个文本，让既有前缀去重把重复容器收成一次；遇到既非容器也非类型名
+  // 的顶层标题（分系统等）时容器状态复位。黄金样本 path[0] 均非类型名，行为不变。
+  const normKey = (t: string) => t.replace(/\s+/g, '')
+  const isContainerName = (t: string) => normKey(t).endsWith('配置项测试')
+  const isTypeName = (t: string) => KNOWN_TYPE_NAMES.includes(normKey(t))
+  let curContainer: PathEntry | null = null
+  // 收拢记忆：键 = 槽位\0祖先前缀 → 最近一次该槽在该祖先下输出的容器/类型文本。
+  // 同名容器/类型在同一祖先下反复出现（WQ 形态：容器直挂项与类型组交错）只输出一次，
+  // 项自动流入首次输出的标题下；不同祖先（不同容器/分系统）互不影响。
+  const lastOut = new Map<string, string>()
+
   for (const item of parsed.items) {
     for (let i = 0; i < item.cases.length; i++) {
       const c = item.cases[i]
@@ -54,6 +69,18 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
 
       // 标题槽位分配：path 超过 5 层时丢弃最浅的容器层（项标题必须落在 h6 内）
       let path = item.path
+      if (path.length > 0 && isTypeName(path[0].text)) {
+        // 类型直挂顶层：挂回最近的配置项容器（无容器可挂保持原样）
+        if (curContainer !== null) path = [curContainer, ...path]
+      } else if (path.length > 0 && isContainerName(path[0].text)) {
+        if (curContainer === null || normKey(curContainer.text) !== normKey(path[0].text)) {
+          curContainer = path[0] // 新容器（首个出现的文本为准）
+        } else {
+          path = [curContainer, ...path.slice(1)] // 同名容器归并：核名相同统一用首个文本
+        }
+      } else if (path.length > 0) {
+        curContainer = null // 分系统等其他顶层标题：容器状态复位
+      }
       if (path.length > 5) {
         path = path.slice(path.length - 5)
         if (item.path[0].text !== warnedDeepPath) {
@@ -66,6 +93,15 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
         if (s > 0 && path[s].text === path[s - 1].text) continue
         const prefix = path.slice(0, s + 1).map(p => p.text).join('\u0000')
         if (prefix !== prevPrefix[s]) {
+          const anc = s === 0 ? '' : path.slice(0, s).map(p => p.text).join('\u0000')
+          if (isContainerName(path[s].text) || isTypeName(path[s].text)) {
+            const lk = s + '\u0000' + anc
+            if (lastOut.get(lk) === path[s].text) {
+              prevPrefix[s] = prefix // 收拢：不重复出标题，但前缀照常推进供更深槽比较
+              continue
+            }
+            lastOut.set(lk, path[s].text)
+          }
           if (s === 0) row.head2 = path[s].text
           else if (s === 1) row.head3 = path[s].text
           else if (s === 2) row.head4 = path[s].text
