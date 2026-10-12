@@ -236,7 +236,7 @@ function issueCounts(): string {
     <div
       class="drop"
       :class="{ over: dragging, parsing: phase === 'parsing' }"
-      role="button" tabindex="0"
+      role="button" tabindex="0" :aria-busy="phase === 'parsing'"
       @click="pick" @keydown.enter="pick"
       @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="onDrop"
     >
@@ -285,6 +285,11 @@ function issueCounts(): string {
           </div>
         </div>
       </div>
+    </div>
+    <!-- 空态引导（UX 准则 Empty States：不留空白，给下一步动作） -->
+    <div v-else-if="phase === 'idle'" class="p-empty">
+      <v-icon size="16">mdi-inbox-outline</v-icon>
+      <span>暂无{{ tab.label }}项目，上传{{ tab.doc }}解析后自动归档到这里</span>
     </div>
 
     <template v-if="phase === 'done'">
@@ -411,6 +416,15 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 .foot { text-align: center; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.5); margin-top: 20px; }
 
 .projects { margin-top: 18px; animation: ambRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: 160ms; }
+/* 空态引导行：虚线框 + 弱化文字，与项目列表同位同宽 */
+.p-empty {
+  margin-top: 18px; padding: 18px; text-align: center;
+  border: 1.4px dashed rgba(var(--v-theme-outline), 0.8); border-radius: 14px;
+  color: rgba(var(--v-theme-on-surface), 0.55); font-size: 12.5px;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  animation: ambRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 160ms;
+}
 .p-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; padding: 0 2px; }
 .p-title { font-size: 13px; font-weight: 600; color: rgba(var(--v-theme-on-surface), 0.75); }
 .p-list {

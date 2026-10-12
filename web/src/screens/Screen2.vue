@@ -133,7 +133,8 @@ function gen(): void {
   background:
     linear-gradient(165deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0) 40%),
     rgb(var(--v-theme-surface));
-  border: 1px solid rgba(var(--v-theme-outline), 0.45);
+  /* 2px 声明：DPR 1.3125 下 1/1.5px 都被向下取整成 1 物理像素（实测），2px 才是 2 物理像素 */
+  border: 2px solid rgba(var(--v-theme-outline), 0.5);
   border-radius: 8px; overflow: hidden; /* 微圆角（2026-10-12 用户"圆角太大，微圆角好看点"） */
   transition: border-color 0.2s, box-shadow 0.2s;
   /* 玻璃卡片质感：顶缘内高光 + 分层柔影（环境 1px + 蓝调主影） */

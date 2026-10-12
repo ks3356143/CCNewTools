@@ -149,7 +149,7 @@ function jumpTo(issue: Issue): void {
     <div
       class="drop"
       :class="{ over: dragging, parsing: phase === 'parsing' }"
-      role="button" tabindex="0"
+      role="button" tabindex="0" :aria-busy="phase === 'parsing'"
       @click="pick" @keydown.enter="pick"
       @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="onDrop"
     >

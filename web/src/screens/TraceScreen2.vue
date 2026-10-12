@@ -118,7 +118,7 @@ async function download(): Promise<void> {
     </div>
 
     <!-- 追踪表预览 -->
-    <div class="pv-card glass">
+    <div class="pv-card glass" :aria-busy="store.traceGenerating">
       <div class="pv-head">
         <span>表格预览</span>
         <span v-if="rows.length > PREVIEW_LIMIT" class="pv-note">仅显示前 {{ PREVIEW_LIMIT }} 行，完整内容以下载文档与复制为准</span>
