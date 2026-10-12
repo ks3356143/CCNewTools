@@ -82,7 +82,7 @@ function trackGlow(e: MouseEvent): void {
    内网老 Chromium（Edge 100）兼容优先：clip/遮罩类属性带 -webkit- 前缀并以 @supports 兜底。 */
 .wrap {
   --b1a: 0.13; --b2a: 0.11; --b3a: 0.09; /* 光晕浓度（深色主题加深） */
-  --ring: 0.7;                            /* 聚光边框亮度 */
+  --ring: 0.95;                           /* 聚光边框亮度（用户要求加强） */
   --mx: 50%; --my: 36%;                   /* 聚光默认位（键盘 focus 态居中） */
   position: relative;
   min-height: calc(100vh - 64px);
@@ -90,7 +90,7 @@ function trackGlow(e: MouseEvent): void {
   display: flex; flex-direction: column;
   padding: 0 22px 30px;
 }
-.v-theme--dark .wrap { --b1a: 0.26; --b2a: 0.2; --b3a: 0.16; --ring: 0.9; }
+.v-theme--dark .wrap { --b1a: 0.26; --b2a: 0.2; --b3a: 0.16; --ring: 1; }
 
 /* ---- 环境层 ---- */
 .ambient { position: absolute; inset: 0; pointer-events: none; }
@@ -171,12 +171,12 @@ function trackGlow(e: MouseEvent): void {
 /* 聚光边框：渐变环画在 ::before（inset -1px 外溢 1px），实体底色移到 .inner
    —— 卡片背景透明，.inner 盖住环的中部，只露出边缘一圈，跟随光标流动 */
 .card::before {
-  content: ''; position: absolute; inset: -1px; z-index: -1;
+  content: ''; position: absolute; inset: -3px; z-index: -1;
   border-radius: inherit;
   background: radial-gradient(
     280px circle at var(--mx) var(--my),
     rgba(var(--v-theme-primary), var(--ring)),
-    rgba(var(--v-theme-primary), 0.18) 45%,
+    rgba(var(--v-theme-primary), 0.32) 45%,
     transparent 72%
   );
   opacity: 0; transition: opacity 0.25s;
@@ -186,7 +186,7 @@ function trackGlow(e: MouseEvent): void {
 .card:hover {
   transform: translateY(-4px);
   border-color: rgba(var(--v-theme-primary), 0.35);
-  box-shadow: 0 14px 34px rgba(45, 91, 145, 0.18);
+  box-shadow: 0 0 22px rgba(45, 91, 145, 0.22), 0 14px 34px rgba(45, 91, 145, 0.26);
 }
 .card:active { transform: translateY(-1px) scale(0.995); }
 .card:focus-visible { outline: 2px solid rgb(var(--v-theme-primary)); outline-offset: 3px; }
@@ -196,7 +196,7 @@ function trackGlow(e: MouseEvent): void {
   position: relative; z-index: 1;
   flex: 1; /* 填满卡片高度，消除内容短卡的底部缺口 */
   background: rgb(var(--v-theme-surface));
-  border-radius: 13px;
+  border-radius: 11px; /* 外环带 3px：同心圆角 = 14 - 3 */
   padding: 22px 22px 16px;
   display: flex; flex-direction: column;
   transition: background 0.2s;
