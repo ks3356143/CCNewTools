@@ -89,6 +89,14 @@ async function copyTable(): Promise<void> {
   }
 }
 
+/** 复制表格前光标聚光（与工具屏卡片同款语言）：光标位置写 CSS 变量，零重渲染 */
+function trackGlow(e: MouseEvent): void {
+  const el = e.currentTarget as HTMLElement
+  const r = el.getBoundingClientRect()
+  el.style.setProperty('--mx', `${e.clientX - r.left}px`)
+  el.style.setProperty('--my', `${e.clientY - r.top}px`)
+}
+
 async function download(): Promise<void> {
   const ok = await doTraceGenerate()
   if (ok && store.traceResult?.doc) {
@@ -98,9 +106,13 @@ async function download(): Promise<void> {
 </script>
 
 <template>
-  <div class="wrap">
+  <div class="amb-wrap">
+    <div class="amb" aria-hidden="true">
+      <div class="amb-b1" /><div class="amb-b2" /><div class="amb-b3" /><div class="amb-dots" />
+    </div>
+    <div class="wrap">
     <div class="head">
-      <h1>追踪表</h1>
+      <h1 class="amb-title">追踪表</h1>
       <p class="sub">
         来源：<b>{{ store.tracePrimary.name }}</b>
         <template v-if="store.traceAlignOutline"> · 配对大纲：<b>{{ store.traceAlignOutline.name }}</b></template>
@@ -112,7 +124,7 @@ async function download(): Promise<void> {
     </div>
 
     <!-- 追踪表预览 -->
-    <div class="pv-card">
+    <div class="pv-card glass" @mousemove="trackGlow">
       <div class="pv-head">
         <span>表格预览</span>
         <span v-if="rows.length > PREVIEW_LIMIT" class="pv-note">仅显示前 {{ PREVIEW_LIMIT }} 行，完整内容以下载文档与复制为准</span>
@@ -170,11 +182,13 @@ async function download(): Promise<void> {
     </v-card>
 
     <div class="foot">离线运行，文档内容不出本机。</div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.wrap { max-width: 1100px; margin: 26px auto 0; padding: 0 22px 40px; }
+.wrap { position: relative; width: 100%; max-width: 1100px; margin: 26px auto 0; padding: 0 22px 40px; }
+.head { animation: ambRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .head h1 { font-size: 21px; font-weight: 650; }
 .sub { margin-top: 6px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.65); }
 .sub b { color: rgb(var(--v-theme-on-surface)); }
@@ -182,15 +196,33 @@ async function download(): Promise<void> {
 .edit-hint { display: flex; align-items: center; gap: 3px; color: rgb(var(--v-theme-primary)); }
 
 .pv-card {
+  --mx: 50%; --my: 0%;
+  position: relative;
   margin-top: 18px; border-radius: 14px; overflow: hidden;
-  background: rgb(var(--v-theme-surface));
-  border: 1px solid rgba(var(--v-theme-outline), 0.5);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  animation: ambRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 80ms;
+}
+.pv-card::before {
+  content: ''; position: absolute; inset: -1px; z-index: 1;
+  border-radius: inherit;
+  background: radial-gradient(
+    320px circle at var(--mx) var(--my),
+    rgba(var(--v-theme-primary), 0.4),
+    rgba(var(--v-theme-primary), 0.1) 45%,
+    transparent 72%
+  );
+  opacity: 0; transition: opacity 0.25s;
+  pointer-events: none;
+}
+.pv-card:hover::before { opacity: 0.45; }
+@media (prefers-reduced-motion: reduce) {
+  .pv-card::before { transition: none; }
 }
 .pv-head {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 14px; font-size: 13px; font-weight: 600;
   border-bottom: 1px solid rgba(var(--v-theme-outline), 0.5);
+  background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.045), rgba(var(--v-theme-primary), 0));
 }
 .pv-note { font-weight: 450; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.55); }
 .pv-note.warn { color: rgb(var(--v-theme-warning)); }
@@ -233,7 +265,20 @@ td.editable { padding: 2px 5px; }
 .acts :deep(.v-btn:first-child:hover) { box-shadow: 0 6px 18px rgba(45, 91, 145, 0.4); }
 .hint { text-align: center; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.55); margin-top: 10px; }
 
-.res { margin-top: 16px; padding: 12px 16px; }
+.res {
+  margin-top: 16px; padding: 12px 16px;
+  border: 1px solid rgba(var(--v-theme-outline), 0.45);
+  background:
+    linear-gradient(165deg, rgba(var(--v-theme-primary), 0.028), rgba(var(--v-theme-primary), 0) 40%),
+    rgb(var(--v-theme-surface)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(16, 24, 40, 0.06),
+    0 10px 28px -14px rgba(45, 91, 145, 0.3);
+}
+.v-theme--dark .res {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(45, 91, 145, 0.5);
+}
 .res-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
 .res-row .kb { color: rgba(var(--v-theme-on-surface), 0.55); font-variant-numeric: tabular-nums; font-size: 12.5px; }
 .res-path {

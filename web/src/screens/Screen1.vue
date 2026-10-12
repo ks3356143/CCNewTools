@@ -135,10 +135,14 @@ function jumpTo(issue: Issue): void {
 </script>
 
 <template>
-  <div class="wrap">
+  <div class="amb-wrap">
+    <div class="amb" aria-hidden="true">
+      <div class="amb-b1" /><div class="amb-b2" /><div class="amb-b3" /><div class="amb-dots" />
+    </div>
+    <div class="wrap">
     <div class="hero">
       <div class="badge"><v-icon size="34">mdi-file-word-box</v-icon></div>
-      <h1>选择测试大纲</h1>
+      <h1 class="amb-title">选择测试大纲</h1>
       <p>导入第三方测试大纲（.docx），自动解析其中的测试项表格，<br />生成测试说明与测试记录两份 Word 文档。</p>
     </div>
 
@@ -176,7 +180,7 @@ function jumpTo(issue: Issue): void {
           <v-icon v-if="clearArmed" size="13" class="mr-1">mdi-alert</v-icon>{{ clearArmed ? '确认清空？' : '清空全部' }}
         </v-btn>
       </div>
-      <div class="p-list">
+      <div class="p-list glass">
         <div v-for="p in store.projects" :key="p.id" class="p-row">
           <v-icon size="19" class="p-icon">mdi-folder-text-outline</v-icon>
           <div class="p-main">
@@ -228,12 +232,13 @@ function jumpTo(issue: Issue): void {
       </div>
       <div class="foot">离线运行，文档内容不出本机。</div>
     </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.wrap { max-width: 680px; margin: 26px auto 0; padding: 0 22px 40px; }
-.hero { text-align: center; }
+.wrap { position: relative; width: 100%; max-width: 680px; margin: 26px auto 0; padding: 0 22px 40px; }
+.hero { text-align: center; animation: ambRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .badge {
   width: 68px; height: 68px; border-radius: 18px; margin: 0 auto 18px;
   background: linear-gradient(135deg, #3d6fb5 0%, #2D5B91 60%, #24507f 100%);
@@ -245,8 +250,20 @@ h1 { font-size: 23px; font-weight: 650; }
 p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14px; }
 .drop {
   margin-top: 24px; padding: 42px 28px; border-radius: 16px; text-align: center;
-  border: 1.6px dashed rgba(var(--v-theme-outline), 1); background: rgb(var(--v-theme-surface));
+  border: 1.6px dashed rgba(var(--v-theme-outline), 1);
+  background:
+    linear-gradient(165deg, rgba(var(--v-theme-primary), 0.028), rgba(var(--v-theme-primary), 0) 40%),
+    rgb(var(--v-theme-surface));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(16, 24, 40, 0.06),
+    0 10px 28px -14px rgba(45, 91, 145, 0.3);
   cursor: pointer; transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  animation: ambRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 80ms;
+}
+.v-theme--dark .drop {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(45, 91, 145, 0.5);
 }
 .drop:hover, .drop.over { border-color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.06); box-shadow: 0 2px 10px rgba(45, 91, 145, 0.08); }
 .drop.parsing { cursor: default; }
@@ -274,7 +291,20 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 .iss-text { flex: 1; text-align: left; }
 .go { opacity: 0.4; flex: none; }
 
-.band { display: flex; overflow: hidden; }
+.band {
+  display: flex; overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-outline), 0.45);
+  background:
+    linear-gradient(165deg, rgba(var(--v-theme-primary), 0.028), rgba(var(--v-theme-primary), 0) 40%),
+    rgb(var(--v-theme-surface)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(16, 24, 40, 0.06),
+    0 10px 28px -14px rgba(45, 91, 145, 0.3);
+}
+.v-theme--dark .band {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(45, 91, 145, 0.5);
+}
 .stat { flex: 1; padding: 15px 8px 13px; text-align: center; }
 .stat + .stat { border-left: 1px solid rgba(var(--v-theme-outline), 0.45); }
 .stat b { display: block; font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; color: rgb(var(--v-theme-primary)); }
@@ -288,15 +318,15 @@ p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14
 .cta :deep(.v-btn:hover) { box-shadow: 0 6px 18px rgba(45, 91, 145, 0.4); }
 .foot { text-align: center; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.5); margin-top: 20px; }
 
-.projects { margin-top: 18px; }
+.projects { margin-top: 18px; animation: ambRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: 160ms; }
 .p-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; padding: 0 2px; }
 .p-title { font-size: 13px; font-weight: 600; color: rgba(var(--v-theme-on-surface), 0.75); }
 .p-clear { border: none; background: none; padding: 3px 6px; border-radius: 6px; font-size: 12.5px; color: rgba(var(--v-theme-on-surface), 0.55); cursor: pointer; }
 .p-clear:hover { color: rgb(var(--v-theme-error)); background: rgba(var(--v-theme-error), 0.08); }
 .p-clear.armed { color: rgb(var(--v-theme-error)); font-weight: 600; }
 .p-list {
-  background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.55);
-  border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  position: relative;
+  border-radius: 14px; overflow: hidden;
 }
 .p-row { display: flex; align-items: center; gap: 11px; padding: 11px 14px; transition: background 0.15s; }
 .p-row:hover { background: rgba(var(--v-theme-primary), 0.045); }
