@@ -26,6 +26,14 @@ function toggleExcluded(): void {
 function onChanged(): void {
   scheduleSave()
 }
+
+/** 聚光边框（与首页/左树面板同款语言）：光标位置写 CSS 变量，零重渲染 */
+function trackGlow(e: MouseEvent): void {
+  const el = e.currentTarget as HTMLElement
+  const r = el.getBoundingClientRect()
+  el.style.setProperty('--mx', `${e.clientX - r.left}px`)
+  el.style.setProperty('--my', `${e.clientY - r.top}px`)
+}
 </script>
 
 <template>
@@ -55,7 +63,7 @@ function onChanged(): void {
     </div>
     <div class="summary"><b>用例综述：</b>{{ row.summary || '（空）' }}</div>
 
-    <v-card rounded="14" elevation="1" class="table-card" :class="{ dim: row.excluded }">
+    <v-card rounded="14" elevation="1" class="table-card" :class="{ dim: row.excluded }" @mousemove="trackGlow">
       <div class="tbl-head">
         <span class="t">测试步骤</span>
         <span class="hint">单击单元格修改，自动保存</span>
@@ -80,9 +88,30 @@ function onChanged(): void {
 .chip.id2 { background: rgba(var(--v-theme-on-surface), 0.08); }
 .chip.ch { border: 1px solid rgba(var(--v-theme-outline), 0.7); color: rgba(var(--v-theme-on-surface), 0.7); }
 .summary { margin-top: 12px; padding: 12px 15px; border-radius: 12px; background: rgba(var(--v-theme-primary), 0.05); font-size: 13.5px; color: rgba(var(--v-theme-on-surface), 0.8); }
-.table-card { margin-top: 14px; overflow: hidden; }
+.summary { position: relative; margin-top: 12px; padding: 12px 15px 12px 18px; border-radius: 12px; background: rgba(var(--v-theme-primary), 0.05); font-size: 13.5px; color: rgba(var(--v-theme-on-surface), 0.8); overflow: hidden; }
+/* 综述行左侧渐变竖条：accent 语言与首页/顶栏同族 */
+.summary::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, #4c86c6, #2d5b91); }
+.table-card { --mx: 50%; --my: 0%; position: relative; margin-top: 14px; overflow: hidden; border: 1px solid rgba(var(--v-theme-outline), 0.45); background: linear-gradient(165deg, rgba(var(--v-theme-primary), 0.028), rgba(var(--v-theme-primary), 0) 40%), rgb(var(--v-theme-surface)) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 1px 2px rgba(16, 24, 40, 0.06), 0 10px 28px -14px rgba(45, 91, 145, 0.3); }
+.v-theme--dark .table-card { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(45, 91, 145, 0.5); }
+/* 聚光边框：环叠加在边框位置（内容层无法隔离，低峰值作柔光罩），hover 点亮 */
+.table-card::before {
+  content: ''; position: absolute; inset: -1px; z-index: 1;
+  border-radius: inherit;
+  background: radial-gradient(
+    320px circle at var(--mx) var(--my),
+    rgba(var(--v-theme-primary), 0.4),
+    rgba(var(--v-theme-primary), 0.1) 45%,
+    transparent 72%
+  );
+  opacity: 0; transition: opacity 0.25s;
+  pointer-events: none;
+}
+.table-card:hover::before { opacity: 0.45; }
+@media (prefers-reduced-motion: reduce) {
+  .table-card::before { transition: none; }
+}
 .table-card.dim { opacity: 0.55; }
-.tbl-head { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(var(--v-theme-outline), 0.4); }
+.tbl-head { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(var(--v-theme-outline), 0.4); background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.045), rgba(var(--v-theme-primary), 0)); }
 .tbl-head .t { font-size: 15px; font-weight: 600; }
 .tbl-head .hint { margin-left: auto; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.55); }
 </style>

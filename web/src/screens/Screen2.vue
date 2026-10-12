@@ -52,12 +52,20 @@ function gen(): void {
   }
   store.screen = 3
 }
+
+/** 聚光边框（与首页卡片同款语言）：光标位置写 CSS 变量，零重渲染 */
+function trackGlow(e: MouseEvent): void {
+  const el = e.currentTarget as HTMLElement
+  const r = el.getBoundingClientRect()
+  el.style.setProperty('--mx', `${e.clientX - r.left}px`)
+  el.style.setProperty('--my', `${e.clientY - r.top}px`)
+}
 </script>
 
 <template>
   <div class="screen">
   <div class="s2">
-    <aside class="left">
+    <aside class="left" @mousemove="trackGlow">
       <TreeNav />
     </aside>
     <section class="main">
@@ -126,10 +134,44 @@ function gen(): void {
   margin: 0 auto; padding: 18px 20px 12px;
 }
 .left {
+  position: relative;
   width: 500px; flex: none;
   display: flex; flex-direction: column; min-height: 0;
-  background: rgb(var(--v-theme-surface)); border: 1px solid rgba(var(--v-theme-outline), 0.5);
-  border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --mx: 50%; --my: 0%;
+  background:
+    linear-gradient(165deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0) 40%),
+    rgb(var(--v-theme-surface));
+  border: 1px solid rgba(var(--v-theme-outline), 0.45);
+  border-radius: 14px; overflow: hidden;
+  /* 玻璃卡片质感：顶缘内高光 + 分层柔影（环境 1px + 蓝调主影） */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(16, 24, 40, 0.06),
+    0 10px 28px -14px rgba(45, 91, 145, 0.3);
+}
+/* 聚光边框：渐变环画在 ::before（inset -1px 外溢 1px），树面板底色已在自身背景——
+   这里用 hover 态边框染色替代（容器内是滚动的树，不能把背景移进子层），
+   环叠加在边框位置形成跟随光标的亮边 */
+.left::before {
+  content: ''; position: absolute; inset: -1px; z-index: 1;
+  border-radius: inherit;
+  background: radial-gradient(
+    300px circle at var(--mx) var(--my),
+    rgba(var(--v-theme-primary), 0.4),
+    rgba(var(--v-theme-primary), 0.1) 45%,
+    transparent 72%
+  );
+  opacity: 0; transition: opacity 0.25s;
+  pointer-events: none;
+}
+.left:hover::before { opacity: 0.45; }
+.v-theme--dark .left { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(45, 91, 145, 0.5); }
+
+/* 玻璃高光条：面板顶部一道 1px 渐变亮线（左亮右隐），呼应顶栏底缘辉光 */
+.left::after {
+  content: ''; position: absolute; left: 12px; right: 40%; top: 0; height: 1px;
+  background: linear-gradient(90deg, rgba(var(--v-theme-primary), 0.55), transparent);
+  z-index: 2; pointer-events: none;
 }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-bottom: 8px; padding-right: 12px; }
 /* 纵向 flex 里子项默认会被压缩（全局参数卡片被裁掉半截的根因），一律按自然高度排 */

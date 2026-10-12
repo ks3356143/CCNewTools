@@ -10,7 +10,7 @@ function onInput(): void {
 </script>
 
 <template>
-  <v-card rounded="14" elevation="1">
+  <v-card rounded="14" elevation="1" class="pcard">
     <div class="head" @click="open = !open">
       <span class="t">全局参数</span>
       <span class="sub">对所有用例生效，正式版会记住上次填写内容</span>
@@ -46,6 +46,18 @@ function onInput(): void {
 </template>
 
 <style scoped>
+/* 玻璃卡片质感（与左树面板/步骤表卡同族）：蓝调渐变表面 + 顶缘内高光 + 分层柔影 */
+.pcard {
+  border: 1px solid rgba(var(--v-theme-outline), 0.45);
+  background:
+    linear-gradient(165deg, rgba(var(--v-theme-primary), 0.028), rgba(var(--v-theme-primary), 0) 40%),
+    rgb(var(--v-theme-surface)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(16, 24, 40, 0.06),
+    0 10px 28px -14px rgba(45, 91, 145, 0.3);
+}
+.v-theme--dark .pcard { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(45, 91, 145, 0.5); }
 .head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; cursor: pointer; user-select: none; }
 .head .t { font-size: 15px; font-weight: 600; }
 .head .sub { font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.55); }
