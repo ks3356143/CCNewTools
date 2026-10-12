@@ -183,12 +183,12 @@ function stepClick(n: number): void {
   position: absolute; top: 0; bottom: 0; left: -40%; width: 60%;
   background: linear-gradient(105deg,
     rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.05) 30%,
-    rgba(190, 215, 240, 0.16) 50%,
-    rgba(255, 255, 255, 0.05) 70%,
+    rgba(255, 255, 255, 0.1) 30%,
+    rgba(200, 222, 245, 0.3) 50%,
+    rgba(255, 255, 255, 0.1) 70%,
     rgba(255, 255, 255, 0) 100%);
   transform: translateX(-15%);
-  animation: barSheen 16s ease-in-out infinite alternate;
+  animation: barSheen 9s ease-in-out infinite alternate;
   pointer-events: none;
   z-index: -1;
 }

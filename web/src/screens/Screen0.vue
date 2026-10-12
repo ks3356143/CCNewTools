@@ -163,6 +163,7 @@ function trackGlow(e: MouseEvent): void {
   position: relative; text-align: left; cursor: pointer;
   background: transparent; border: 1px solid rgba(var(--v-theme-outline), 0.5);
   border-radius: 14px; padding: 0;
+  display: flex; /* 让 .inner 拉伸填满：两卡内容长度不同也等高等沿（用户反馈"两卡样式不一样"） */
   animation: rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: calc(150ms + var(--i) * 130ms);
   transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
@@ -193,6 +194,7 @@ function trackGlow(e: MouseEvent): void {
 /* 实体底色在 .inner（内容层），盖住聚光环中部；z-index 压过水印图标 */
 .inner {
   position: relative; z-index: 1;
+  flex: 1; /* 填满卡片高度，消除内容短卡的底部缺口 */
   background: rgb(var(--v-theme-surface));
   border-radius: 13px;
   padding: 22px 22px 16px;
@@ -226,7 +228,7 @@ function trackGlow(e: MouseEvent): void {
 .desc { margin-top: 4px; font-size: 13.5px; font-weight: 550; color: rgb(var(--v-theme-primary)); }
 .note { margin-top: 6px; font-size: 12.5px; line-height: 1.6; color: rgba(var(--v-theme-on-surface), 0.62); }
 
-.steps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.steps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; margin-bottom: 14px; }
 .spill {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.72);
@@ -241,7 +243,7 @@ function trackGlow(e: MouseEvent): void {
 }
 
 .enter {
-  margin-top: 14px; padding-top: 12px;
+  margin-top: auto; padding-top: 12px; /* 钉底：两卡"进入"行恒对齐 */
   border-top: 1px solid rgba(var(--v-theme-outline), 0.4);
   display: flex; align-items: center; justify-content: flex-end; gap: 3px;
   font-size: 13px; font-weight: 600; color: rgb(var(--v-theme-primary));
