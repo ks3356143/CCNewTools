@@ -333,7 +333,7 @@ describe('M2 标题槽位（2026-10-01 层级镜像改造）', () => {
     expect(r.head5).toBe('某组')
     expect(r.head6).toBe('五层项')
 
-    // 六层：丢最浅的容器层，项标题仍落 h6，PATH_TOO_DEEP 告警一次
+    // 六层：2026-10-13 扩容到 h9 后直接落 head7，不再截断
     const six: TestItem = {
       ...five, name: '六层项', itemName: '六层项', chapter: '6.2.1.2.3.4.1.1',
       path: [
@@ -344,9 +344,29 @@ describe('M2 标题槽位（2026-10-01 层级镜像改造）', () => {
     }
     const d2 = convertToTemplateData({ items: [six], issues: [], stats: { items: 1, cases: 1, steps: 1 } }, DEFAULT_PARAMS)
     const r2 = d2.cases[0]
-    expect(r2.head2).toBe('XXX分系统')      // 超浅容器被丢弃
-    expect(r2.head6).toBe('六层项')
-    expect(d2.issues.filter(i => i.code === 'PATH_TOO_DEEP').length).toBe(1)
+    expect(r2.head2).toBe('超浅容器')
+    expect(r2.head7).toBe('六层项')
+    expect(d2.issues.filter(i => i.code === 'PATH_TOO_DEEP').length).toBe(0)
+
+    // 七层/八层：落 head8/head9，仍不告警
+    const mkDeep = (n: number, name: string): TestItem => ({
+      ...five, name, itemName: name, chapter: '6.2',
+      path: Array.from({ length: n }, (_, i) => ({ level: i + 2, text: i === n - 1 ? name : 'L' + (i + 2) + '层' })),
+      cases: [{ itemId: 'XQ_F_01', name: name + '用例', summary: '', steps: [{ no: 1, text: '操作，查看结果是否正确；' }] }]
+    })
+    const d7 = convertToTemplateData({ items: [mkDeep(7, '七层项')], issues: [], stats: { items: 1, cases: 1, steps: 1 } }, DEFAULT_PARAMS)
+    expect(d7.cases[0].head8).toBe('七层项')
+    expect(d7.issues.filter(i => i.code === 'PATH_TOO_DEEP').length).toBe(0)
+    const d8 = convertToTemplateData({ items: [mkDeep(8, '八层项')], issues: [], stats: { items: 1, cases: 1, steps: 1 } }, DEFAULT_PARAMS)
+    expect(d8.cases[0].head9).toBe('八层项')
+    expect(d8.issues.filter(i => i.code === 'PATH_TOO_DEEP').length).toBe(0)
+
+    // 九层：丢最浅层，项标题落 h9，PATH_TOO_DEEP 告警一次
+    const d9 = convertToTemplateData({ items: [mkDeep(9, '九层项')], issues: [], stats: { items: 1, cases: 1, steps: 1 } }, DEFAULT_PARAMS)
+    const r9 = d9.cases[0]
+    expect(r9.head2).toBe('L3层')
+    expect(r9.head9).toBe('九层项')
+    expect(d9.issues.filter(i => i.code === 'PATH_TOO_DEEP').length).toBe(1)
   })
 
   test('相邻同名层去重：静态类型项（老式大纲 类型L4→项L5 同名）不重复出标题', () => {

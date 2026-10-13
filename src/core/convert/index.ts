@@ -24,7 +24,7 @@ export interface TraceRow {
 
 /**
  * 领域模型 → 模板数据（01 数据流第 2 步）。
- * 标题槽位 head2~head6 挂在每个用例行上（2026-10-01 层级镜像改造）：
+ * 标题槽位 head2~head9 挂在每个用例行上（2026-10-01 层级镜像改造，2026-10-13 扩容到 h9）：
  * 按测试项的 path（大纲路径）序号逐级映射模板标题层级（path[0]→h2 … 项标题→最深槽），
  * 槽的路径前缀与上一行不同才输出——分系统/容器等任意嵌套天然正确，
  * 跳级自动压缩（无组上浮行为保留），相邻同名层去重（静态类型不重复出标题）。
@@ -41,8 +41,8 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
   const caselist: CaseListRow[] = []
   const traceRows: TraceRow[] = []
   const issues = new IssueCollector()
-  // 各槽（head2~head6）上一行输出过的路径前缀；空串 = 尚未出现过任何标题
-  const prevPrefix: string[] = ['', '', '', '', '']
+  // 各槽（head2~head9）上一行输出过的路径前缀；空串 = 尚未出现过任何标题
+  const prevPrefix: string[] = ['', '', '', '', '', '', '', '']
   let warnedDeepPath = ''
 
   // —— 容器-类型语义重组（2026-10-12 内网 WQ 大纲反馈）——
@@ -69,7 +69,7 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
       // 标识写重复（多配置项复制粘贴同 XQ → 同 YL 号）：按用户决定（2026-10-01）
       // 照原样生成、不告警——用户看生成文档自行修改
 
-      // 标题槽位分配：path 超过 5 层时丢弃最浅的容器层（项标题必须落在 h6 内）
+      // 标题槽位分配：path 超过 8 层时丢弃最浅的容器层（项标题必须落在 h9 内；2026-10-13 五槽→八槽扩容）
       let path = item.path
       if (path.length > 0 && isTypeName(path[0].text)) {
         // 类型直挂顶层：挂回最近的配置项容器（无容器可挂保持原样）
@@ -86,11 +86,11 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
       } else if (path.length > 0) {
         curContainer = null // 分系统等其他顶层标题：容器状态复位
       }
-      if (path.length > 5) {
-        path = path.slice(path.length - 5)
+      if (path.length > 8) {
+        path = path.slice(path.length - 8)
         if (item.path[0].text !== warnedDeepPath) {
           warnedDeepPath = item.path[0].text
-          issues.warning('PATH_TOO_DEEP', '测试项「' + item.name + '」的标题层级超过 5 层，最浅的「' + item.path[0].text + '」层未在生成文档中体现', item.name)
+          issues.warning('PATH_TOO_DEEP', '测试项「' + item.name + '」的标题层级超过 8 层，最浅的「' + item.path[0].text + '」层未在生成文档中体现', item.name)
         }
       }
       for (let s = 0; s < path.length; s++) {
@@ -111,7 +111,10 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
           else if (s === 1) row.head3 = path[s].text
           else if (s === 2) row.head4 = path[s].text
           else if (s === 3) row.head5 = path[s].text
-          else row.head6 = path[s].text
+          else if (s === 4) row.head6 = path[s].text
+          else if (s === 5) row.head7 = path[s].text
+          else if (s === 6) row.head8 = path[s].text
+          else row.head9 = path[s].text
           prevPrefix[s] = prefix
         }
       }

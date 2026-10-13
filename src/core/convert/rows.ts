@@ -4,12 +4,15 @@ import { splitStepText, stripTrailingPunct, hasExpectKeyword } from './split.ts'
 
 /** 模板数据行（04 变量清单：说明/记录两模板共用一套字段） */
 export interface CaseRow {
-  /** 生成文档第 1~5 层标题（h2~h6，按大纲路径序号映射；本行需要输出该层时非空，由转换层槽位分配填充） */
+  /** 生成文档第 1~8 层标题（h2~h9，按大纲路径序号映射；本行需要输出该层时非空，由转换层槽位分配填充） */
   head2: string | null
   head3: string | null
   head4: string | null
   head5: string | null
   head6: string | null
+  head7: string | null
+  head8: string | null
+  head9: string | null
   /** 完整大纲路径（树目录按此逐级展示，与生成文档同构；2026-10-02 树镜像改造） */
   path: PathEntry[]
   typeName: string
@@ -186,7 +189,7 @@ export function buildRow(item: TestItem, c: RawCase, params: GlobalParams, issue
   }
 
   return {
-    head2: null, head3: null, head4: null, head5: null, head6: null, // 由 convertToTemplateData 槽位分配填充
+    head2: null, head3: null, head4: null, head5: null, head6: null, head7: null, head8: null, head9: null, // 槽位由 convertToTemplateData 分配
     path: item.path,
     typeName: item.typeName,
     groupName: item.groupName,

@@ -337,7 +337,7 @@ describe('M8 /api/trace/generate（rows 渲染 + vMerge 后处理）', () => {
 
 describe('M8 vmerge 后处理与表构建单元', () => {
   const mkCase = (over: Partial<CaseRow>): CaseRow => ({
-    head2: null, head3: null, head4: null, head5: null, head6: null,
+    head2: null, head3: null, head4: null, head5: null, head6: null, head7: null, head8: null, head9: null,
     path: [], typeName: '功能测试', groupName: null, itemName: '项A', chapter: '6.2.1.1',
     itemId: 'XQ_A', caseId: 'YL_A_001', mingcheng: '用例', summary: '', init: '', constraint: '',
     steps: [], designer: '', testTime: '', tester: '', monitor: '', trace: '', itemItemId: 'XQ_A',
