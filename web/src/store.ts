@@ -412,4 +412,5 @@ export function resetAll(): void {
 // 调试探针（M5 开发期使用，打包前保留无妨——本地单用户工具）
 if (typeof window !== 'undefined') {
   ;(window as any).__store = store
+  ;(window as any).__doParse = doParse // 隐藏面板下做数据级验证用（2026-10-13）
 }

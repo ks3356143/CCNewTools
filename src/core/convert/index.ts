@@ -59,6 +59,8 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
   // 同名容器/类型在同一祖先下反复出现（WQ 形态：容器直挂项与类型组交错）只输出一次，
   // 项自动流入首次输出的标题下；不同祖先（不同容器/分系统）互不影响。
   const lastOut = new Map<string, string>()
+  // 重组触发计数（2026-10-13 深探：内网验证需要可见信号——重组没触发 = 大纲形态与预期不同）
+  let regroupCount = 0
 
   for (const item of parsed.items) {
     for (let i = 0; i < item.cases.length; i++) {
@@ -71,7 +73,10 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
       let path = item.path
       if (path.length > 0 && isTypeName(path[0].text)) {
         // 类型直挂顶层：挂回最近的配置项容器（无容器可挂保持原样）
-        if (curContainer !== null) path = [curContainer, ...path]
+        if (curContainer !== null) {
+          path = [curContainer, ...path]
+          regroupCount++
+        }
       } else if (path.length > 0 && isContainerName(path[0].text)) {
         if (curContainer === null || normKey(curContainer.text) !== normKey(path[0].text)) {
           curContainer = path[0] // 新容器（首个出现的文本为准）
@@ -132,6 +137,11 @@ export function convertToTemplateData(parsed: ParsedOutline, params: GlobalParam
         })
       }
     }
+  }
+  // 重组触发提示（2026-10-13）：触发即说明大纲类型标题与容器同级（层级被编辑器调整过），
+  // 让使用者一眼确认修复已生效；未触发而目录仍平铺 = 大纲形态超出预期，需要按实况迭代
+  if (regroupCount > 0) {
+    issues.info('PATH_REGROUP', '检测到 ' + regroupCount + ' 个测试项的类型标题（功能测试/文档审查等）与配置项容器写成同级，已自动归位到所属容器下生成', '测试项及方法')
   }
   return { cases: cases, caselist: caselist, traceRows: traceRows, issues: issues.issues }
 }

@@ -435,4 +435,12 @@ describe('M2 容器-类型语义重组（2026-10-12 内网 WQ 大纲反馈）', 
     expect(r[5].head2).toBe('功能测试')
     expect(r[5].head3).toBe('后续验证项')
   })
+
+  test('重组触发给出 info 提示（内网验证的可见信号，2026-10-13）', () => {
+    const d = convertToTemplateData(outline, DEFAULT_PARAMS)
+    const info = d.issues.find(i => i.code === 'PATH_REGROUP')
+    expect(info).toBeDefined()
+    expect(info?.level).toBe('info')
+    expect(info?.message).toContain('2 个') // 参数设置项 + 遥控指令项 两处挂回
+  })
 })
