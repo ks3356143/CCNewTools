@@ -180,7 +180,7 @@ function gen(): void {
 .verify-content {
   flex: 1; min-height: 0; overflow: hidden;
   display: grid;
-  grid-template-columns: 270px minmax(0, 1fr) 292px;
+  grid-template-columns: 300px minmax(0, 1fr) 320px;
   grid-template-areas: "side editor params";
 }
 .verify-sidebar {

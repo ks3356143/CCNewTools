@@ -160,7 +160,7 @@ function trackGlow(e: MouseEvent): void {
 /* ---- 工具卡片 ---- */
 .grid {
   position: relative;
-  width: 100%; max-width: 960px;
+  width: 100%; max-width: 1020px;
   margin: 38px auto 0;
   display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
 }
