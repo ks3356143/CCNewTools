@@ -69,7 +69,7 @@ function onChanged(): void {
   </div>
 
   <!-- 空态（无任何用例时不再留白屏，2026-10-22 样式审计） -->
-  <div v-else class="case-empty">
+  <div v-else class="case-empty u-empty">
     <v-icon size="34" class="empty-icon">mdi-file-document-outline</v-icon>
     <b>没有可核对的用例</b>
     <span>请返回「选择大纲」导入测试大纲，解析完成后再来核对。</span>
@@ -140,16 +140,13 @@ function onChanged(): void {
 
 /* 空态：居中提示 + 明确下一步 */
 .case-empty {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; min-height: 320px; padding: 32px 20px;
-  text-align: center;
-  border: 1px dashed var(--cn-border-strong);
   border-radius: var(--cn-r-4);
   background: rgba(255, 255, 255, 0.45);
   color: var(--cn-muted);
 }
 .v-theme--dark .case-empty { background: rgba(18, 36, 59, 0.4); }
 .case-empty .empty-icon { color: var(--cn-accent); opacity: 0.85; }
-.case-empty b { font-size: 14px; color: var(--cn-fg); }
-.case-empty span { font-size: 12px; line-height: 1.7; }
+.case-empty > b { font-size: 14px; color: var(--cn-fg); }
+.case-empty > span { font-size: 12px; line-height: 1.7; }
 </style>

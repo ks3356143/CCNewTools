@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick } from 'vue'
-import { store, goCase, showToast, scheduleSave } from '../store.ts'
+import { computed, nextTick, ref } from 'vue'
+import { store, goCase, showToast, scheduleSave, requiredParamsMissing, REQUIRED_PARAMS_HINT } from '../store.ts'
 import { activeSuspects, stepSuspectActive } from '../suspect.ts'
 import TreeNav from '../components/TreeNav.vue'
 import ParamsCard from '../components/ParamsCard.vue'
 import CasePanel from '../components/CasePanel.vue'
 
+// 全局参数改为右侧抽屉：把常驻的 312px 让给目录树与用例表（2026-10-22 用户提议）
+const paramsOpen = ref(false)
+const missingRequired = computed(requiredParamsMissing)
 const reviewedCount = computed(() => store.cases.filter(c => c.reviewed).length)
 const suspectTotal = computed(() => store.cases.reduce((n, c) => n + activeSuspects(c), 0))
 const errorCount = computed(() => store.issues.filter(i => i.level === 'error').length)
@@ -46,8 +49,9 @@ function next(): void {
   else showToast('已是最后一个用例')
 }
 function gen(): void {
-  if (!store.params.tester.trim() || !store.params.monitor.trim()) {
-    showToast('请先填写测试人员与监测人员')
+  if (missingRequired.value) {
+    paramsOpen.value = true
+    showToast(REQUIRED_PARAMS_HINT)
     return
   }
   store.screen = 3
@@ -83,6 +87,9 @@ function gen(): void {
             </div>
           </v-card>
         </v-menu>
+        <v-btn size="small" variant="tonal" class="params-btn" :class="{ pending: missingRequired }" :title="missingRequired ? '测试人员 / 监测人员未填写，点击填写' : '填写软件配置项、人员等全局参数'" @click="paramsOpen = true">
+          <v-icon size="15" class="mr-1">{{ missingRequired ? 'mdi-alert-circle-outline' : 'mdi-tune-variant' }}</v-icon>全局参数
+        </v-btn>
       </div>
       <div class="progress-wrap">
         <div class="progress-labels">
@@ -93,7 +100,7 @@ function gen(): void {
       </div>
     </div>
 
-    <!-- 三栏工作区：目录 / 编辑 / 参数（数据区实色，装饰只在背景） -->
+    <!-- 两栏工作区：目录 / 编辑（全局参数移入右侧抽屉，目录与表格各多得 312px） -->
     <div class="verify-content">
       <aside class="verify-sidebar">
         <TreeNav />
@@ -102,9 +109,6 @@ function gen(): void {
         <CasePanel />
         <div class="pad" />
       </section>
-      <aside class="verify-params">
-        <ParamsCard />
-      </aside>
     </div>
 
     <!-- 固定操作栏 -->
@@ -125,6 +129,23 @@ function gen(): void {
         <span v-if="errorCount > 0" class="err-dot" :title="errorCount + ' 条错误未处理'" />
       </v-btn>
     </div>
+
+    <!-- 全局参数抽屉：不占常驻列宽，随开随用；点“生成文档”缺必填时自动打开 -->
+    <v-navigation-drawer v-model="paramsOpen" temporary location="right" :width="392" class="params-drawer">
+      <div class="drawer-head">
+        <div class="drawer-title">
+          <b>全局参数</b>
+          <span>对所有用例生效，修改自动保存</span>
+        </div>
+        <v-btn icon size="small" variant="text" class="drawer-close" title="关闭" @click="paramsOpen = false">
+          <v-icon size="18">mdi-close</v-icon>
+        </v-btn>
+      </div>
+      <div class="drawer-body">
+        <!-- 关闭态不挂载 8 个输入框；打开时再建（Vuetify 抽屉默认常驻插槽） -->
+        <ParamsCard v-if="paramsOpen" headless narrow />
+      </div>
+    </v-navigation-drawer>
   </div>
 </template>
 
@@ -161,6 +182,20 @@ function gen(): void {
 .vtitle h2 { margin: 4px 0 0; font-family: var(--cn-font-display); font-size: 22px; line-height: 1.3; font-weight: 650; letter-spacing: -0.02em; color: var(--cn-fg); }
 .meta { margin: 3px 0 0; color: var(--cn-subtle); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .summary { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
+.params-btn { height: 30px !important; }
+/* 必填未填：红色荧光呼吸提示（用户要求），不改变按钮可点性 */
+.params-btn.pending {
+  color: var(--cn-danger) !important;
+  border-color: var(--cn-danger) !important;
+  background: var(--cn-danger-soft) !important;
+  box-shadow: 0 0 0 3px var(--cn-danger-glow), 0 0 16px var(--cn-danger-glow);
+  animation: params-glow 2.4s var(--cn-ease-standard) infinite;
+}
+@keyframes params-glow {
+  0%, 100% { box-shadow: 0 0 0 3px var(--cn-danger-glow), 0 0 12px var(--cn-danger-glow); }
+  50% { box-shadow: 0 0 0 4px var(--cn-danger-glow), 0 0 22px var(--cn-danger-glow); }
+}
+@media (prefers-reduced-motion: reduce) { .params-btn.pending { animation: none; } }
 .sus {
   display: inline-flex; align-items: center; gap: 4px;
   min-height: 26px; padding: 0 9px;
@@ -177,12 +212,15 @@ function gen(): void {
 .progress-track i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--cn-accent); transition: width var(--cn-dur-4) var(--cn-ease-standard); }
 .progress-track i.done { background: var(--cn-success); }
 
-/* ---- 三栏工作区 ---- */
+/* ---- 两栏工作区（参数改抽屉）：目录 400（宽屏 420），编辑区吃满剩余 ---- */
 .verify-content {
   flex: 1; min-height: 0; overflow: hidden;
   display: grid;
-  grid-template-columns: 288px minmax(0, 1fr) 312px;
-  grid-template-areas: "side editor params";
+  grid-template-columns: 400px minmax(0, 1fr);
+  grid-template-areas: "side editor";
+}
+@media (min-width: 1600px) {
+  .verify-content { grid-template-columns: 420px minmax(0, 1fr); }
 }
 .verify-sidebar {
   grid-area: side;
@@ -199,13 +237,25 @@ function gen(): void {
 /* 纵向 flex 里子项默认会被压缩（全局参数卡片被裁掉半截的根因），一律按自然高度排 */
 .main > * { flex: none; }
 .pad { height: 18px; }
-.verify-params {
-  grid-area: params;
-  min-height: 0; overflow-y: auto;
-  background: var(--cn-surface);
+
+/* ---- 全局参数抽屉 ---- */
+.params-drawer {
+  max-width: 92vw;
+  background: var(--cn-surface) !important;
   border-left: 1px solid var(--cn-border);
-  padding: 14px 16px 20px;
+  box-shadow: var(--cn-shadow-3) !important;
 }
+.params-drawer :deep(.v-navigation-drawer__content) { display: flex; flex-direction: column; }
+.drawer-head {
+  flex: none; display: flex; align-items: flex-start; gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--cn-border);
+}
+.drawer-title b { display: block; font-size: 15px; font-weight: 650; color: var(--cn-fg); }
+.drawer-title span { display: block; margin-top: 3px; font-size: 11.5px; color: var(--cn-subtle); }
+.drawer-close { margin-left: auto; color: var(--cn-muted); }
+.drawer-body { flex: 1; overflow-y: auto; padding: 14px 18px 28px; }
+
 
 /* ---- 底部操作栏 ---- */
 .actionbar {
@@ -237,14 +287,13 @@ function gen(): void {
   .progress-wrap { margin-left: 0; width: 100%; max-width: none; }
   .verify-content {
     grid-template-columns: 1fr;
-    grid-template-areas: "side" "editor" "params";
+    grid-template-areas: "side" "editor";
     overflow: visible;
     /* 吸底操作栏会盖住最后一段内容，留出同等高度 */
     padding-bottom: 72px;
   }
-  /* 窄屏：目录限高可滚，编辑区优先于参数区（核心工作在前） */
+  /* 窄屏：目录限高可滚，编辑区在后；参数从顶部按钮打开抽屉 */
   .verify-sidebar { height: auto; max-height: 340px; overflow-y: auto; border-right: 0; border-bottom: 1px solid var(--cn-border); }
-  .verify-params { border-left: 0; border-top: 1px solid var(--cn-border); overflow: visible; }
   .verify-editor { overflow: visible; padding-bottom: 16px; }
   .actionbar { position: sticky; bottom: 0; z-index: 10; }
   .save-hint { display: none; }

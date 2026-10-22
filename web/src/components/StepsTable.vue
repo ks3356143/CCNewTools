@@ -66,7 +66,9 @@ function renumber(): void {
 </script>
 
 <template>
-  <table class="steps">
+  <!-- 窄屏（两栏收成单列后）表格保底宽度，横向滚动而不是把“期望结果”挤成竖排 -->
+  <div class="steps-scroll">
+    <table class="steps">
     <colgroup><col class="c-no"><col class="c-act"><col><col class="c-ops"></colgroup>
     <thead>
       <tr><th class="c">序号</th><th>输入及操作</th><th>期望结果与评估标准</th><th class="c">操作</th></tr>
@@ -96,11 +98,13 @@ function renumber(): void {
       </tr>
     </tbody>
   </table>
+  </div>
   <div v-if="suspectCount > 0" class="sus-note">有 {{ suspectCount }} 步切分可疑，请逐条确认或修改</div>
 </template>
 
 <style scoped>
-.steps { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.steps-scroll { overflow-x: auto; }
+.steps { width: 100%; min-width: 720px; border-collapse: collapse; table-layout: fixed; }
 .steps th {
   height: 38px;
   text-align: left; font-size: 11.5px; font-weight: 650; white-space: nowrap;

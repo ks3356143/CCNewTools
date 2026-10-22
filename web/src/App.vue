@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useTheme } from 'vuetify'
-import { store, scheduleSettingsSave, showToast, openTool, goHome } from './store.ts'
+import { store, scheduleSettingsSave, showToast, openTool, goHome, restoreSession, saveSession } from './store.ts'
 import { loadSettings } from './api.ts'
 import Screen0 from './screens/Screen0.vue'
 import Screen1 from './screens/Screen1.vue'
@@ -37,7 +37,17 @@ onMounted(async () => {
   } catch {
     // 服务未就绪时忽略
   }
+  // 禁用浏览器恢复横向滚动位置（F5 后画面被横移的诱因之一）
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
+  // 刷新恢复（sessionStorage：同标签刷新保留，新标签回首页）
+  await restoreSession()
 })
+
+// 会话快照：视图 / 屏号 / 当前大纲 hash / 当前用例（项目存档本身不动）
+watch(
+  () => [store.view, store.screen, store.outline.hash, store.traceType, store.currentIdx] as const,
+  () => saveSession()
+)
 
 function toggleTheme(): void {
   store.theme = store.theme === 'dark' ? 'light' : 'dark'

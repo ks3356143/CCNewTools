@@ -36,6 +36,7 @@
   --cn-warning-soft: #fff5df;
   --cn-danger: #d55463;
   --cn-danger-soft: #fff0f2;
+  --cn-danger-glow: rgba(213, 84, 99, 0.34);
 
   --cn-shadow-1: 0 4px 12px rgba(31, 72, 118, 0.07), 0 1px 2px rgba(31, 72, 118, 0.04);
   --cn-shadow-2: 0 12px 32px rgba(31, 72, 118, 0.1), 0 2px 6px rgba(31, 72, 118, 0.05);
@@ -91,12 +92,16 @@
   --cn-warning-soft: #2e2a1d;
   --cn-danger: #f07886;
   --cn-danger-soft: #33232a;
+  --cn-danger-glow: rgba(240, 120, 134, 0.36);
   --cn-shadow-1: 0 4px 12px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.14);
   --cn-shadow-2: 0 12px 32px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.15);
   --cn-shadow-3: 0 24px 60px rgba(0, 0, 0, 0.34), 0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
 /* ---- 基础排版 ---- */
+/* 装饰光晕/长文本不允许把整页顶出横向滚动（用户反馈 F5 后画面像被横移） */
+html,
+body { overflow-x: hidden; overflow-x: clip; } /* clip 不建立滚动容器，避免破坏窄屏吸底栏 */
 .v-application {
   font-family: var(--cn-font-body);
   color: var(--cn-fg);
@@ -141,6 +146,19 @@ textarea:focus-visible,
 }
 
 /* 面板（卡片）基础：实色表面 + 稳定边框 + 轻阴影（装饰不进数据区） */
+/* 空态容器（虚线框 + 居中 + 图标/标题/说明），各屏只留内容与尺寸差异 */
+.u-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; text-align: center;
+  border: 1px dashed var(--cn-border-strong);
+  border-radius: var(--cn-r-2);
+  background: var(--cn-surface-soft);
+  color: var(--cn-subtle);
+}
+.u-empty > .v-icon { color: var(--cn-accent); opacity: 0.55; }
+.u-empty > b { font-size: 13px; font-weight: 600; color: var(--cn-fg-soft); }
+.u-empty > span { font-size: 12px; line-height: 1.7; color: var(--cn-subtle); }
+
 .u-panel {
   background: var(--cn-surface);
   border: 1px solid var(--cn-border);

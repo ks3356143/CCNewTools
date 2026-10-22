@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { store, scheduleSettingsSave } from '../store.ts'
 
+defineProps<{ headless?: boolean; narrow?: boolean }>()
 const open = ref(true)
 
 function onInput(): void {
@@ -16,14 +17,14 @@ function reqEmpty(v: string | undefined): boolean {
 
 <template>
   <div class="pcard">
-    <div class="param-head" @click="open = !open">
+    <div v-if="!headless" class="param-head" @click="open = !open">
       <h3>全局参数</h3>
       <span class="param-count u-mono">ALL CASES</span>
       <v-icon class="chev" :class="{ closed: !open }" size="16">mdi-chevron-down</v-icon>
     </div>
     <div class="body-wrap" :class="{ closed: !open }">
       <div class="body-clip">
-        <div class="body">
+        <div class="body" :class="{ narrow }">
           <div class="param-field">
             <div class="param-label">软件配置项名称</div>
             <v-text-field
@@ -84,6 +85,8 @@ function reqEmpty(v: string | undefined): boolean {
 .body-clip { overflow: hidden; min-height: 0; }
 .body { visibility: visible; transition: visibility var(--cn-dur-3); }
 .body-wrap.closed .body { visibility: hidden; }
+/* 抽屉等窄容器：始终单列（不跟随视口断点） */
+.body.narrow { display: block; }
 
 .param-field { margin-bottom: 11px; }
 .param-label {

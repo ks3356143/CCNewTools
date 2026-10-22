@@ -263,6 +263,16 @@ function jumpTo(issue: Issue): void {
             <div class="p-foot">项目存档保存在本机 数据/ 目录，换机时与 exe 一并拷贝。</div>
           </div>
 
+          <!-- 无项目时的空态：给出有边框的区域，而不是留一片空白 -->
+          <div v-else-if="phase === 'idle'" class="panel recent">
+            <div class="u-panel-head"><strong>最近项目</strong></div>
+            <div class="recent-empty u-empty">
+              <v-icon size="26">mdi-folder-open-outline</v-icon>
+              <b>暂无最近项目</b>
+              <span>导入大纲并解析后，项目会自动保存在这里，下次可直接打开。</span>
+            </div>
+          </div>
+
           <div v-else-if="phase === 'done'" class="panel guide">
             <div class="u-panel-head"><strong>下一步</strong></div>
             <div class="guide-body">
@@ -401,6 +411,10 @@ function jumpTo(issue: Issue): void {
 .p-acts { display: flex; align-items: center; gap: 2px; flex: none; }
 .p-del { min-width: 74px; }
 .p-foot { padding: 11px 14px; border-top: 1px solid var(--cn-border); color: var(--cn-subtle); font-size: 11px; line-height: 1.6; }
+
+/* 无项目空态：虚线框占位，避免侧栏只剩一块空白 */
+.recent-empty { margin: 14px; padding: 26px 18px; }
+.recent-empty > span { max-width: 250px; }
 
 /* ---- 下一步指引 ---- */
 .guide-body { display: grid; gap: 10px; padding: 14px; }

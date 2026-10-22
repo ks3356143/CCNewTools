@@ -37,7 +37,7 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
       :class="{ 'is-item': depth >= 2 }"
       @click="toggle"
     >
-      <v-icon size="15" class="chev" :class="{ closed: !open }">mdi-chevron-down</v-icon>
+      <v-icon size="14" class="chev" :class="{ closed: !open }">mdi-chevron-down</v-icon>
       <span class="name">{{ node.name }}</span>
       <span class="cnt u-mono">{{ node.caseCount }}</span>
     </button>
@@ -77,18 +77,18 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
    避免"行 padding × depth + 嵌套 margin"双重叠加（2026-10-09 内网实测"缩进太大"） */
 .lvl { min-width: 0; }
 .row {
-  width: 100%; min-height: 34px;
-  display: flex; align-items: center; gap: 6px;
-  padding: 3px 8px; border-radius: var(--cn-r-1);
+  width: 100%; min-height: 28px;
+  display: flex; align-items: center; gap: 5px;
+  padding: 2px 8px; border-radius: var(--cn-r-1);
   text-align: left; cursor: pointer;
   transition: background var(--cn-dur-1) var(--cn-ease-out), color var(--cn-dur-1) var(--cn-ease-out);
 }
 .row:hover { background: var(--cn-surface-soft); }
-.level-row { font-size: 13px; font-weight: 600; color: var(--cn-fg-soft); }
-.level-row.is-item { font-weight: 500; color: var(--cn-muted); font-size: 12.5px; }
+.level-row { font-size: 12.5px; font-weight: 600; color: var(--cn-fg-soft); }
+.level-row.is-item { font-weight: 500; color: var(--cn-muted); font-size: 12px; }
 /* 子级展开：淡入 + 上移 3px（200ms）；收起仍为 v-if 即时移除（大文档不保留 DOM 的既定取舍） */
 .indent {
-  margin-left: 16px;
+  margin-left: 14px;
   border-left: 1px solid var(--cn-border);
   animation: tree-open 200ms var(--cn-ease-out);
 }
@@ -96,7 +96,7 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
   from { opacity: 0; transform: translateY(-3px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.case-row { padding-left: 9px; margin-right: 4px; font-size: 12.5px; color: var(--cn-muted); }
+.case-row { padding-left: 9px; margin-right: 4px; font-size: 12px; color: var(--cn-muted); }
 .case-row:hover { color: var(--cn-fg); }
 /* 选中态：浅蓝底 + 左侧 3px 主色标记（v5 评审 006），一眼可见但不压过正文 */
 .case-row.cur {

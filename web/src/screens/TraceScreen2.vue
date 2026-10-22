@@ -160,7 +160,7 @@ async function download(): Promise<void> {
             </tr>
           </tbody>
         </table>
-        <div v-if="rows.length === 0" class="pv-empty">暂无可显示的追踪表行</div>
+        <div v-if="rows.length === 0" class="pv-empty u-empty">暂无可显示的追踪表行</div>
       </div>
     </div>
 
@@ -260,7 +260,7 @@ async function download(): Promise<void> {
 .v-theme--dark .pv-scroll tbody tr:hover td { background: #12273c; }
 .pv-scroll td { color: var(--cn-fg-soft); }
 .pv-scroll td.num { font-family: var(--cn-font-mono); color: var(--cn-subtle); }
-.pv-empty { padding: 22px; text-align: center; color: var(--cn-subtle); font-size: 12px; }
+.pv-empty { margin: 16px; padding: 28px 20px; font-size: 12px; }
 .res-input {
   width: 100%; padding: 4px 6px;
   border: 1px solid transparent; border-radius: var(--cn-r-1);

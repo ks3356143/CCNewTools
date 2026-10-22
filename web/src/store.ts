@@ -97,6 +97,67 @@ export function showToast(text: string): void {
   toastTimer = setTimeout(() => (store.toast.show = false), 2600)
 }
 
+// —— 刷新恢复（2026-10-22 用户反馈：核对屏 F5 后回到首页，项目与核对进度全丢）——
+// sessionStorage 天然是"同标签刷新保留、新标签为空"，无需嗅探 navigation type；
+// 数据仍以项目存档为准，不额外复制。显式深链（?view=…）保持测试语义，不抢屏。
+const SESSION_KEY = 'ccn:last-session'
+interface LastSession {
+  view: 'home' | 'convert' | 'trace'
+  screen: 1 | 2 | 3
+  hash: string
+  traceType: TraceType
+  currentIdx: number
+}
+
+export function saveSession(): void {
+  if (typeof window === 'undefined') return
+  try {
+    const data: LastSession = {
+      view: store.view,
+      screen: store.screen,
+      hash: store.outline.hash,
+      traceType: store.traceType,
+      currentIdx: store.currentIdx
+    }
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(data))
+  } catch { /* 隐私模式 / 存储禁用：静默 */ }
+}
+
+/** 刷新后恢复上次会话（新标签没有 sessionStorage，自然回首页） */
+export async function restoreSession(): Promise<void> {
+  if (typeof window === 'undefined') return
+  if (new URLSearchParams(window.location.search).has('view')) return
+  let saved: LastSession | null = null
+  try { saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? 'null') } catch { saved = null }
+  if (!saved || saved.view === 'home') return
+  if (saved.view === 'trace') {
+    store.view = 'trace'
+    store.traceType = TRACE_TABS.some(t => t.key === saved!.traceType) ? saved.traceType : 'spec'
+    // 追踪表规格只在内存里，刷新后回选择页，不假装还能预览
+    store.traceScreen = 1
+    return
+  }
+  store.view = 'convert'
+  if (saved.screen === 1 || !saved.hash) {
+    store.screen = 1
+    return
+  }
+  // 项目 id = hash 前 12 位（src/server/projects.ts projectId），省一次项目列表 I/O
+  const ok = await openProjectById(saved.hash.slice(0, 12), { silent: true })
+  if (ok) {
+    if (Number.isFinite(Number(saved.currentIdx))) goCase(Number(saved.currentIdx))
+    store.screen = 2 // 完成屏不还原（生成结果只在内存）
+  } else {
+    store.screen = 1
+  }
+}
+
+/** 生成前的必填闸门：顶部按钮态 / gen() / doGenerate() 共用同一规则与文案 */
+export const REQUIRED_PARAMS_HINT = '请先填写测试人员与监测人员'
+export function requiredParamsMissing(): boolean {
+  return !store.params.tester?.trim() || !store.params.monitor?.trim()
+}
+
 export async function doParse(file: File): Promise<void> {
   store.parsing = true
   try {
@@ -258,7 +319,7 @@ export async function doTraceGenerate(): Promise<boolean> {
 }
 
 /** 打开已有项目：服务端读源副本重新解析并恢复编辑；失败 toast 统一在此处理，调用方勿重复弹 */
-export async function openProjectById(id: string): Promise<boolean> {
+export async function openProjectById(id: string, opts: { silent?: boolean } = {}): Promise<boolean> {
   store.parsing = true
   try {
     const res = await openProject(id)
@@ -268,7 +329,7 @@ export async function openProjectById(id: string): Promise<boolean> {
     }
     applyParseResult(res)
     store.screen = 2
-    showToast('已打开项目')
+    if (!opts.silent) showToast('已打开项目')
     return true
   } catch (e) {
     showToast(e instanceof Error ? e.message : '无法连接本地服务')
@@ -343,8 +404,8 @@ function syncPost(path: string, body: unknown): void {
 export interface GenLogLine { text: string; done: boolean; warn?: boolean }
 
 export async function doGenerate(onLog: (lines: GenLogLine[], pct: number) => void): Promise<boolean> {
-  if (!store.params.tester.trim() || !store.params.monitor.trim()) {
-    showToast('请先填写测试人员与监测人员')
+  if (requiredParamsMissing()) {
+    showToast(REQUIRED_PARAMS_HINT)
     store.screen = 2
     return false
   }
