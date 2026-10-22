@@ -286,7 +286,7 @@ function jumpTo(issue: Issue): void {
 .page-head {
   display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
   margin-bottom: 22px;
-  animation: rise var(--cn-dur-4) var(--cn-ease-out) both;
+  animation: rise var(--cn-dur-5) var(--cn-ease-out) both;
 }
 .kicker {
   display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px;
@@ -313,8 +313,8 @@ function jumpTo(issue: Issue): void {
   display: grid; grid-template-columns: minmax(0, 1.38fr) minmax(280px, 0.62fr); gap: 16px;
   align-items: start;
 }
-.upload-main { display: grid; gap: 14px; animation: rise var(--cn-dur-4) var(--cn-ease-out) both; animation-delay: 60ms; }
-.upload-aside { animation: rise var(--cn-dur-4) var(--cn-ease-out) both; animation-delay: 120ms; }
+.upload-main { display: grid; gap: 14px; animation: rise var(--cn-dur-5) var(--cn-ease-out) both; animation-delay: 60ms; }
+.upload-aside { animation: rise var(--cn-dur-5) var(--cn-ease-out) both; animation-delay: 120ms; }
 @media (max-width: 1000px) { .upload-layout { grid-template-columns: 1fr; } }
 
 /* ---- 拖放区（重置稿：虚线工程蓝 + 纸面） ---- */
@@ -413,7 +413,7 @@ function jumpTo(issue: Issue): void {
 .foot { margin-top: 16px; text-align: center; color: var(--cn-subtle); font-family: var(--cn-font-mono); font-size: 10px; letter-spacing: 0.03em; }
 
 @keyframes rise {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {

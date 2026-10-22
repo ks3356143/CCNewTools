@@ -253,7 +253,7 @@ const recKB = computed(() => (store.genResult?.rec ? base64KB(store.genResult.re
 .cta { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
 
 @keyframes rise {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {

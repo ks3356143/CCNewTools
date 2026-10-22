@@ -167,13 +167,13 @@
 
 /* ---- Vuetify 全局组件覆盖（只调视觉，不改行为） ---- */
 
-/* 按钮：36px、2px 直角、工程蓝实底 */
+/* 按钮：36px、2px 直角、工程蓝实底；按压 120ms（重置稿动效规范） */
 .v-btn {
   border-radius: 2px !important;
   font-weight: 650;
   letter-spacing: 0.02em;
   text-transform: none;
-  transition: transform var(--cn-dur-2) var(--cn-ease-out), opacity var(--cn-dur-2) var(--cn-ease-out),
+  transition: transform var(--cn-dur-1) var(--cn-ease-spring), opacity var(--cn-dur-2) var(--cn-ease-out),
     background-color var(--cn-dur-2) var(--cn-ease-out);
 }
 .v-btn:not(.v-btn--icon):not(.v-btn--size-x-small) {

@@ -161,7 +161,7 @@ function trackGlow(e: MouseEvent): void {
   border: 1px solid var(--cn-border-strong);
   border-radius: 2px;
   display: flex; flex-direction: column;
-  transition: transform var(--cn-dur-3) var(--cn-ease-out), border-color var(--cn-dur-3) var(--cn-ease-out), background var(--cn-dur-3) var(--cn-ease-out);
+  transition: transform var(--cn-dur-4) var(--cn-ease-out), border-color var(--cn-dur-3) var(--cn-ease-out), background var(--cn-dur-3) var(--cn-ease-out);
   animation: rise var(--cn-dur-5) var(--cn-ease-out) both;
   animation-delay: calc(150ms + var(--i) * 90ms);
 }
@@ -234,7 +234,7 @@ function trackGlow(e: MouseEvent): void {
 }
 
 @keyframes rise {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 

@@ -326,7 +326,7 @@ function issueCounts(): string {
 .wrap { position: relative; width: 100%; max-width: 1080px; margin: 0 auto; padding: 24px 28px 30px; }
 
 /* ---- 页头（v2：标题左对齐，功能入口优先） ---- */
-.hero { text-align: left; margin-bottom: 14px; animation: rise var(--cn-dur-4) var(--cn-ease-out) both; }
+.hero { text-align: left; margin-bottom: 14px; animation: rise var(--cn-dur-5) var(--cn-ease-out) both; }
 .badge { display: none; }
 .hero h1 { margin: 0; font-family: var(--cn-font-display); font-size: 24px; font-weight: 650; letter-spacing: -0.025em; color: var(--cn-fg); }
 .hero p { margin: 7px 0 0; color: var(--cn-muted); font-size: 12px; line-height: 1.7; }
@@ -445,7 +445,7 @@ function issueCounts(): string {
 .tabbody-leave-to { opacity: 0; transform: translateY(-4px); }
 
 @keyframes rise {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {
