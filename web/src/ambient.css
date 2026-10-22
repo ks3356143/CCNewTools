@@ -1,89 +1,82 @@
-/* 氛围层共享样式（2026-10-12 首页"蓝调鎏光"语言推广到工具屏）：
-   全幅环境层（光晕 + 点阵）+ 玻璃卡片工具类 + 全局关键帧。
-   Screen0 首页保持已验收的私有实现不动（视觉等价，此处仅供建立较晚的工具屏复用）。
-   兼容性纪律：径向渐变自带柔边不用 blur 滤镜；动画只走 transform；老 Chromium（Edge 100）安全 */
+/* 氛围层共享样式 v2（2026-10-22 视觉系统 v2 落地）：
+   环境 = 冷蓝底色 + 两枚大范围柔光（径向渐变自带柔边，不用 blur 滤镜）+ 细点阵；
+   装饰只留在背景与边缘，数据区一律实色面板（见 design.css .u-panel）。
+   兼容性：动画只走 transform；backdrop-filter 带 -webkit- 前缀；老 Chromium（Edge 100）安全。 */
 .amb-wrap {
-  --b1a: 0.1; --b2a: 0.085; --b3a: 0.07; /* 光晕浓度（比首页略收敛，工具屏是工作区） */
+  --b1a: 0.15;
+  --b2a: 0.1;
   position: relative;
   min-height: calc(100vh - 64px);
   overflow: hidden;
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--cn-bg);
+  background-image:
+    radial-gradient(circle at 12% -8%, rgba(70, 151, 226, var(--b1a)), transparent 38%),
+    radial-gradient(circle at 96% 18%, rgba(55, 126, 192, var(--b2a)), transparent 32%),
+    radial-gradient(rgba(45, 100, 151, 0.13) 0.6px, transparent 0.8px);
+  background-size: auto, auto, 18px 18px, auto;
 }
-.v-theme--dark .amb-wrap { --b1a: 0.2; --b2a: 0.16; --b3a: 0.13; }
+.v-theme--dark .amb-wrap {
+  --b1a: 0.22;
+  --b2a: 0.16;
+  background-image:
+    radial-gradient(circle at 8% -8%, rgba(28, 100, 167, var(--b1a)), transparent 38%),
+    radial-gradient(circle at 96% 18%, rgba(25, 83, 128, var(--b2a)), transparent 32%),
+    radial-gradient(rgba(104, 157, 204, 0.11) 0.6px, transparent 0.8px);
+}
 
-.amb { position: absolute; inset: 0; pointer-events: none; }
+.amb { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .amb-b1,
 .amb-b2,
 .amb-b3 { position: absolute; border-radius: 50%; }
 .amb-b1 {
-  width: 680px; height: 680px; left: -200px; top: -260px;
-  background: radial-gradient(circle closest-side, rgba(var(--v-theme-primary), var(--b1a)), rgba(var(--v-theme-primary), 0) 72%);
-  animation: ambDrift1 26s ease-in-out infinite alternate;
+  width: 76vw; height: 76vw; left: -18vw; top: -34vw;
+  background: radial-gradient(circle, rgba(75, 155, 230, 0.16) 0, rgba(75, 155, 230, 0.04) 46%, transparent 72%);
+  animation: ambDrift1 26s var(--cn-ease-standard) infinite alternate;
 }
 .amb-b2 {
-  width: 560px; height: 560px; right: -180px; top: 4%;
-  background: radial-gradient(circle closest-side, rgba(79, 144, 201, var(--b2a)), rgba(79, 144, 201, 0) 72%);
-  animation: ambDrift2 32s ease-in-out infinite alternate;
+  width: 70vw; height: 70vw; right: -24vw; bottom: -40vw;
+  background: radial-gradient(circle, rgba(39, 114, 185, 0.12) 0, rgba(39, 114, 185, 0.03) 48%, transparent 74%);
+  animation: ambDrift2 32s var(--cn-ease-standard) infinite alternate;
 }
-.amb-b3 {
-  width: 940px; height: 430px; left: calc(50% - 470px); bottom: -250px;
-  background: radial-gradient(circle closest-side, rgba(var(--v-theme-primary), var(--b3a)), rgba(var(--v-theme-primary), 0) 74%);
-  animation: ambDrift3 38s ease-in-out infinite alternate;
-}
-@keyframes ambDrift1 { to { transform: translate(70px, 46px) scale(1.07); } }
-@keyframes ambDrift2 { to { transform: translate(-60px, -42px) scale(1.1); } }
-@keyframes ambDrift3 { to { transform: translate(46px, -26px) scale(1.04); } }
+.amb-b3 { display: none; }
+.v-theme--dark .amb-b1 { background: radial-gradient(circle, rgba(30, 110, 180, 0.2) 0, rgba(30, 110, 180, 0.05) 46%, transparent 72%); }
+.v-theme--dark .amb-b2 { background: radial-gradient(circle, rgba(22, 80, 130, 0.18) 0, rgba(22, 80, 130, 0.04) 48%, transparent 74%); }
+@keyframes ambDrift1 { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(7vw, 5vw, 0) scale(1.08); } }
+@keyframes ambDrift2 { from { transform: translate3d(0, 0, 0) scale(1.04); } to { transform: translate3d(-6vw, -4vw, 0) scale(0.96); } }
 
-/* 点阵网格：径向 mask 向边缘淡出（前缀 + 标准属性名不同，不属压缩器合并对象） */
-.amb-dots {
-  position: absolute; inset: 0;
-  background-image: radial-gradient(rgba(var(--v-theme-on-surface), 0.12) 1px, transparent 1.4px);
-  background-size: 26px 26px;
-  -webkit-mask-image: radial-gradient(ellipse 72% 58% at 50% 36%, #000 26%, transparent 74%);
-  mask-image: radial-gradient(ellipse 72% 58% at 50% 36%, #000 26%, transparent 74%);
-  opacity: 0.45;
-}
+/* 点阵网格（旧类保留：内容区已由 .amb-wrap 背景统一，不再单独铺一层） */
+.amb-dots { display: none; }
 
-/* 玻璃卡片：蓝调渐变表面 + 顶缘内高光 + 分层柔影（深色主题换弱白高光、深影） */
+/* 玻璃/面板工具类：v2 改为实色面板（数据承载区不再用半透明玻璃） */
 .glass {
-  border: 1px solid rgba(var(--v-theme-outline), 0.45);
-  background:
-    linear-gradient(165deg, rgba(var(--v-theme-primary), 0.028), rgba(var(--v-theme-primary), 0) 40%),
-    rgb(var(--v-theme-surface));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 1px 2px rgba(16, 24, 40, 0.06),
-    0 10px 28px -14px rgba(45, 91, 145, 0.3);
-}
-.v-theme--dark .glass {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 1px 2px rgba(0, 0, 0, 0.3),
-    0 10px 28px -14px rgba(45, 91, 145, 0.5);
+  background: var(--cn-surface);
+  border: 1px solid var(--cn-border);
+  border-radius: var(--cn-r-3);
+  box-shadow: var(--cn-shadow-1);
 }
 
-/* 渐变墨水标题（与首页同款，@supports 兜底防透明字隐形） */
-.amb-title { color: rgb(var(--v-theme-primary)); }
+/* 渐变墨水标题（浅色深蓝→青，深色亮蓝→青；@supports 兜底防透明字隐形） */
+.amb-title { color: var(--cn-accent-strong); }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .amb-title {
-    background-image: linear-gradient(105deg, #24507f 0%, #2d5b91 34%, #4c86c6 68%, #6fa3d8 100%);
-    background-size: 200% 100%;
-    -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(118deg, #0b1e39 8%, #164e87 58%, #137b9d 98%);
+    -webkit-background-clip: text;
+    background-clip: text;
     color: transparent;
-    animation: ambInk 7s ease-in-out infinite alternate;
   }
   .v-theme--dark .amb-title {
-    background-image: linear-gradient(105deg, #8fb4e3 0%, #b7d0f0 48%, #7fa8dc 100%);
+    background-image: linear-gradient(118deg, #f2f8ff 8%, #96cfff 60%, #57d6da 100%);
   }
 }
-@keyframes ambInk { to { background-position: 100% 0; } }
 
-/* 进场编排（scoped 样式可直接引用全局关键帧名） */
+/* 进场编排 */
 @keyframes ambRise {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .amb-b1, .amb-b2, .amb-b3, .amb-title { animation: none; }
+  .amb-b1, .amb-b2, .amb-title { animation: none; }
 }

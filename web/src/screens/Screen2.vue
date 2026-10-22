@@ -57,143 +57,192 @@ function gen(): void {
 
 <template>
   <div class="screen">
-  <div class="s2">
-    <aside class="left">
-      <TreeNav />
-    </aside>
-    <section class="main">
-      <ParamsCard />
-      <CasePanel />
-      <div class="pad" />
-    </section>
+    <!-- 状态带：标题 + 计数 + 进度（v2 设计稿：进度上移到头部，底部只留操作） -->
+    <div class="verify-head">
+      <div class="vtitle">
+        <div class="kicker">STEP 02 · 核对与编辑</div>
+        <h2>核对测试用例</h2>
+        <p class="meta">{{ store.outline.name || '未命名大纲' }} · 修改自动保存 · 共 {{ store.cases.length }} 条用例</p>
+      </div>
+      <div class="summary">
+        <button type="button" class="sus" :class="{ zero: suspectTotal === 0 }" :title="suspectTotal > 0 ? '还有 ' + suspectTotal + ' 处切分可疑待确认，点击逐条跳转' : '切分可疑已全部处理'" @click="jumpSuspect">
+          <v-icon size="12">mdi-alert-circle-outline</v-icon>
+          可疑 {{ suspectTotal }}
+        </button>
+        <v-menu v-if="warnCount > 0" location="bottom start" origin="top start" :close-on-content-click="false">
+          <template #activator="{ props: menuProps }">
+            <button type="button" class="sus warn" v-bind="menuProps" :title="warnCount + ' 条解析告警（标题悬空、标识不一致等），点击查看'">
+              <v-icon size="12">mdi-alert-outline</v-icon>
+              告警 {{ warnCount }}
+            </button>
+          </template>
+          <v-card rounded="8" elevation="8" class="isslist">
+            <div v-for="(w, i) in warningList" :key="i" class="iss-row">
+              <span class="iss-tag">{{ w.context ? '【' + w.context + '】' : '' }}</span>
+              <span>{{ w.message }}</span>
+            </div>
+          </v-card>
+        </v-menu>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-labels">
+          <span>核对进度</span>
+          <span class="u-mono">{{ reviewedCount }} / {{ store.cases.length }}</span>
+        </div>
+        <div class="progress-track"><i :class="{ done: store.cases.length > 0 && reviewedCount === store.cases.length }" :style="{ width: (store.cases.length ? (reviewedCount / store.cases.length) * 100 : 0) + '%' }" /></div>
+      </div>
     </div>
 
+    <!-- 三栏工作区：目录 / 编辑 / 参数（数据区实色，装饰只在背景） -->
+    <div class="verify-content">
+      <aside class="verify-sidebar">
+        <TreeNav />
+      </aside>
+      <section class="main verify-editor">
+        <CasePanel />
+        <div class="pad" />
+      </section>
+      <aside class="verify-params">
+        <ParamsCard />
+      </aside>
+    </div>
+
+    <!-- 固定操作栏 -->
     <div class="actionbar">
-      <div class="prog">
-        <div class="txt">
-          <span>核对进度</span>
-          <b>{{ reviewedCount }} / {{ store.cases.length }}</b>
-          <button type="button" class="sus" :class="{ zero: suspectTotal === 0 }" :title="suspectTotal > 0 ? '还有 ' + suspectTotal + ' 处切分可疑待确认，点击逐条跳转' : '切分可疑已全部处理'" @click="jumpSuspect">
-            <v-icon size="12">mdi-alert-circle-outline</v-icon>
-            可疑 {{ suspectTotal }}
-          </button>
-          <v-menu v-if="warnCount > 0" location="top start" origin="bottom start" :close-on-content-click="false">
-            <template #activator="{ props: menuProps }">
-              <button type="button" class="sus warn" v-bind="menuProps" :title="warnCount + ' 条解析告警（标题悬空、标识不一致等），点击查看'">
-                <v-icon size="12">mdi-alert-outline</v-icon>
-                告警 {{ warnCount }}
-              </button>
-            </template>
-            <v-card rounded="10" elevation="8" class="isslist">
-              <div v-for="(w, i) in warningList" :key="i" class="iss-row">
-                <span class="iss-tag">{{ w.context ? '【' + w.context + '】' : '' }}</span>
-                <span>{{ w.message }}</span>
-              </div>
-            </v-card>
-          </v-menu>
-        </div>
-        <div class="bar"><i :class="{ done: store.cases.length > 0 && reviewedCount === store.cases.length }" :style="{ width: (store.cases.length ? (reviewedCount / store.cases.length) * 100 : 0) + '%' }" /></div>
-      </div>
-      <v-btn size="small" rounded="pill" variant="tonal" :disabled="store.currentIdx === 0" @click="prev">
-        <v-icon size="15" class="mr-1">mdi-arrow-left</v-icon>上一条
+      <v-btn size="small" variant="tonal" :disabled="store.currentIdx === 0" @click="prev">
+        <v-icon size="14" class="mr-1">mdi-arrow-left</v-icon>上一条
       </v-btn>
-      <v-btn size="small" rounded="pill" variant="tonal" :disabled="store.currentIdx >= store.cases.length - 1" @click="next">
-        下一条<v-icon size="15" class="ml-1">mdi-arrow-right</v-icon>
+      <v-btn size="small" variant="tonal" :disabled="store.currentIdx >= store.cases.length - 1" @click="next">
+        下一条<v-icon size="14" class="ml-1">mdi-arrow-right</v-icon>
       </v-btn>
-      <v-btn size="small" rounded="pill" variant="tonal" @click="markAllReviewed">
-        <v-icon size="15" class="mr-1">mdi-check-all</v-icon>全部已核对
+      <v-btn size="small" variant="tonal" @click="markAllReviewed">
+        <v-icon size="14" class="mr-1">mdi-check-all</v-icon>全部已核对
       </v-btn>
       <div class="grow" />
-      <v-btn rounded="pill" color="primary" elevation="1" @click="gen">
+      <span class="save-hint">修改自动保存</span>
+      <v-btn color="primary" @click="gen">
         <v-icon size="16" class="mr-1">mdi-file-word-box</v-icon>生成文档
         <span v-if="errorCount > 0" class="err-dot" :title="errorCount + ' 条错误未处理'" />
       </v-btn>
     </div>
   </div>
 </template>
+
 <style scoped>
-/* 应用壳布局（2026-10-01 用户反馈）：页面整体不滚，右列独立滚动，左树固定不动；
-   操作栏随排版落在最底（不再悬浮盖内容），不留大块空窗 */
+/* 应用壳布局：页面整体不滚，右列独立滚动，左树固定不动（2026-10-01 用户反馈），
+   v2 改为「头部状态带 + 三栏工作区 + 底部操作栏」。
+   height 必须单 100vh 声明：CSS 压缩器会把"先 vh 后 dvh"双声明合并成只留 dvh
+   （2026-10-10 Edge 100 实测）——Chromium <108 不认 dvh，整条声明被丢 → 失高 */
 .screen {
   display: flex; flex-direction: column;
-  /* 必须单 100vh 声明：CSS 压缩器会把"先 vh 后 dvh"的双声明回退合并成只留 dvh（2026-10-10
-     Edge 100 实测 bug）——Chromium <108 不认 dvh，整条声明被丢 → .screen 失高 → 整页滚动。
-     内网桌面浏览器无动态视口（dvh 是给移动端地址栏伸缩的），100vh 足够 */
-  height: calc(100vh - 64px); /* 64 = v-app-bar 默认高度 */
+  height: calc(100vh - 64px);
+  background-color: var(--cn-bg);
+  background-image:
+    radial-gradient(circle at 12% -8%, rgba(70, 151, 226, 0.12), transparent 38%),
+    radial-gradient(circle at 96% 18%, rgba(55, 126, 192, 0.07), transparent 32%);
 }
-.s2 {
+
+/* ---- 头部状态带 ---- */
+.verify-head {
+  flex: none;
+  display: flex; align-items: center; gap: 22px;
+  padding: 14px 20px 13px;
+  background: var(--cn-surface);
+  border-bottom: 1px solid var(--cn-border);
+}
+.vtitle { min-width: 0; }
+.kicker {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: var(--cn-accent); font-family: var(--cn-font-mono);
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.kicker::before { content: ""; width: 18px; height: 1px; background: var(--cn-accent-line); }
+.vtitle h2 { margin: 4px 0 0; font-family: var(--cn-font-display); font-size: 17px; font-weight: 650; letter-spacing: -0.02em; color: var(--cn-fg); }
+.meta { margin: 3px 0 0; color: var(--cn-subtle); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.summary { display: flex; align-items: center; gap: 8px; flex: none; }
+.sus {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 24px; padding: 1px 10px;
+  border: 1px solid transparent; border-radius: var(--cn-r-1);
+  font: inherit; font-size: 11.5px; cursor: pointer;
+  color: var(--cn-danger); background: var(--cn-danger-soft);
+}
+.sus.zero { color: var(--cn-success); background: var(--cn-success-soft); cursor: default; }
+.sus.warn { color: var(--cn-warning); background: var(--cn-warning-soft); }
+.progress-wrap { margin-left: auto; width: 300px; max-width: 34vw; flex: none; }
+.progress-labels { display: flex; justify-content: space-between; margin-bottom: 5px; color: var(--cn-muted); font-size: 10.5px; }
+.progress-labels .u-mono { color: var(--cn-accent); }
+.progress-track { height: 4px; border-radius: 2px; background: var(--cn-border); overflow: hidden; }
+.progress-track i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--cn-accent); transition: width var(--cn-dur-4) var(--cn-ease-standard); }
+.progress-track i.done { background: var(--cn-success); }
+
+/* ---- 三栏工作区 ---- */
+.verify-content {
   flex: 1; min-height: 0; overflow: hidden;
-  display: flex; gap: 18px; width: 100%;
-  margin: 0 auto; padding: 18px 20px 12px;
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr) 292px;
+  grid-template-areas: "side editor params";
 }
-.left {
-  position: relative;
-  width: 500px; flex: none;
-  display: flex; flex-direction: column; min-height: 0;
-  background:
-    linear-gradient(165deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0) 40%),
-    rgb(var(--v-theme-surface));
-  /* 2px 声明：DPR 1.3125 下 1/1.5px 都被向下取整成 1 物理像素（实测），2px 才是 2 物理像素 */
-  border: 2px solid rgba(var(--v-theme-outline), 0.5);
-  border-radius: 8px; overflow: hidden; /* 微圆角（2026-10-12 用户"圆角太大，微圆角好看点"） */
-  transition: border-color 0.2s, box-shadow 0.2s;
-  /* 玻璃卡片质感：顶缘内高光 + 分层柔影（环境 1px + 蓝调主影） */
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 1px 2px rgba(16, 24, 40, 0.06),
-    0 10px 28px -14px rgba(45, 91, 145, 0.3);
+.verify-sidebar {
+  grid-area: side;
+  min-height: 0; display: flex; flex-direction: column;
+  background: var(--cn-surface);
+  border-right: 1px solid var(--cn-border);
 }
-/* 跟随光标聚光已移除（用户"挡视野"）：hover 只作用边框 + 阴影微升 */
-.left:hover {
-  border-color: rgba(var(--v-theme-primary), 0.55);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 1px 2px rgba(16, 24, 40, 0.06),
-    0 10px 30px -13px rgba(45, 91, 145, 0.42);
+.verify-editor {
+  grid-area: editor;
+  min-width: 0; min-height: 0;
+  overflow-y: auto;
+  padding: 16px 18px 0;
 }
-.v-theme--dark .left { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(45, 91, 145, 0.5); }
-/* （2026-10-12）顶部玻璃高光条已删：本机 DPR 下渲染成突兀实线，用户指认"这蓝色的是什么" */
-.main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-bottom: 8px; padding-right: 12px; }
 /* 纵向 flex 里子项默认会被压缩（全局参数卡片被裁掉半截的根因），一律按自然高度排 */
 .main > * { flex: none; }
-.pad { height: 8px; }
+.pad { height: 18px; }
+.verify-params {
+  grid-area: params;
+  min-height: 0; overflow-y: auto;
+  background: var(--cn-surface);
+  border-left: 1px solid var(--cn-border);
+  padding: 13px 14px 20px;
+}
+
+/* ---- 底部操作栏 ---- */
 .actionbar {
-  flex: none; border-top: 1px solid rgba(var(--v-theme-outline), 0.4);
-  background: rgb(var(--v-theme-surface));
-  display: flex; align-items: center; gap: 12px; padding: 11px 22px;
+  flex: none;
+  display: flex; align-items: center; gap: 8px;
+  min-height: 58px; padding: 0 18px;
+  background: var(--cn-surface);
+  border-top: 1px solid var(--cn-border);
 }
-.prog { flex: 1; max-width: 300px; }
-.prog .txt { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.6); margin-bottom: 6px; }
-.prog .txt b {
-  color: rgb(var(--v-theme-primary)); font-weight: 650; font-variant-numeric: tabular-nums;
-  background: rgba(var(--v-theme-primary), 0.12); border-radius: 999px; padding: 1px 10px;
-}
-.prog .txt .sus {
-  display: inline-flex; align-items: center; gap: 3px;
-  color: rgb(var(--v-theme-error)); background: rgba(var(--v-theme-error), 0.12);
-  border: none; font: inherit; cursor: pointer;
-  border-radius: 999px; padding: 1px 10px;
-}
-.prog .txt .sus.zero { color: rgb(var(--v-theme-success)); background: rgba(var(--v-theme-success), 0.13); cursor: default; }
-.prog .txt .sus.warn { color: rgb(var(--v-theme-warning)); background: rgba(var(--v-theme-warning), 0.14); }
-/* 告警胶囊的弹出清单（重开项目路径的问题可见性，2026-10-01）；容器改 v-card（2026-10-02 组件化） */
+.grow { flex: 1; }
+.save-hint { color: var(--cn-subtle); font-family: var(--cn-font-mono); font-size: 10px; letter-spacing: 0.03em; }
+.err-dot { width: 7px; height: 7px; border-radius: 50%; background: rgb(var(--v-theme-on-primary, 255, 255, 255)); margin-left: 6px; }
+
+/* ---- 告警清单弹层 ---- */
 .isslist {
   max-width: 560px; max-height: 320px; overflow-y: auto;
-  color: rgba(var(--v-theme-on-surface), 0.85);
-  padding: 6px 4px; font-size: 12.5px; line-height: 1.6;
+  padding: 6px 4px; font-size: 12px; line-height: 1.6;
+  color: var(--cn-fg-soft);
 }
 .iss-row { display: flex; gap: 6px; padding: 4px 10px; text-align: left; align-items: flex-start; }
-.iss-row + .iss-row { border-top: 1px solid rgba(var(--v-theme-outline), 0.25); }
-.iss-tag { color: rgb(var(--v-theme-warning)); flex: none; font-weight: 550; }
-.bar { height: 6px; border-radius: 999px; background: rgba(var(--v-theme-outline), 0.5); overflow: hidden; }
-.bar i { display: block; height: 100%; border-radius: inherit; background: rgb(var(--v-theme-primary)); transition: width 0.3s; }
-.bar i.done { background: rgb(var(--v-theme-success)); }
-.grow { flex: 1; }
-.err-dot { width: 8px; height: 8px; border-radius: 50%; background: rgb(var(--v-theme-error)); margin-left: 6px; }
-@media (max-width: 960px) {
-  .screen { height: auto; padding-bottom: 64px; }
-  .s2 { flex-direction: column; overflow: visible; }
-  .left { width: 100%; height: 320px; }
-  .actionbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; }
+.iss-row + .iss-row { border-top: 1px solid var(--cn-border); }
+.iss-tag { color: var(--cn-warning); flex: none; font-weight: 550; }
+
+/* ---- 窄屏：单列堆叠（参数与目录都保留，功能不丢）。
+   断点 1180 而非 1000：三栏在 <1180 时编辑区不足 ~700px，步骤表头会竖排换行 */
+@media (max-width: 1180px) {
+  .screen { height: auto; min-height: calc(100vh - 64px); }
+  .verify-head { flex-wrap: wrap; gap: 10px 16px; }
+  .progress-wrap { margin-left: 0; width: 100%; max-width: none; }
+  .verify-content {
+    grid-template-columns: 1fr;
+    grid-template-areas: "side" "params" "editor";
+    overflow: visible;
+  }
+  .verify-sidebar { height: 300px; border-right: 0; border-bottom: 1px solid var(--cn-border); }
+  .verify-params { border-left: 0; border-bottom: 1px solid var(--cn-border); overflow: visible; }
+  .verify-editor { overflow: visible; padding-bottom: 0; }
+  .actionbar { position: sticky; bottom: 0; z-index: 10; }
+  .save-hint { display: none; }
 }
 </style>

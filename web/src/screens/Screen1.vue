@@ -137,206 +137,288 @@ function jumpTo(issue: Issue): void {
 <template>
   <div class="amb-wrap">
     <div class="amb" aria-hidden="true">
-      <div class="amb-b1" /><div class="amb-b2" /><div class="amb-b3" /><div class="amb-dots" />
+      <div class="amb-b1" /><div class="amb-b2" />
     </div>
     <div class="wrap">
-    <div class="hero">
-      <div class="badge"><v-icon size="34">mdi-file-word-box</v-icon></div>
-      <h1 class="amb-title">选择测试大纲</h1>
-      <p>导入第三方测试大纲（.docx），自动解析其中的测试项表格，<br />生成测试说明与测试记录两份 Word 文档。</p>
-    </div>
+      <header class="page-head">
+        <div class="head-text">
+          <div class="kicker">STEP 01 · 导入大纲</div>
+          <h1 class="title">选择测试大纲</h1>
+          <p class="sub">导入第三方测试大纲（.docx），自动解析测试项表格，生成测试说明与测试记录两份 Word 文档。</p>
+        </div>
+        <span class="offline">离线运行</span>
+      </header>
 
-    <div
-      class="drop"
-      :class="{ over: dragging, parsing: phase === 'parsing' }"
-      role="button" tabindex="0" :aria-busy="phase === 'parsing'"
-      @click="pick" @keydown.enter="pick"
-      @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="onDrop"
-    >
-      <template v-if="phase === 'idle'">
-        <v-icon size="42" color="primary">mdi-cloud-upload</v-icon>
-        <div class="dt">拖入文件，或点击选择</div>
-        <div class="dc">支持 .docx 格式 · 离线运行，文档内容不出本机</div>
-      </template>
-      <template v-else-if="phase === 'parsing'">
-        <div class="dt">正在解析大纲…</div>
-        <div class="bar"><i :style="{ width: progress + '%' }" /></div>
-        <div class="dn">文件：<b>{{ fileName }}</b></div>
-        <div v-if="bigFile" class="dn big">文件较大（正文超 20MB 走分块解析），预计需要 1~2 分钟，请耐心等待</div>
-      </template>
-      <template v-else>
-        <v-icon size="40" color="success">mdi-check-circle</v-icon>
-        <div class="dt">解析完成</div>
-        <div class="dc">文件：<b>{{ fileName }}</b></div>
-      </template>
-    </div>
-    <input ref="fileInput" type="file" accept=".docx" hidden @change="onFile" />
+      <div class="upload-layout">
+        <div class="upload-main">
+          <div
+            class="drop"
+            :class="{ over: dragging, parsing: phase === 'parsing' }"
+            role="button" tabindex="0" :aria-busy="phase === 'parsing'"
+            @click="pick" @keydown.enter="pick"
+            @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="onDrop"
+          >
+            <template v-if="phase === 'idle'">
+              <div class="drop-row">
+                <div class="upload-icon"><v-icon size="24">mdi-cloud-upload</v-icon></div>
+                <div class="drop-copy">
+                  <h3>拖入文件，或点击选择</h3>
+                  <p>支持 .docx 格式 · 文件仅在本机解析，不上传网络</p>
+                </div>
+                <div class="drop-action">
+                  <span class="file-type">.DOCX</span>
+                  <span class="link-hint">选择文件</span>
+                </div>
+              </div>
+            </template>
+            <template v-else-if="phase === 'parsing'">
+              <div class="drop-copy">
+                <h3>正在解析大纲…</h3>
+                <p>文件：<b>{{ fileName }}</b></p>
+              </div>
+              <div class="bar"><i :style="{ width: progress + '%' }" /></div>
+              <div v-if="bigFile" class="dn big">文件较大（正文超 20MB 走分块解析），预计需要 1~2 分钟，请耐心等待</div>
+            </template>
+            <template v-else>
+              <div class="drop-row">
+                <div class="upload-icon ok"><v-icon size="24">mdi-check</v-icon></div>
+                <div class="drop-copy">
+                  <h3>解析完成</h3>
+                  <p>文件：<b>{{ fileName }}</b></p>
+                </div>
+              </div>
+            </template>
+          </div>
+          <input ref="fileInput" type="file" accept=".docx" hidden @change="onFile" />
 
-    <!-- 最近项目 -->
-    <div v-if="phase === 'idle' && store.projects.length > 0" class="projects">
-      <div class="p-head">
-        <span class="p-title">最近项目</span>
-        <v-btn size="x-small" variant="text" color="error" :class="{ armed: clearArmed }" @click="clearAll">
-          <v-icon v-if="clearArmed" size="13" class="mr-1">mdi-alert</v-icon>{{ clearArmed ? '确认清空？' : '清空全部' }}
-        </v-btn>
-      </div>
-      <div class="p-list glass">
-        <div v-for="p in store.projects" :key="p.id" class="p-row">
-          <v-icon size="19" class="p-icon">mdi-folder-text-outline</v-icon>
-          <div class="p-main">
-            <div class="p-name">{{ stripDocx(p.name) }}</div>
-            <div class="p-meta">
-              <span>{{ fmtTime(p.updatedAt) }}</span><span v-if="p.stats"> · {{ p.stats.cases }} 用例</span><span v-if="p.progress"> · 已核对 {{ p.progress?.reviewed }}</span><span v-if="p.progress && p.progress.suspects > 0" class="p-suspect"> · 可疑 {{ p.progress.suspects }}</span><span v-if="!p.hasSource" class="p-nosource"> · 无源文件副本</span>
+          <template v-if="phase === 'done'">
+            <v-alert type="success" variant="tonal" density="compact" class="ok-alert">
+              <span>
+                解析完成，共 <b>{{ store.stats.items }}</b> 个测试项、<b>{{ store.stats.cases }}</b> 个测试用例、<b>{{ store.stats.steps }}</b> 个测试步骤{{ issueCounts() }}
+                <span v-if="store.restored.cases > 0">；已恢复上次编辑 {{ store.restored.cases }} 处</span>
+              </span>
+            </v-alert>
+            <v-alert
+              v-for="(iss, i) in store.issues" :key="i"
+              :type="iss.level === 'error' ? 'error' : iss.level === 'warning' ? 'warning' : 'info'"
+              variant="outlined" density="compact" class="row-alert"
+              @click="jumpTo(iss)"
+            >
+              <div class="iss-inner">
+                <span class="iss-text">{{ iss.context ? '【' + iss.context + '】' : '' }}{{ iss.message }}</span>
+                <v-icon size="14" class="go">mdi-chevron-right</v-icon>
+              </div>
+            </v-alert>
+
+            <div class="stats-band">
+              <div class="stat">
+                <span class="k">测试项<span class="u-mono">ITEMS</span></span>
+                <b>{{ store.stats.items }}</b>
+              </div>
+              <div class="stat">
+                <span class="k">测试用例<span class="u-mono">CASES</span></span>
+                <b>{{ store.stats.cases }}</b>
+              </div>
+              <div class="stat">
+                <span class="k">测试步骤<span class="u-mono">STEPS</span></span>
+                <b>{{ store.stats.steps }}</b>
+              </div>
+              <div class="stat warn">
+                <span class="k">切分可疑<span class="u-mono">SUSPECT</span></span>
+                <b>{{ store.cases.reduce((n, c) => n + activeSuspects(c), 0) }}</b>
+              </div>
+            </div>
+
+            <div class="cta">
+              <v-btn color="primary" size="large" @click="store.screen = 2">
+                开始核对与编辑<v-icon size="16" class="ml-2">mdi-arrow-right</v-icon>
+              </v-btn>
+            </div>
+          </template>
+
+          <div class="foot">离线运行，文档内容不出本机。</div>
+        </div>
+
+        <aside class="upload-aside">
+          <div v-if="phase === 'idle' && store.projects.length > 0" class="panel recent">
+            <div class="u-panel-head">
+              <strong>最近项目</strong>
+              <v-btn size="x-small" variant="text" color="error" :class="{ armed: clearArmed }" @click="clearAll">
+                <v-icon v-if="clearArmed" size="12" class="mr-1">mdi-alert</v-icon>{{ clearArmed ? '确认清空？' : '清空全部' }}
+              </v-btn>
+            </div>
+            <div class="p-list">
+              <div v-for="p in store.projects" :key="p.id" class="p-row">
+                <span class="u-mono p-idx">DOCX</span>
+                <div class="p-main">
+                  <div class="p-name">{{ stripDocx(p.name) }}</div>
+                  <div class="p-meta">
+                    <span>{{ fmtTime(p.updatedAt) }}</span><span v-if="p.stats"> · {{ p.stats.cases }} 用例</span><span v-if="p.progress"> · 已核对 {{ p.progress?.reviewed }}</span><span v-if="p.progress && p.progress.suspects > 0" class="p-suspect"> · 可疑 {{ p.progress.suspects }}</span><span v-if="!p.hasSource" class="p-nosource"> · 无源文件副本</span>
+                  </div>
+                </div>
+                <div class="p-acts">
+                  <v-btn size="small" variant="tonal" color="primary" :loading="store.parsing" @click="openOne(p)">打开</v-btn>
+                  <v-btn size="small" :variant="delArmed === p.id ? 'flat' : 'text'" color="error" class="p-del" @click="removeOne(p)">{{ delArmed === p.id ? '确认删除' : '删除' }}</v-btn>
+                </div>
+              </div>
+            </div>
+            <div class="p-foot">项目存档保存在本机 数据/ 目录，换机时与 exe 一并拷贝。</div>
+          </div>
+
+          <div v-else-if="phase === 'done'" class="panel guide">
+            <div class="u-panel-head"><strong>下一步</strong></div>
+            <div class="guide-body">
+              <div class="guide-item"><b>1</b><span>逐条核对用例与步骤，可疑行会标红提示。</span></div>
+              <div class="guide-item"><b>2</b><span>在「全局参数」中填写测试人员与监测人员（必填）。</span></div>
+              <div class="guide-item"><b>3</b><span>点击「生成文档」，输出说明与记录两份 Word。</span></div>
             </div>
           </div>
-          <div class="p-acts">
-            <v-btn size="small" variant="tonal" color="primary" :loading="store.parsing" @click="openOne(p)">打开</v-btn>
-            <v-btn size="small" :variant="delArmed === p.id ? 'flat' : 'text'" color="error" class="p-del" @click="removeOne(p)">{{ delArmed === p.id ? '确认删除' : '删除' }}</v-btn>
-          </div>
-        </div>
+        </aside>
       </div>
-    </div>
-
-    <template v-if="phase === 'done'">
-      <div class="result">
-        <v-alert type="success" variant="tonal" rounded="lg" density="compact" class="ok-alert">
-          <span>
-            解析完成，共 <b>{{ store.stats.items }}</b> 个测试项、<b>{{ store.stats.cases }}</b> 个测试用例、<b>{{ store.stats.steps }}</b> 个测试步骤{{ issueCounts() }}
-            <span v-if="store.restored.cases > 0">；已恢复上次编辑 {{ store.restored.cases }} 处</span>
-          </span>
-        </v-alert>
-        <v-alert
-          v-for="(iss, i) in store.issues" :key="i"
-          :type="iss.level === 'error' ? 'error' : iss.level === 'warning' ? 'warning' : 'info'"
-          variant="outlined" density="compact" class="row-alert"
-          @click="jumpTo(iss)"
-        >
-          <div class="iss-inner">
-            <span class="iss-text">{{ iss.context ? '【' + iss.context + '】' : '' }}{{ iss.message }}</span>
-            <v-icon size="14" class="go">mdi-chevron-right</v-icon>
-          </div>
-        </v-alert>
-
-        <v-card rounded="14" elevation="1" class="band">
-          <div class="stat"><b>{{ store.stats.items }}</b><span>测试项</span></div>
-          <div class="stat"><b>{{ store.stats.cases }}</b><span>测试用例</span></div>
-          <div class="stat"><b>{{ store.stats.steps }}</b><span>测试步骤</span></div>
-          <div class="stat"><b>{{ store.cases.reduce((n, c) => n + activeSuspects(c), 0) }}</b><span>切分可疑待核对</span></div>
-        </v-card>
-
-        <div class="cta">
-          <v-btn color="primary" rounded="pill" size="large" @click="store.screen = 2">
-            开始核对与编辑<v-icon size="17" class="ml-2">mdi-arrow-right</v-icon>
-          </v-btn>
-        </div>
-      </div>
-      <div class="foot">离线运行，文档内容不出本机。</div>
-    </template>
     </div>
   </div>
 </template>
 
 <style scoped>
-.wrap { position: relative; width: 100%; max-width: 680px; margin: 26px auto 0; padding: 0 22px 40px; }
-.hero { text-align: center; animation: ambRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.badge {
-  width: 68px; height: 68px; border-radius: 18px; margin: 0 auto 18px;
-  background: linear-gradient(135deg, #3d6fb5 0%, #2D5B91 60%, #24507f 100%);
-  color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 6px 18px rgba(45, 91, 145, 0.28);
-}
-h1 { font-size: 23px; font-weight: 650; }
-p { margin-top: 9px; color: rgba(var(--v-theme-on-surface), 0.65); font-size: 14px; }
-.drop {
-  margin-top: 24px; padding: 42px 28px; border-radius: 16px; text-align: center;
-  border: 1.6px dashed rgba(var(--v-theme-outline), 1);
-  background:
-    linear-gradient(165deg, rgba(var(--v-theme-primary), 0.028), rgba(var(--v-theme-primary), 0) 40%),
-    rgb(var(--v-theme-surface));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 1px 2px rgba(16, 24, 40, 0.06),
-    0 10px 28px -14px rgba(45, 91, 145, 0.3);
-  cursor: pointer; transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-  animation: ambRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: 80ms;
-}
-.v-theme--dark .drop {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(45, 91, 145, 0.5);
-}
-.drop:hover, .drop.over { border-color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.06); box-shadow: 0 2px 10px rgba(45, 91, 145, 0.08); }
-.drop.parsing { cursor: default; }
-.drop :deep(.v-icon) { transition: transform 0.2s ease-out; }
-.drop:hover :deep(.v-icon) { transform: translateY(-3px); }
-.dt { margin-top: 12px; font-size: 15.5px; font-weight: 550; }
-.dc { margin-top: 5px; font-size: 12.5px; color: rgba(var(--v-theme-on-surface), 0.6); }
-.dn { margin-top: 13px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.65); }
-.dn b { color: rgb(var(--v-theme-on-surface)); }
-.dn.big { color: rgb(var(--v-theme-warning)); font-weight: 550; }
-.bar { height: 5px; border-radius: 999px; background: rgba(var(--v-theme-outline), 0.5); overflow: hidden; margin-top: 18px; }
-.bar i { display: block; height: 100%; width: 0; background: rgb(var(--v-theme-primary)); border-radius: inherit; transition: width 0.9s cubic-bezier(0.3, 0.6, 0.4, 1); }
+.wrap { position: relative; width: 100%; max-width: 1080px; margin: 0 auto; padding: 24px 28px 30px; }
 
-.result { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
-.alert {
-  display: flex; align-items: flex-start; gap: 11px; padding: 12px 16px; border-radius: 14px;
-  font-size: 13.5px; text-align: left; width: 100%;
+/* ---- 页头 ---- */
+.page-head {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+  margin-bottom: 22px;
+  animation: rise var(--cn-dur-4) var(--cn-ease-out) both;
 }
-.alert b { font-weight: 650; }
-.ok-alert { font-size: 13.5px; text-align: left; }
-/* v-alert outlined（问题清单行，2026-10-02 组件化）：v-alert 自带类型色边框与图标，这里只补可点击语义 */
-.row-alert { cursor: pointer; font-size: 13.5px; transition: box-shadow 0.15s, background 0.15s; }
-.row-alert:hover { background: rgba(var(--v-theme-primary), 0.04); box-shadow: 0 2px 8px rgba(45, 91, 145, 0.1); }
+.kicker {
+  display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  color: var(--cn-accent); font-family: var(--cn-font-mono);
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase;
+}
+.kicker::before { content: ""; width: 22px; height: 1px; background: var(--cn-accent-line); }
+.title {
+  margin: 0; font-family: var(--cn-font-display);
+  font-size: 24px; line-height: 1.2; font-weight: 650; letter-spacing: -0.025em; color: var(--cn-fg);
+}
+.sub { margin: 7px 0 0; color: var(--cn-muted); font-size: 12px; line-height: 1.7; max-width: 720px; }
+.offline {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  color: var(--cn-subtle); font-family: var(--cn-font-mono); font-size: 10px; letter-spacing: 0.04em;
+}
+.offline::before {
+  content: ""; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--cn-success); box-shadow: 0 0 0 3px var(--cn-success-soft);
+}
+
+/* ---- 布局：上传主区 + 最近项目侧栏 ---- */
+.upload-layout {
+  display: grid; grid-template-columns: minmax(0, 1.38fr) minmax(280px, 0.62fr); gap: 16px;
+  align-items: start;
+}
+.upload-main { display: grid; gap: 14px; animation: rise var(--cn-dur-4) var(--cn-ease-out) both; animation-delay: 60ms; }
+.upload-aside { animation: rise var(--cn-dur-4) var(--cn-ease-out) both; animation-delay: 120ms; }
+@media (max-width: 1000px) { .upload-layout { grid-template-columns: 1fr; } }
+
+/* ---- 拖放区 ---- */
+.drop {
+  min-height: 170px; padding: 24px;
+  display: flex; flex-direction: column; justify-content: center; gap: 14px;
+  border: 1px dashed var(--cn-accent-line);
+  border-radius: var(--cn-r-3);
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: transform var(--cn-dur-2) var(--cn-ease-out), border-color var(--cn-dur-2) var(--cn-ease-out), background var(--cn-dur-2) var(--cn-ease-out);
+}
+.v-theme--dark .drop { background: rgba(14, 29, 47, 0.55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03); }
+.drop:hover, .drop.over { transform: translateY(-2px); border-color: var(--cn-accent); background: var(--cn-accent-soft); }
+.drop.parsing { cursor: default; transform: none; }
+.drop.parsing:hover { border-color: var(--cn-accent-line); background: rgba(255, 255, 255, 0.62); }
+.v-theme--dark .drop.parsing:hover { background: rgba(14, 29, 47, 0.55); }
+.drop-row { display: flex; align-items: center; gap: 16px; }
+.upload-icon {
+  position: relative; width: 54px; height: 54px; flex: none;
+  border: 1px solid var(--cn-accent-line); border-radius: 10px;
+  display: grid; place-items: center;
+  color: var(--cn-accent); background: var(--cn-accent-soft);
+}
+.upload-icon.ok { color: var(--cn-success); background: var(--cn-success-soft); border-color: #a6d7bf; }
+.drop-copy { flex: 1; min-width: 0; }
+.drop-copy h3 { margin: 0 0 5px; font-size: 15px; font-weight: 650; color: var(--cn-fg); }
+.drop-copy p { margin: 0; color: var(--cn-muted); font-size: 12px; line-height: 1.6; }
+.drop-copy p b { color: var(--cn-fg-soft); font-weight: 600; }
+.drop-action { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
+.file-type { color: var(--cn-subtle); font-family: var(--cn-font-mono); font-size: 10px; letter-spacing: 0.08em; }
+.link-hint { color: var(--cn-accent); font-size: 12px; font-weight: 650; }
+.bar { height: 5px; border-radius: 3px; background: var(--cn-border); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--cn-accent); border-radius: inherit; transition: width 0.9s var(--cn-ease-standard); }
+.dn { font-size: 12px; color: var(--cn-muted); }
+.dn.big { color: var(--cn-warning); font-weight: 550; }
+
+/* ---- 结果区 ---- */
+.ok-alert { font-size: 13px; text-align: left; }
+.row-alert { cursor: pointer; font-size: 13px; transition: box-shadow var(--cn-dur-1) var(--cn-ease-out), background var(--cn-dur-1) var(--cn-ease-out); }
+.row-alert:hover { background: var(--cn-accent-soft); box-shadow: var(--cn-shadow-1); }
 .iss-inner { display: flex; align-items: center; gap: 8px; }
 .iss-text { flex: 1; text-align: left; }
 .go { opacity: 0.4; flex: none; }
 
-.band {
-  display: flex; overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-outline), 0.45);
-  background:
-    linear-gradient(165deg, rgba(var(--v-theme-primary), 0.028), rgba(var(--v-theme-primary), 0) 40%),
-    rgb(var(--v-theme-surface)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 1px 2px rgba(16, 24, 40, 0.06),
-    0 10px 28px -14px rgba(45, 91, 145, 0.3);
+/* ---- 统计带（实色数据区） ---- */
+.stats-band {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  background: var(--cn-surface);
+  border: 1px solid var(--cn-border);
+  border-radius: var(--cn-r-2);
+  overflow: hidden;
 }
-.v-theme--dark .band {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(45, 91, 145, 0.5);
+.stat { padding: 15px 16px; border-right: 1px solid var(--cn-border); }
+.stat:last-child { border-right: 0; }
+.stat .k {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  color: var(--cn-muted); font-size: 11px;
 }
-.stat { flex: 1; padding: 15px 8px 13px; text-align: center; }
-.stat + .stat { border-left: 1px solid rgba(var(--v-theme-outline), 0.45); }
-.stat b { display: block; font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; color: rgb(var(--v-theme-primary)); }
-.stat span { display: block; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.6); margin-top: 2px; }
-.cta { display: flex; justify-content: center; margin-top: 18px; }
-/* 主 CTA 渐变（页面唯一的大按钮，让行动点醒目） */
-.cta :deep(.v-btn) {
-  background: linear-gradient(135deg, #3d6fb5 0%, #2D5B91 55%, #24507f 100%);
-  box-shadow: 0 4px 14px rgba(45, 91, 145, 0.32);
+.stat .k .u-mono { color: var(--cn-subtle); font-size: 9.5px; letter-spacing: 0.06em; }
+.stat b {
+  display: block; margin-top: 6px;
+  font-family: var(--cn-font-mono); font-size: 26px; line-height: 1; font-weight: 650;
+  letter-spacing: -0.04em; color: var(--cn-fg);
 }
-.cta :deep(.v-btn:hover) { box-shadow: 0 6px 18px rgba(45, 91, 145, 0.4); }
-.foot { text-align: center; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.5); margin-top: 20px; }
+.stat.warn b { color: var(--cn-warning); }
+.cta { display: flex; justify-content: flex-start; margin-top: 2px; }
 
-.projects { margin-top: 18px; animation: ambRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: 160ms; }
-.p-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; padding: 0 2px; }
-.p-title { font-size: 13px; font-weight: 600; color: rgba(var(--v-theme-on-surface), 0.75); }
-.p-clear { border: none; background: none; padding: 3px 6px; border-radius: 6px; font-size: 12.5px; color: rgba(var(--v-theme-on-surface), 0.55); cursor: pointer; }
-.p-clear:hover { color: rgb(var(--v-theme-error)); background: rgba(var(--v-theme-error), 0.08); }
-.p-clear.armed { color: rgb(var(--v-theme-error)); font-weight: 600; }
-.p-list {
-  position: relative;
-  border-radius: 14px; overflow: hidden;
-}
-.p-row { display: flex; align-items: center; gap: 11px; padding: 11px 14px; transition: background 0.15s; }
-.p-row:hover { background: rgba(var(--v-theme-primary), 0.045); }
-.p-row + .p-row { border-top: 1px solid rgba(var(--v-theme-outline), 0.45); }
-.p-icon { color: rgba(var(--v-theme-primary), 0.8); flex: none; }
+/* ---- 最近项目面板 ---- */
+.panel { background: var(--cn-surface); border: 1px solid var(--cn-border); border-radius: var(--cn-r-3); box-shadow: var(--cn-shadow-1); overflow: hidden; }
+.u-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid var(--cn-border); }
+.u-panel-head strong { font-size: 12.5px; font-weight: 650; }
+.p-list { padding: 3px 0; max-height: 430px; overflow-y: auto; }
+.p-row { display: flex; align-items: center; gap: 11px; padding: 10px 14px; transition: background var(--cn-dur-1) var(--cn-ease-out); }
+.p-row:hover { background: var(--cn-surface-soft); }
+.p-row + .p-row { border-top: 1px solid var(--cn-border); }
+.p-idx { flex: none; color: var(--cn-subtle); font-size: 9px; letter-spacing: 0.08em; }
 .p-main { flex: 1; min-width: 0; }
-.p-name { font-size: 13.5px; font-weight: 550; color: rgb(var(--v-theme-on-surface)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.p-meta { margin-top: 2px; font-size: 12.5px; color: rgba(var(--v-theme-on-surface), 0.6); font-variant-numeric: tabular-nums; }
-.p-suspect { color: rgb(var(--v-theme-error)); }
-.p-nosource { color: rgba(var(--v-theme-on-surface), 0.4); }
+.p-name { font-size: 12.5px; font-weight: 600; color: var(--cn-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-meta { margin-top: 2px; font-size: 11px; color: var(--cn-subtle); font-variant-numeric: tabular-nums; }
+.p-suspect { color: var(--cn-danger); }
+.p-nosource { color: var(--cn-subtle); opacity: 0.7; }
 .p-acts { display: flex; align-items: center; gap: 2px; flex: none; }
-.p-del { min-width: 82px; }
+.p-del { min-width: 74px; }
+.p-foot { padding: 10px 14px; border-top: 1px solid var(--cn-border); color: var(--cn-subtle); font-size: 10.5px; line-height: 1.6; }
+
+/* ---- 下一步指引 ---- */
+.guide-body { display: grid; gap: 10px; padding: 14px; }
+.guide-item { display: flex; gap: 9px; color: var(--cn-muted); font-size: 12px; line-height: 1.6; }
+.guide-item b {
+  width: 20px; height: 20px; flex: none; display: grid; place-items: center;
+  border-radius: 50%; background: var(--cn-accent-soft); color: var(--cn-accent);
+  font-family: var(--cn-font-mono); font-size: 10px; font-weight: 650;
+}
+
+.foot { margin-top: 16px; text-align: center; color: var(--cn-subtle); font-family: var(--cn-font-mono); font-size: 10px; letter-spacing: 0.03em; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-head, .upload-main, .upload-aside { animation: none; }
+  .drop, .bar i { transition: none; }
+}
 </style>

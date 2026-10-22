@@ -1,0 +1,316 @@
+/* ==========================================================================
+   CCNewTools 视觉系统 v2「蓝调鎏光 · 工程仪器」（2026-10-22，OpenDesign 设计稿落地）
+   原则：装饰退到边缘，数据获得实色承载；双主题为完整语义系统；
+        控件使用小圆角与明确状态；动效只走 transform / opacity。
+   兼容性纪律（内网 Edge 100 / Chromium 100）：不使用 :has()、color-mix()、
+        mask-composite、dvh、container queries；backdrop-filter 带 -webkit- 前缀。
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+  --cn-font-display: "Segoe UI Variable Display", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  --cn-font-body: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+  --cn-font-mono: "Cascadia Mono", "Consolas", "Courier New", monospace;
+
+  --cn-bg: #edf3f9;
+  --cn-bg-deep: #e2ebf5;
+  --cn-surface: #ffffff;
+  --cn-surface-soft: #f5f8fc;
+  --cn-surface-glass: rgba(255, 255, 255, 0.86);
+  --cn-fg: #12233b;
+  --cn-fg-soft: #2d425c;
+  --cn-muted: #5a6d84;
+  --cn-subtle: #7c8da2;
+  --cn-border: #d3dfeb;
+  --cn-border-strong: #b8c9da;
+  --cn-accent: #1267b4;
+  --cn-accent-strong: #0c4d8c;
+  --cn-accent-soft: #e7f2fd;
+  --cn-accent-line: #8cbce7;
+  --cn-info: #1768b3;
+  --cn-success: #18794e;
+  --cn-success-soft: #e8f7ef;
+  --cn-warning: #986000;
+  --cn-warning-soft: #fff3d7;
+  --cn-danger: #a83b34;
+  --cn-danger-soft: #fff0ee;
+
+  --cn-shadow-1: 0 1px 2px rgba(26, 52, 84, 0.06), 0 4px 12px rgba(26, 52, 84, 0.05);
+  --cn-shadow-2: 0 2px 4px rgba(26, 52, 84, 0.06), 0 14px 34px rgba(26, 52, 84, 0.09);
+  --cn-shadow-3: 0 26px 80px rgba(21, 45, 77, 0.16);
+
+  --cn-r-1: 3px;
+  --cn-r-2: 6px;
+  --cn-r-3: 10px;
+  --cn-r-4: 14px;
+  --cn-r-5: 20px;
+
+  --cn-s-1: 4px;
+  --cn-s-2: 8px;
+  --cn-s-3: 12px;
+  --cn-s-4: 16px;
+  --cn-s-5: 24px;
+  --cn-s-6: 32px;
+  --cn-s-7: 48px;
+  --cn-s-8: 64px;
+
+  --cn-dur-1: 120ms;
+  --cn-dur-2: 180ms;
+  --cn-dur-3: 240ms;
+  --cn-dur-4: 320ms;
+  --cn-dur-5: 600ms;
+  --cn-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --cn-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --cn-ease-spring: cubic-bezier(0.2, 1.2, 0.3, 1);
+}
+
+.v-theme--dark {
+  color-scheme: dark;
+  --cn-bg: #07111d;
+  --cn-bg-deep: #0a1727;
+  --cn-surface: #0e1d2f;
+  --cn-surface-soft: #12253a;
+  --cn-surface-glass: rgba(12, 27, 45, 0.86);
+  --cn-fg: #e9f1fa;
+  --cn-fg-soft: #c7d6e7;
+  --cn-muted: #9cafc5;
+  --cn-subtle: #7f94ac;
+  --cn-border: #213a54;
+  --cn-border-strong: #34516f;
+  --cn-accent: #67b7ff;
+  --cn-accent-strong: #a2d4ff;
+  --cn-accent-soft: #102d48;
+  --cn-accent-line: #2d6898;
+  --cn-info: #79bfff;
+  --cn-success: #68d6a1;
+  --cn-success-soft: #0f2d25;
+  --cn-warning: #ffd277;
+  --cn-warning-soft: #33260f;
+  --cn-danger: #ff938b;
+  --cn-danger-soft: #381a1a;
+  --cn-shadow-1: 0 4px 14px rgba(0, 0, 0, 0.18);
+  --cn-shadow-2: 0 14px 34px rgba(0, 0, 0, 0.28);
+  --cn-shadow-3: 0 28px 86px rgba(0, 0, 0, 0.45);
+}
+
+/* ---- 基础排版 ---- */
+.v-application {
+  font-family: var(--cn-font-body);
+  color: var(--cn-fg);
+}
+:focus-visible {
+  outline: 2px solid var(--cn-accent);
+  outline-offset: 2px;
+}
+
+/* ---- 通用工具类 ---- */
+.u-mono {
+  font-family: var(--cn-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.u-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cn-accent);
+  font-family: var(--cn-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.u-kicker::before,
+.u-kicker::after {
+  content: "";
+  width: 24px;
+  height: 1px;
+  background: var(--cn-accent-line);
+}
+
+/* 面板（卡片）基础：实色表面 + 稳定边框 + 轻阴影（装饰不进数据区） */
+.u-panel {
+  background: var(--cn-surface);
+  border: 1px solid var(--cn-border);
+  border-radius: var(--cn-r-3);
+  box-shadow: var(--cn-shadow-1);
+}
+.u-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--cn-border);
+}
+.u-panel-head strong {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+.u-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 1px 8px;
+  border: 1px solid var(--cn-accent-line);
+  border-radius: var(--cn-r-1);
+  background: var(--cn-accent-soft);
+  color: var(--cn-accent);
+  font-family: var(--cn-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+/* ---- 动效 ---- */
+@keyframes cn-reveal {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Vuetify 全局组件覆盖（只调视觉，不改行为） ---- */
+
+/* 按钮：38px 高、5px 圆角、明确按压反馈 */
+.v-btn {
+  border-radius: var(--cn-r-2) !important;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  transition: transform var(--cn-dur-2) var(--cn-ease-out), opacity var(--cn-dur-2) var(--cn-ease-out),
+    background-color var(--cn-dur-2) var(--cn-ease-out), box-shadow var(--cn-dur-2) var(--cn-ease-out);
+}
+.v-btn:not(.v-btn--icon):not(.v-btn--size-x-small) {
+  min-height: 38px;
+  padding-inline: 15px;
+}
+.v-btn--size-small {
+  min-height: 32px;
+  padding-inline: 11px;
+  font-size: 12px;
+}
+.v-btn:hover {
+  transform: translateY(-1px);
+}
+.v-btn:active {
+  transform: translateY(1px) scale(0.985);
+}
+.v-btn--variant-tonal {
+  box-shadow: none;
+}
+.v-btn--variant-text:hover {
+  background: var(--cn-accent-soft);
+}
+
+/* 输入框：实色底 + 稳定描边 + 强调聚焦环 */
+.v-field {
+  border-radius: var(--cn-r-2) !important;
+  background: var(--cn-surface-soft);
+  transition: background-color var(--cn-dur-2) var(--cn-ease-out), box-shadow var(--cn-dur-2) var(--cn-ease-out);
+}
+.v-field--variant-filled .v-field__overlay,
+.v-field--variant-solo .v-field__overlay,
+.v-field--variant-solo-filled .v-field__overlay {
+  opacity: 0;
+}
+.v-field--variant-outlined .v-field__outline__start,
+.v-field--variant-outlined .v-field__outline__end,
+.v-field--variant-outlined .v-field__outline__notch::after {
+  border-color: var(--cn-border-strong);
+}
+.v-field--focused .v-field__outline__start,
+.v-field--focused .v-field__outline__end,
+.v-field--focused .v-field__outline__notch::after {
+  border-color: var(--cn-accent) !important;
+}
+.v-field--focused {
+  box-shadow: 0 0 0 3px rgba(18, 103, 180, 0.14);
+}
+.v-theme--dark .v-field--focused {
+  box-shadow: 0 0 0 3px rgba(103, 183, 255, 0.2);
+}
+.v-field__input,
+.v-field-label {
+  letter-spacing: 0.01em;
+}
+.v-field-label {
+  color: var(--cn-muted);
+}
+
+/* 卡片 / 弹层 */
+.v-card {
+  border-radius: var(--cn-r-3) !important;
+  background: var(--cn-surface);
+}
+.v-overlay .v-card,
+.v-menu .v-card {
+  border: 1px solid var(--cn-border);
+  box-shadow: var(--cn-shadow-2);
+}
+.v-dialog .v-card {
+  border: 1px solid var(--cn-border);
+  box-shadow: var(--cn-shadow-3);
+}
+
+/* 告警条 */
+.v-alert {
+  border-radius: var(--cn-r-2) !important;
+  font-size: 13px;
+}
+
+/* Toast */
+.v-snackbar__content {
+  border-radius: var(--cn-r-2);
+  font-size: 13px;
+}
+
+/* 菜单 / 输入下拉 */
+.v-list {
+  background: var(--cn-surface);
+}
+.v-list-item {
+  font-size: 13px;
+}
+
+/* 标签页（追踪工具） */
+.v-tab {
+  text-transform: none;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* 表格数据区：实色表头 + 明确 hover（数据区不使用玻璃/光晕） */
+.v-table {
+  background: var(--cn-surface);
+}
+
+/* 滚动条（工具型应用：细而可见） */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cn-border-strong) transparent;
+}
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--cn-border-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 动效降级：全量关闭位移、漂移、旋转、骨架屏动画 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .v-btn:hover,
+  .v-btn:active {
+    transform: none;
+  }
+}

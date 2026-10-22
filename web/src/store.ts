@@ -50,6 +50,45 @@ export const store = reactive({
   toast: { text: '', show: false } as Toast
 })
 
+// 验收深链（2026-10-22 UI 重验用）：?view=convert&screen=2 等让任意屏在首帧直接挂载——
+// 预览面板隐藏态下 Vue 过渡冻结、无法切屏截图，深链绕开过渡；无参数时行为完全不变
+if (typeof window !== 'undefined') {
+  const q = new URLSearchParams(window.location.search)
+  const v = q.get('view')
+  if (v === 'home' || v === 'convert' || v === 'trace') store.view = v
+  const s = Number(q.get('screen'))
+  if (store.view === 'convert' && (s === 1 || s === 2 || s === 3)) store.screen = s as 1 | 2 | 3
+  const ts = Number(q.get('traceScreen'))
+  if (store.view === 'trace' && (ts === 1 || ts === 2)) store.traceScreen = ts as 1 | 2
+  // 验收演示数据（?demo=trace2）：注入最小示例追踪表——隐藏预览面板下无法运行切屏过渡，
+  // 只能靠首帧挂载截图核对视觉；无参数时行为完全不变
+  if (q.get('demo') === 'trace2') {
+    store.traceType = 'spec'
+    store.traceParsed = true
+    store.traceScreen = 2
+    store.tracePrimary = { name: '演示-测试说明.docx', hash: 'demo' }
+    store.traceAlignOutline = { name: '演示-测试大纲.docx', hash: 'demo-outline' }
+    store.traceAlignKind = 'outline'
+    store.traceStats = { items: 4, cases: 4, steps: 16 }
+    store.traceSpec = {
+      type: 'spec',
+      heads: [
+        { group: '序号', cols: ['序号'] },
+        { group: '软件需求规格说明', cols: ['章节号', '章节名称'] },
+        { group: '软件测试大纲', cols: ['大纲章节号', '测试项名称', '测试项标识'] },
+        { group: '测试说明', cols: ['用例名称', '用例标识'] },
+        { group: '备注', cols: ['备注'] }
+      ],
+      rows: [
+        { cells: ['1', '4.1', '参数管理', '6.2.1.1', '参数查询项', 'XQ_A', '参数查询用例', 'YL_A_001', ''], span: [1, 2, 2, 2, 2, 2, 1, 1, 1] },
+        { cells: ['2', '4.1', '参数管理', '6.2.1.1', '参数查询项', 'XQ_A', '参数设置用例', 'YL_A_002', ''], span: [1, 0, 0, 0, 0, 0, 1, 1, 1] },
+        { cells: ['3', '4.2', '指令生成', '6.2.1.2', '指令生成项', 'XQ_B', '指令生成用例', 'YL_B_001', ''], span: [1, 1, 1, 1, 1, 1, 1, 1, 1] },
+        { cells: ['4', '4.2', '指令生成', '6.2.1.2', '指令生成项', 'XQ_B', '指令校验用例', 'YL_B_002', ''], span: [1, 1, 1, 1, 1, 1, 1, 1, 1] }
+      ]
+    }
+  }
+}
+
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 export function showToast(text: string): void {
   store.toast.text = text

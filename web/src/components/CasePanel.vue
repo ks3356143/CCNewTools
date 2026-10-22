@@ -31,64 +31,102 @@ function onChanged(): void {
 <template>
   <div v-if="row" class="case">
     <div class="crumb">
+      <span class="u-mono crumb-idx">CASE {{ String(store.currentIdx + 1).padStart(3, '0') }}</span>
       <template v-for="(p, i) in path" :key="i">
         <span v-if="i > 0" class="sep">/</span><span>{{ p }}</span>
       </template>
     </div>
+
     <div class="title-row">
       <h2>{{ row.mingcheng }}</h2>
       <div class="btns">
-        <v-btn size="small" rounded="pill" :color="row.excluded ? 'warning' : 'secondary'" variant="tonal" @click="toggleExcluded">
+        <v-btn size="small" :color="row.excluded ? 'warning' : 'secondary'" variant="tonal" @click="toggleExcluded">
           {{ row.excluded ? '已排除，点击恢复' : '不生成此用例' }}
         </v-btn>
-        <v-btn size="small" rounded="pill" :color="row.reviewed ? 'success' : 'primary'" variant="tonal" @click="toggleReviewed">
-          <v-icon size="14" class="mr-1">{{ row.reviewed ? 'mdi-check-circle' : 'mdi-check' }}</v-icon>
+        <v-btn size="small" :color="row.reviewed ? 'success' : 'primary'" variant="tonal" @click="toggleReviewed">
+          <v-icon size="13" class="mr-1">{{ row.reviewed ? 'mdi-check-circle' : 'mdi-check' }}</v-icon>
           {{ row.reviewed ? '已核对' : '标记已核对' }}
         </v-btn>
       </div>
     </div>
-    <div class="chips">
-      <span class="chip id1"><span class="k">标识</span><span class="mono">{{ row.caseId }}</span></span>
-      <span class="chip id2"><span class="k">测试需求标识</span><span class="mono">{{ row.itemId }}</span></span>
-      <span class="chip ch"><span class="k">章节</span><span class="mono">{{ row.chapter }}</span></span>
-      <span v-if="row.expectSource === '通过准则'" class="chip ch">期望结果来源：通过准则</span>
-    </div>
-    <div class="summary"><b>用例综述：</b>{{ row.summary || '（空）' }}</div>
 
-    <v-card rounded="8" elevation="1" class="table-card" :class="{ dim: row.excluded }">
-      <div class="tbl-head">
-        <span class="t">测试步骤</span>
-        <span class="hint">单击单元格修改，自动保存</span>
+    <div class="chips">
+      <span class="u-tag">标识 {{ row.caseId }}</span>
+      <span class="chip"><span class="k">测试需求标识</span><span class="u-mono">{{ row.itemId }}</span></span>
+      <span class="chip"><span class="k">章节</span><span class="u-mono">{{ row.chapter }}</span></span>
+      <span v-if="row.expectSource === '通过准则'" class="chip"><span class="k">期望来源</span>通过准则</span>
+    </div>
+
+    <div class="summary"><b>用例综述</b><span>{{ row.summary || '（空）' }}</span></div>
+
+    <div class="case-card" :class="{ dim: row.excluded }">
+      <div class="case-card-head">
+        <strong>测试步骤</strong>
+        <span class="hint">单击单元格修改 · 自动保存</span>
       </div>
       <StepsTable :row="row" @changed="onChanged" />
-    </v-card>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .case { min-width: 0; }
-.crumb { font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.6); display: flex; gap: 6px; flex-wrap: wrap; }
+.crumb {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  color: var(--cn-subtle); font-size: 11px;
+}
+.crumb-idx { color: var(--cn-accent); font-size: 9.5px; letter-spacing: 0.08em; margin-right: 2px; }
 .sep { opacity: 0.45; }
-.title-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; flex-wrap: wrap; }
-.title-row h2 { font-size: 21px; font-weight: 650; }
-.btns { margin-left: auto; display: flex; gap: 8px; }
-.chips { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-.chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 11px; border-radius: 999px; font-size: 12.5px; }
-.chip .k { opacity: 0.66; }
-.mono { font-family: Consolas, monospace; font-size: 11.5px; }
-.chip.id1 { background: rgba(var(--v-theme-primary), 0.14); color: rgb(var(--v-theme-primary)); }
-.chip.id2 { background: rgba(var(--v-theme-on-surface), 0.08); }
-.chip.ch { border: 1px solid rgba(var(--v-theme-outline), 0.7); color: rgba(var(--v-theme-on-surface), 0.7); }
-.summary { margin-top: 12px; padding: 12px 15px; border-radius: 12px; background: rgba(var(--v-theme-primary), 0.05); font-size: 13.5px; color: rgba(var(--v-theme-on-surface), 0.8); }
-.summary { position: relative; margin-top: 12px; padding: 12px 15px 12px 18px; border-radius: 6px; background: rgba(var(--v-theme-primary), 0.05); font-size: 13.5px; color: rgba(var(--v-theme-on-surface), 0.8); overflow: hidden; }
-/* 综述行左侧渐变竖条：accent 语言与首页/顶栏同族 */
-.summary::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, #4c86c6, #2d5b91); }
-.table-card { position: relative; margin-top: 14px; overflow: hidden; border: 1px solid rgba(var(--v-theme-outline), 0.45); background: linear-gradient(165deg, rgba(var(--v-theme-primary), 0.028), rgba(var(--v-theme-primary), 0) 40%), rgb(var(--v-theme-surface)) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 1px 2px rgba(16, 24, 40, 0.06), 0 10px 28px -14px rgba(45, 91, 145, 0.3); transition: border-color 0.2s, box-shadow 0.2s; }
-/* 跟随光标聚光已移除（用户"挡视野"）：hover 只作用边框 + 阴影微升 */
-.table-card:hover { border-color: rgba(var(--v-theme-primary), 0.55); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 1px 2px rgba(16, 24, 40, 0.06), 0 10px 30px -13px rgba(45, 91, 145, 0.42); }
-.v-theme--dark .table-card { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(45, 91, 145, 0.5); }
-.table-card.dim { opacity: 0.55; }
-.tbl-head { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(var(--v-theme-outline), 0.4); background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.045), rgba(var(--v-theme-primary), 0)); }
-.tbl-head .t { font-size: 15px; font-weight: 600; }
-.tbl-head .hint { margin-left: auto; font-size: 12px; color: rgba(var(--v-theme-on-surface), 0.55); }
+
+.title-row { display: flex; align-items: center; gap: 12px; margin-top: 5px; flex-wrap: wrap; }
+.title-row h2 {
+  margin: 0; font-family: var(--cn-font-display);
+  font-size: 19px; font-weight: 650; letter-spacing: -0.015em; color: var(--cn-fg);
+}
+.btns { margin-left: auto; display: flex; gap: 7px; }
+
+.chips { display: flex; align-items: center; gap: 7px; margin-top: 10px; flex-wrap: wrap; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 22px; padding: 0 8px;
+  border: 1px solid var(--cn-border); border-radius: var(--cn-r-1);
+  color: var(--cn-muted); font-size: 11px;
+  background: var(--cn-surface);
+}
+.chip .k { opacity: 0.8; }
+.chip .u-mono { font-size: 10.5px; color: var(--cn-fg-soft); }
+
+.summary {
+  position: relative; margin-top: 12px;
+  padding: 11px 14px 11px 16px;
+  border: 1px solid var(--cn-border); border-radius: var(--cn-r-2);
+  background: var(--cn-surface-soft);
+  font-size: 12.5px; line-height: 1.7; color: var(--cn-fg-soft);
+  overflow: hidden;
+}
+.summary::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: linear-gradient(180deg, var(--cn-accent-line), var(--cn-accent));
+}
+.summary b { margin-right: 8px; color: var(--cn-fg); font-weight: 650; }
+
+/* 步骤表卡：实色数据承载（装饰不进入表格区） */
+.case-card {
+  margin-top: 14px;
+  background: var(--cn-surface);
+  border: 1px solid var(--cn-border);
+  border-radius: var(--cn-r-2);
+  box-shadow: var(--cn-shadow-1);
+  overflow: hidden;
+  transition: opacity var(--cn-dur-2) var(--cn-ease-out);
+}
+.case-card.dim { opacity: 0.55; }
+.case-card-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--cn-border);
+  background: var(--cn-surface-soft);
+}
+.case-card-head strong { font-size: 13px; font-weight: 650; color: var(--cn-fg); }
+.case-card-head .hint { margin-left: auto; color: var(--cn-subtle); font-size: 10.5px; }
 </style>

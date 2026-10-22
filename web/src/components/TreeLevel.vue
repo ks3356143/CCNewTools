@@ -37,11 +37,11 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
       :class="{ 'is-item': depth >= 2 }"
       @click="toggle"
     >
-      <v-icon size="16" class="chev" :class="{ closed: !open }">mdi-chevron-down</v-icon>
+      <v-icon size="15" class="chev" :class="{ closed: !open }">mdi-chevron-down</v-icon>
       <span class="name">{{ node.name }}</span>
-      <span class="cnt">{{ node.caseCount }}</span>
+      <span class="cnt u-mono">{{ node.caseCount }}</span>
     </button>
-    <!-- v-if（非 v-show）：折叠的子树不创建 DOM——2026-10-09 验证轮实测 29686 例全量渲染约 30 万节点卡死主线程 -->
+    <!-- v-if（非 v-show）：折叠的子树不创建 DOM——29686 例全量渲染约 30 万节点卡死主线程 -->
     <div v-if="open && hasContent" class="indent">
       <TreeLevel
         v-for="ch in shownChildren"
@@ -60,12 +60,12 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
         :class="{ cur: cn.idx === store.currentIdx }"
         @click="goCase(cn.idx)"
       >
-        <v-icon v-if="cn.row.reviewed" size="13" color="success">mdi-check</v-icon>
+        <v-icon v-if="cn.row.reviewed" size="12" color="success">mdi-check</v-icon>
         <span v-else class="dot-holder">
           <span v-if="activeSuspects(cn.row) > 0" class="dot" />
         </span>
         <span class="name" :class="{ excluded: cn.row.excluded }">{{ cn.row.mingcheng }}</span>
-        <span class="cid">{{ cn.row.caseId }}</span>
+        <span class="cid u-mono">{{ cn.row.caseId }}</span>
       </button>
       <div v-if="hiddenCases > 0" class="more">…还有 {{ hiddenCases }} 个用例未显示，请用搜索定位</div>
     </div>
@@ -73,24 +73,30 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
 </template>
 
 <style scoped>
-/* 缩进只靠嵌套 .indent 的 margin-left 累积（每层 15px，与常见树控件同量级）——
-   行内 padding 固定；此前行 padding 又乘 depth 与嵌套 margin 双重叠加，每层实缩 30px，
-   四层深的用例行缩进 145px，内网实测"缩进太大"（2026-10-09） */
+/* 缩进只靠嵌套 .indent 的 margin-left 累积（每层 14px）——行内 padding 固定，
+   避免"行 padding × depth + 嵌套 margin"双重叠加（2026-10-09 内网实测"缩进太大"） */
 .lvl { min-width: 0; }
-.row { width: 100%; display: flex; align-items: center; gap: 6px; border-radius: 8px; text-align: left; cursor: pointer; transition: background 0.13s, color 0.13s; }
-.row:hover { background: rgba(var(--v-theme-primary), 0.08); }
-.level-row { padding-left: 8px; padding-right: 8px; font-size: 13.5px; font-weight: 550; color: rgba(var(--v-theme-on-surface), 0.88); }
-.level-row.is-item { font-weight: 500; color: rgba(var(--v-theme-on-surface), 0.68); font-size: 13px; }
-.indent { margin-left: 15px; border-left: 1px solid rgba(var(--v-theme-outline), 0.35); padding-left: 0; }
-.case-row { padding-left: 10px; margin-right: 6px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.75); }
-.case-row.cur { background: rgba(var(--v-theme-primary), 0.14); color: rgb(var(--v-theme-primary)); font-weight: 550; }
-.chev { transition: transform 0.18s; flex: none; }
+.row {
+  width: 100%; min-height: 30px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 8px; border-radius: var(--cn-r-1);
+  text-align: left; cursor: pointer;
+  transition: background var(--cn-dur-1) var(--cn-ease-out), color var(--cn-dur-1) var(--cn-ease-out);
+}
+.row:hover { background: var(--cn-surface-soft); }
+.level-row { font-size: 12.5px; font-weight: 600; color: var(--cn-fg-soft); }
+.level-row.is-item { font-weight: 500; color: var(--cn-muted); font-size: 12px; }
+.indent { margin-left: 14px; border-left: 1px solid var(--cn-border); }
+.case-row { padding-left: 9px; margin-right: 4px; font-size: 12px; color: var(--cn-muted); }
+.case-row:hover { color: var(--cn-fg); }
+.case-row.cur { background: var(--cn-accent-soft); color: var(--cn-accent); font-weight: 600; }
+.chev { transition: transform var(--cn-dur-2) var(--cn-ease-out); flex: none; color: var(--cn-subtle); }
 .chev.closed { transform: rotate(-90deg); }
 .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .name.excluded { text-decoration: line-through; opacity: 0.5; }
-.cnt { margin-left: auto; font-size: 11px; color: rgba(var(--v-theme-on-surface), 0.5); flex: none; }
-.cid { margin-left: auto; font-family: Consolas, monospace; font-size: 10.5px; opacity: 0.65; flex: none; }
-.dot-holder { width: 14px; display: inline-flex; justify-content: center; flex: none; }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: rgb(var(--v-theme-error)); }
-.more { padding: 2px 0 4px; font-size: 11.5px; color: rgb(var(--v-theme-warning)); }
+.cnt { margin-left: auto; font-size: 10px; color: var(--cn-subtle); flex: none; }
+.cid { margin-left: auto; font-size: 9.5px; opacity: 0.75; flex: none; }
+.dot-holder { width: 13px; display: inline-flex; justify-content: center; flex: none; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cn-danger); }
+.more { padding: 3px 6px 4px; font-size: 10.5px; color: var(--cn-warning); }
 </style>

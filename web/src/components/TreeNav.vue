@@ -144,15 +144,17 @@ const totalCases = computed(() => store.cases.length)
 
 <template>
   <div class="tree">
-    <v-text-field
-      v-model="searchInput"
-      placeholder="搜索用例名称或标识"
-      prepend-inner-icon="mdi-magnify"
-      variant="solo" density="compact" hide-details
-      flat rounded="lg" clearable
-      class="search"
-    />
-    <div class="note">数字为该层下的实际用例数</div>
+    <div class="tree-head">
+      <v-text-field
+        v-model="searchInput"
+        placeholder="搜索用例名称或标识"
+        prepend-inner-icon="mdi-magnify"
+        variant="solo-filled" density="compact" hide-details
+        flat rounded="sm" clearable
+        class="search"
+      />
+      <div class="note"><span>大纲目录</span><span class="u-mono">{{ totalCases }} CASES</span></div>
+    </div>
     <div ref="bodyEl" class="body">
       <TreeLevel
         v-for="root in treeRoots"
@@ -175,13 +177,29 @@ const totalCases = computed(() => store.cases.length)
 
 <style scoped>
 .tree { display: flex; flex-direction: column; flex: 1; min-height: 0; height: 100%; }
-/* v-input 自带 flex:1 1 auto，在纵向 flex 容器 .tree 里会被平分拉伸（实测 364px）——显式关掉 */
-.search { margin: 12px 12px 6px; flex: none; }
-/* solo 变体去白底突兀感：浅色填充融入树容器（深浅主题通用，on-surface 低透明度叠加） */
-.search :deep(.v-field) { background: rgba(var(--v-theme-on-surface), 0.045); }
-.note { font-size: 11.5px; color: rgba(var(--v-theme-on-surface), 0.55); padding: 2px 14px 8px; border-bottom: 1px solid rgba(var(--v-theme-outline), 0.3); }
+.tree-head { padding: 12px 10px 0; flex: none; }
+/* v-input 自带 flex:1 1 auto，在纵向 flex 容器里会被拉伸——显式关掉 */
+.search { flex: none; }
+.search :deep(.v-field) {
+  min-height: 31px;
+  border-radius: var(--cn-r-2);
+  background: var(--cn-surface-soft);
+  box-shadow: inset 0 0 0 1px var(--cn-border);
+  font-size: 12px;
+}
+.search :deep(.v-field--focused) {
+  background: var(--cn-surface);
+  box-shadow: inset 0 0 0 1px var(--cn-accent), 0 0 0 3px rgba(18, 103, 180, 0.13);
+}
+.search :deep(.v-field__input) { font-size: 12px; min-height: 31px; padding-top: 0; padding-bottom: 0; }
+.note {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 4px 7px;
+  border-bottom: 1px solid var(--cn-border);
+  color: var(--cn-subtle); font-size: 10px; letter-spacing: 0.02em;
+}
 .body { overflow-y: auto; flex: 1; padding: 6px; }
-.found { flex: none; font-size: 11.5px; color: rgba(var(--v-theme-on-surface), 0.55); padding: 6px 14px 8px; border-top: 1px solid rgba(var(--v-theme-outline), 0.3); }
-.found.overflow { color: rgb(var(--v-theme-warning)); }
-.empty { padding: 16px; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.5); }
+.found { flex: none; font-size: 10.5px; color: var(--cn-subtle); padding: 7px 12px; border-top: 1px solid var(--cn-border); }
+.found.overflow { color: var(--cn-warning); }
+.empty { padding: 18px 12px; font-size: 12px; color: var(--cn-subtle); }
 </style>

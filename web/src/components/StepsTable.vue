@@ -32,7 +32,7 @@ function onPaste(e: ClipboardEvent): void {
 
 function onBlur(e: FocusEvent, idx: number, field: 'action' | 'expect'): void {
   const el = e.target as HTMLElement
-  props.row.steps[idx][field] = el.innerText.replace(/ /g, ' ')
+  props.row.steps[idx][field] = el.innerText.replace(/ /g, ' ')
   emit('changed')
 }
 
@@ -73,7 +73,7 @@ function renumber(): void {
     </thead>
     <tbody>
       <tr v-for="(s, i) in row.steps" :key="i" :class="{ suspect: isSuspect(i), flash: store.suspectFlash === i }">
-        <td class="c no">{{ i + 1 }}</td>
+        <td class="c no u-mono">{{ i + 1 }}</td>
         <td>
           <div class="edit" contenteditable="true" @paste="onPaste" @blur="onBlur($event, i, 'action')">{{ s.action }}</div>
         </td>
@@ -102,37 +102,58 @@ function renumber(): void {
 <style scoped>
 .steps { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .steps th {
-  text-align: left; font-size: 12.5px; font-weight: 550; white-space: nowrap;
-  padding: 9px 12px; background: rgba(var(--v-theme-primary), 0.06);
-  border-bottom: 1px solid rgba(var(--v-theme-outline), 0.5);
-  color: rgba(var(--v-theme-on-surface), 0.65);
+  text-align: left; font-size: 11.5px; font-weight: 600; white-space: nowrap;
+  padding: 8px 10px;
+  background: var(--cn-surface-soft);
+  border-bottom: 1px solid var(--cn-border);
+  color: var(--cn-muted);
 }
-.steps td { padding: 10px 12px; vertical-align: middle; border-bottom: 1px solid rgba(var(--v-theme-outline), 0.35); font-size: 13.5px; line-height: 1.65; }
-/* 斑马纹（可读性）：偶数行浅底，避开可疑行的高亮语义 */
-.steps tbody tr:nth-child(even):not(.suspect) td { background: rgba(var(--v-theme-primary), 0.025); }
+.steps td {
+  padding: 9px 10px; vertical-align: middle;
+  border-bottom: 1px solid var(--cn-border);
+  font-size: 12.5px; line-height: 1.65; color: var(--cn-fg-soft);
+}
+.steps tbody tr:hover:not(.suspect) td { background: var(--cn-surface-soft); }
 .steps tr:last-child td { border-bottom: none; }
 .c { text-align: center; }
-.c-no { width: 44px; color: rgba(var(--v-theme-on-surface), 0.6); font-variant-numeric: tabular-nums; }
-.c-act { width: 42%; }
-/* 操作列：按钮加到 36px 提升可点性（UX 准则 44px 触控的桌面折中；本机 DPR 下
-   32px 偏小误触率高），4×36 + gap2×3 + box padding 2×2 = 156，列宽 172 盖住 */
+.c-no { width: 40px; }
+td.no { color: var(--cn-accent); font-weight: 650; font-size: 12px; }
+.c-act { width: 40%; }
+/* 操作列：按钮 36px（桌面可点性），4×36 + gap2×3 + box padding 2×2 = 156，列宽 172 盖住 */
 .c-ops { width: 172px; }
 td.editable, .edit { outline: none; cursor: text; min-height: 22px; }
-.edit { padding: 2px 6px; border: 1px dashed rgba(var(--v-theme-outline), 0.45); border-radius: 6px; }
-.edit:hover { border-color: rgba(var(--v-theme-primary), 0.5); background: rgba(var(--v-theme-primary), 0.06); }
-.edit:focus { border: 1px solid rgb(var(--v-theme-primary)); box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.18); background: rgb(var(--v-theme-surface)); }
-tr.suspect td { background: rgba(var(--v-theme-error), 0.08); }
-tr.suspect td:first-child { box-shadow: inset 3px 0 0 rgb(var(--v-theme-error)); }
+.edit {
+  padding: 2px 6px;
+  border: 1px dashed transparent;
+  border-radius: var(--cn-r-1);
+  transition: border-color var(--cn-dur-1) var(--cn-ease-out), background var(--cn-dur-1) var(--cn-ease-out);
+}
+.edit:hover { border-color: var(--cn-border-strong); background: var(--cn-surface-soft); }
+.edit:focus { border: 1px solid var(--cn-accent); box-shadow: 0 0 0 2px rgba(18, 103, 180, 0.14); background: var(--cn-surface); }
+.v-theme--dark .edit:focus { box-shadow: 0 0 0 2px rgba(103, 183, 255, 0.18); }
+tr.suspect td { background: var(--cn-danger-soft); }
+tr.suspect td:first-child { box-shadow: inset 3px 0 0 var(--cn-danger); }
 .sus-tag {
   display: inline-flex; align-items: center; gap: 4px; margin-top: 5px;
-  font-size: 11.5px; color: rgb(var(--v-theme-error));
-  background: rgba(var(--v-theme-error), 0.14); border-radius: 999px; padding: 2px 9px;
+  font-size: 10.5px; color: var(--cn-danger);
+  background: rgba(168, 59, 52, 0.1); border-radius: 999px; padding: 2px 9px;
 }
-.fix { margin-left: 4px; text-decoration: underline; text-underline-offset: 3px; font-size: 11.5px; color: rgb(var(--v-theme-primary)); }
-.ops { width: 172px; padding-left: 4px; padding-right: 12px; }
-.ops .ops-box { display: inline-flex; gap: 2px; background: rgba(var(--v-theme-primary), 0.06); border-radius: 8px; padding: 2px; }
-.ops .ops-box .v-btn { --v-btn-size: 26px; height: 36px; width: 36px; color: rgba(var(--v-theme-on-surface), 0.55); }
-.sus-note { font-size: 12px; color: rgb(var(--v-theme-error)); padding: 8px 14px; border-top: 1px dashed rgba(var(--v-theme-error), 0.4); }
+.v-theme--dark .sus-tag { background: rgba(255, 147, 139, 0.12); }
+.fix { margin-left: 4px; text-decoration: underline; text-underline-offset: 3px; font-size: 10.5px; color: var(--cn-accent); }
+.ops { width: 172px; padding-left: 4px; padding-right: 10px; }
+.ops .ops-box {
+  display: inline-flex; gap: 2px;
+  background: var(--cn-surface-soft);
+  border-radius: var(--cn-r-2); padding: 2px;
+}
+.ops .ops-box .v-btn { --v-btn-size: 26px; height: 36px; width: 36px; color: var(--cn-muted); }
+.sus-note {
+  font-size: 11px; color: var(--cn-danger);
+  padding: 8px 12px; border-top: 1px dashed rgba(168, 59, 52, 0.35);
+}
 tr.suspect.flash td { animation: sus-flash 1.6s ease-out; }
-@keyframes sus-flash { 0% { box-shadow: inset 0 0 0 2px rgb(var(--v-theme-error)); } 100% { box-shadow: inset 0 0 0 2px transparent; } }
+@keyframes sus-flash {
+  0% { box-shadow: inset 0 0 0 2px var(--cn-danger); }
+  100% { box-shadow: inset 0 0 0 2px transparent; }
+}
 </style>

@@ -77,15 +77,17 @@ function stepClick(n: number): void {
 
 <template>
   <v-app>
-    <v-app-bar color="appbar" elevation="0">
+    <v-app-bar elevation="0" class="cn-bar">
       <!-- 工具态：左侧「‹ 工具集」返回；首页态：无 -->
       <button v-if="store.view !== 'home'" class="back" @click="goHome">
-        <v-icon size="17">mdi-chevron-left</v-icon>
+        <v-icon size="16">mdi-chevron-left</v-icon>
         <span>工具集</span>
       </button>
-      <div class="mark"><v-icon size="19">mdi-file-word-box</v-icon></div>
-      <span class="app-title">{{ store.view === 'home' ? '测试文档工具集' : store.view === 'convert' ? '大纲转换' : '追踪文档生成' }}</span>
-      <span class="ver">v{{ appVersion }}</span>
+      <div class="brand">
+        <div class="brand-mark"><v-icon size="17">mdi-file-word-box</v-icon></div>
+        <span class="app-title">{{ store.view === 'home' ? '测试文档工具集' : store.view === 'convert' ? '大纲转换' : '追踪文档生成' }}</span>
+        <span class="ver">v{{ appVersion }}</span>
+      </div>
       <div class="spacer" />
       <nav v-if="store.view !== 'home'" class="stepper">
         <template v-for="(t, i) in curSteps" :key="t">
@@ -95,7 +97,7 @@ function stepClick(n: number): void {
             @click="stepClick(i + 1)"
           >
             <span class="dot">
-              <v-icon v-if="curStep > i + 1" size="13">mdi-check</v-icon>
+              <v-icon v-if="curStep > i + 1" size="12">mdi-check</v-icon>
               <template v-else>{{ i + 1 }}</template>
             </span>
             <span class="lbl">{{ t }}</span>
@@ -104,12 +106,12 @@ function stepClick(n: number): void {
         </template>
       </nav>
       <div class="spacer" />
-      <v-btn icon size="small" class="mr-2" title="使用说明" @click="about = true">
-        <v-icon>mdi-help-circle-outline</v-icon>
-      </v-btn>
-      <v-btn icon size="small" class="mr-3" @click="toggleTheme">
-        <v-icon>{{ store.theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
-      </v-btn>
+      <button class="icon-btn" title="使用说明" @click="about = true">
+        <v-icon size="17">mdi-help-circle-outline</v-icon>
+      </button>
+      <button class="icon-btn" :title="store.theme === 'dark' ? '切换浅色' : '切换深色'" @click="toggleTheme">
+        <v-icon size="17">{{ store.theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
+      </button>
     </v-app-bar>
 
     <v-main>
@@ -169,87 +171,92 @@ function stepClick(n: number): void {
 </template>
 
 <style scoped>
-/* 顶栏品牌渐变（2026-10-02 用户要求"全局上一点颜色"）：主色同系深浅渐变；
-   2026-10-12 顶栏氛围（与首页"蓝调鎏光"同族）：鎏光扫掠 + 底缘辉光。
-   扫光画在 ::before z-index:-1（fixed 根即层叠上下文：在根渐变之上、内容之下），
-   transform 合成层动画零重绘；overflow hidden 裁掉出界光带 */
+/* 顶栏 v2（视觉系统「工程仪器」）：半透明玻璃表面 + 细底边，装饰退场、信息清晰。
+   扫光/深蓝渐变已按设计稿移除；backdrop-filter 带 -webkit- 前缀（Edge 100 可用） */
 .v-app-bar {
-  background: linear-gradient(120deg, #33639e 0%, #2D5B91 45%, #234a7c 100%) !important;
-  overflow: hidden;
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.16), 0 8px 24px -8px rgba(23, 48, 84, 0.4);
+  background: var(--cn-surface-glass) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  backdrop-filter: blur(16px) saturate(130%);
+  border-bottom: 1px solid var(--cn-border);
+  box-shadow: none !important;
+  color: var(--cn-fg);
 }
-.v-app-bar::before {
-  content: '';
-  position: absolute; top: 0; bottom: 0; left: -40%; width: 60%;
-  background: linear-gradient(105deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.1) 30%,
-    rgba(200, 222, 245, 0.3) 50%,
-    rgba(255, 255, 255, 0.1) 70%,
-    rgba(255, 255, 255, 0) 100%);
-  transform: translateX(-15%);
-  animation: barSheen 9s ease-in-out infinite alternate;
-  pointer-events: none;
-  z-index: -1;
-}
-@keyframes barSheen { to { transform: translateX(235%); } }
-@media (prefers-reduced-motion: reduce) {
-  .v-app-bar::before { display: none; }
-}
-/* 「‹ 工具集」返回（11-工具集首页：顶栏三态） */
+/* 「‹ 工具集」返回 */
 .back {
   display: flex; align-items: center; gap: 1px;
-  margin-left: 8px; padding: 5px 8px 5px 4px; border-radius: 999px;
-  color: rgba(255, 255, 255, 0.78); font-size: 13px; cursor: pointer;
-  background: none; border: none;
-  transition: background 0.15s, color 0.15s;
+  margin-left: 10px; padding: 5px 9px 5px 5px; border-radius: var(--cn-r-2);
+  color: var(--cn-muted); font-size: 12.5px; cursor: pointer;
+  background: none; border: 1px solid transparent;
+  transition: background var(--cn-dur-2) var(--cn-ease-out), color var(--cn-dur-2) var(--cn-ease-out);
 }
-.back:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
-.mark {
-  width: 32px; height: 32px; border-radius: 9px; margin-left: 6px;
-  background: rgba(255, 255, 255, 0.18); color: #fff;
+.back:hover { background: var(--cn-surface-soft); color: var(--cn-fg); border-color: var(--cn-border); }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark {
+  width: 30px; height: 30px; border-radius: 7px; margin-left: 8px;
+  background: var(--cn-accent-soft); border: 1px solid var(--cn-accent-line);
+  color: var(--cn-accent);
   display: flex; align-items: center; justify-content: center;
 }
-.app-title { font-size: 16px; font-weight: 600; color: #fff; margin-left: 4px; }
-/* 版本徽标（08：版本号三处可见之一）；__APP_VERSION__ 由 vite define 从根 package.json 注入，发版只改一处 */
+.app-title {
+  font-family: var(--cn-font-display);
+  font-size: 14.5px; font-weight: 680; color: var(--cn-fg); letter-spacing: 0.01em;
+}
+/* 版本徽标（08：版本号三处可见之一）；__APP_VERSION__ 由 vite define 注入 */
 .ver {
-  font-size: 11px; color: rgba(255, 255, 255, 0.72); margin-left: 8px;
-  font-family: Consolas, monospace; letter-spacing: 0.4px;
-  background: rgba(255, 255, 255, 0.14); border-radius: 999px; padding: 1px 8px;
+  font-size: 10px; color: var(--cn-subtle); margin-left: 2px;
+  font-family: var(--cn-font-mono); letter-spacing: 0.05em;
+  border: 1px solid var(--cn-border); border-radius: var(--cn-r-1); padding: 1px 7px;
 }
 .spacer { flex: 1; }
-/* 工具内 stepper 绝对居中（2026-10-01 用户反馈）：不受两侧宽度影响，首页态不渲染 */
+/* 工具内 stepper 绝对居中；首页态不渲染 */
 .stepper { display: flex; align-items: center; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
-.step { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 999px; color: rgba(255, 255, 255, 0.75); transition: background 0.15s, color 0.15s; }
-.step:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
-.dot {
-  width: 24px; height: 24px; border-radius: 50%; flex: none;
-  border: 1.4px solid rgba(255, 255, 255, 0.6);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 600;
+.step {
+  display: flex; align-items: center; gap: 7px; padding: 5px 9px;
+  border-radius: var(--cn-r-2); color: var(--cn-muted);
+  border: 1px solid transparent;
+  transition: background var(--cn-dur-2) var(--cn-ease-out), color var(--cn-dur-2) var(--cn-ease-out);
 }
-.lbl { font-size: 13px; white-space: nowrap; }
-.step.active { color: #fff; }
-.step.active .dot { background: #fff; border-color: #fff; color: rgb(var(--v-theme-primary)); }
-.step.done { color: rgba(255, 255, 255, 0.92); }
-.step.done .dot { background: rgba(255, 255, 255, 0.25); border-color: transparent; }
-.link { width: 24px; height: 1.4px; background: rgba(255, 255, 255, 0.45); margin: 0 3px; }
-/* 三屏切换过渡（Micro-interactions：180ms fade-slide，respect reduced-motion） */
-.screen-enter-active, .screen-leave-active { transition: opacity 0.18s ease-out, transform 0.18s ease-out; }
-.screen-enter-from { opacity: 0; transform: translateY(6px); }
+.step:hover { background: var(--cn-surface-soft); color: var(--cn-fg); }
+.dot {
+  width: 20px; height: 20px; border-radius: 50%; flex: none;
+  border: 1px solid var(--cn-border-strong);
+  background: var(--cn-surface);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--cn-font-mono);
+  font-size: 10px; font-weight: 650;
+  transition: background var(--cn-dur-2) var(--cn-ease-out), border-color var(--cn-dur-2) var(--cn-ease-out), color var(--cn-dur-2) var(--cn-ease-out);
+}
+.lbl { font-size: 12px; white-space: nowrap; }
+.step.active { color: var(--cn-accent); font-weight: 650; }
+.step.active .dot { border-color: var(--cn-accent); box-shadow: inset 0 0 0 4px var(--cn-accent-soft); color: var(--cn-accent); }
+.step.done { color: var(--cn-success); }
+.step.done .dot { background: var(--cn-success-soft); border-color: #a6d7bf; color: var(--cn-success); }
+.link { width: 22px; height: 1px; background: var(--cn-border); margin: 0 3px; }
+/* 顶栏图标按钮（帮助/主题）：32px 描边方钮 */
+.icon-btn {
+  width: 32px; height: 32px; margin-right: 8px;
+  border: 1px solid var(--cn-border); border-radius: var(--cn-r-2);
+  background: var(--cn-surface); color: var(--cn-muted);
+  display: grid; place-items: center; cursor: pointer;
+  transition: transform var(--cn-dur-2) var(--cn-ease-out), border-color var(--cn-dur-2) var(--cn-ease-out), color var(--cn-dur-2) var(--cn-ease-out);
+}
+.icon-btn:hover { transform: translateY(-1px); border-color: var(--cn-border-strong); color: var(--cn-fg); }
+.icon-btn:active { transform: translateY(1px) scale(0.98); }
+/* 三屏切换过渡（240ms fade-slide，respect reduced-motion） */
+.screen-enter-active, .screen-leave-active { transition: opacity 0.24s var(--cn-ease-out), transform 0.24s var(--cn-ease-out); }
+.screen-enter-from { opacity: 0; transform: translateY(8px); }
 .screen-leave-to { opacity: 0; transform: translateY(-4px); }
 @media (prefers-reduced-motion: reduce) {
   .screen-enter-active, .screen-leave-active { transition: none; }
 }
 @media (max-width: 940px) { .lbl { display: none; } .link { width: 14px; } .back span { display: none; } }
-/* 绝对居中的导航不感知两侧内容，窄窗口靠分档收缩防撞（2026-10-01 用户反馈移动端与版本徽标重叠）：
-   ≤940 藏导航文字与返回文字、≤700 藏应用标题（图标与版本徽标保留） */
+/* 绝对居中的导航不感知两侧内容，窄窗口靠分档收缩防撞 */
 @media (max-width: 700px) {
   .app-title { display: none; }
-  .step { padding: 5px 5px; }
+  .step { padding: 5px 6px; }
   .link { width: 10px; margin: 0 2px; }
-  .mark { margin-left: 2px; }
-  .ver { margin-left: 6px; }
+  .brand-mark { margin-left: 2px; }
+  .ver { margin-left: 4px; }
 }
 /* 使用说明对话框（v-dialog 传送到 body 渲染，scoped 属性编译期落在节点上，样式仍生效） */
 .about-ver {
