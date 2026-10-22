@@ -286,7 +286,7 @@ function jumpTo(issue: Issue): void {
 .page-head {
   display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
   margin-bottom: 22px;
-  animation: rise var(--cn-dur-5) var(--cn-ease-out) both;
+  animation: rise var(--cn-dur-4) var(--cn-ease-out) both;
 }
 .kicker {
   display: inline-flex; align-items: center; gap: 8px; margin-bottom: 8px;
@@ -313,29 +313,30 @@ function jumpTo(issue: Issue): void {
   display: grid; grid-template-columns: minmax(0, 1.38fr) minmax(280px, 0.62fr); gap: 16px;
   align-items: start;
 }
-.upload-main { display: grid; gap: 14px; animation: rise var(--cn-dur-5) var(--cn-ease-out) both; animation-delay: 60ms; }
-.upload-aside { animation: rise var(--cn-dur-5) var(--cn-ease-out) both; animation-delay: 120ms; }
+.upload-main { display: grid; gap: 14px; animation: rise var(--cn-dur-4) var(--cn-ease-out) both; animation-delay: 60ms; }
+.upload-aside { animation: rise var(--cn-dur-4) var(--cn-ease-out) both; animation-delay: 120ms; }
 @media (max-width: 1000px) { .upload-layout { grid-template-columns: 1fr; } }
 
-/* ---- 拖放区（重置稿：虚线工程蓝 + 纸面） ---- */
+/* ---- 拖放区 ---- */
 .drop {
   min-height: 170px; padding: 24px;
   display: flex; flex-direction: column; justify-content: center; gap: 14px;
-  border: 1px dashed var(--cn-accent);
-  border-radius: 2px;
-  background: var(--cn-surface);
+  border: 1px dashed var(--cn-accent-line);
+  border-radius: var(--cn-r-3);
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
   cursor: pointer;
   transition: transform var(--cn-dur-2) var(--cn-ease-out), border-color var(--cn-dur-2) var(--cn-ease-out), background var(--cn-dur-2) var(--cn-ease-out);
 }
-.v-theme--dark .drop { background: var(--cn-surface); }
+.v-theme--dark .drop { background: rgba(14, 29, 47, 0.55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03); }
 .drop:hover, .drop.over { transform: translateY(-2px); border-color: var(--cn-accent); background: var(--cn-accent-soft); }
 .drop.parsing { cursor: default; transform: none; }
-.drop.parsing:hover { border-color: var(--cn-accent); background: var(--cn-surface); }
-.v-theme--dark .drop.parsing:hover { background: var(--cn-surface); }
+.drop.parsing:hover { border-color: var(--cn-accent-line); background: rgba(255, 255, 255, 0.62); }
+.v-theme--dark .drop.parsing:hover { background: rgba(14, 29, 47, 0.55); }
 .drop-row { display: flex; align-items: center; gap: 16px; }
 .upload-icon {
   position: relative; width: 54px; height: 54px; flex: none;
-  border: 1px solid var(--cn-accent); border-radius: 2px;
+  border: 1px solid var(--cn-accent-line); border-radius: 10px;
   display: grid; place-items: center;
   color: var(--cn-accent); background: var(--cn-accent-soft);
 }
@@ -413,7 +414,7 @@ function jumpTo(issue: Issue): void {
 .foot { margin-top: 16px; text-align: center; color: var(--cn-subtle); font-family: var(--cn-font-mono); font-size: 10px; letter-spacing: 0.03em; }
 
 @keyframes rise {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {

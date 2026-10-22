@@ -246,11 +246,14 @@ async function download(): Promise<void> {
 .pv-scroll th:last-child, .pv-scroll td:last-child { border-right: 0; }
 .pv-scroll thead th {
   position: sticky; top: 0; z-index: 2;
-  background: var(--cn-fg); color: var(--cn-surface);
+  background: #e8f0f8; color: #2d4662;
   font-weight: 650; font-size: 11.5px;
 }
-.pv-scroll thead tr:nth-child(2) th { z-index: 1; background: var(--cn-surface-sunken); color: var(--cn-fg-soft); }
-.pv-scroll tbody tr:hover td { background: var(--cn-accent-soft); }
+.v-theme--dark .pv-scroll thead th { background: #172d44; color: #c8dcef; }
+.pv-scroll thead tr:nth-child(2) th { z-index: 1; background: #f0f5fa; }
+.v-theme--dark .pv-scroll thead tr:nth-child(2) th { background: #13273c; }
+.pv-scroll tbody tr:hover td { background: #f4f9fd; }
+.v-theme--dark .pv-scroll tbody tr:hover td { background: #12273c; }
 .pv-scroll td { color: var(--cn-fg-soft); }
 .pv-scroll td.num { font-family: var(--cn-font-mono); color: var(--cn-subtle); }
 .pv-empty { padding: 22px; text-align: center; color: var(--cn-subtle); font-size: 12px; }
@@ -292,7 +295,7 @@ async function download(): Promise<void> {
 .foot { margin-top: 18px; text-align: center; color: var(--cn-subtle); font-family: var(--cn-font-mono); font-size: 10px; letter-spacing: 0.03em; }
 
 @keyframes rise {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {

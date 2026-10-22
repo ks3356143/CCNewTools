@@ -106,18 +106,14 @@ function renumber(): void {
   padding: 8px 10px;
   background: var(--cn-surface-soft);
   border-bottom: 1px solid var(--cn-border);
-  border-right: 1px solid var(--cn-border);
   color: var(--cn-muted);
 }
-.steps th:last-child { border-right: 0; }
 .steps td {
   padding: 9px 10px; vertical-align: middle;
   border-bottom: 1px solid var(--cn-border);
-  border-right: 1px solid var(--cn-border);
   font-size: 12.5px; line-height: 1.65; color: var(--cn-fg-soft);
 }
-.steps td:last-child { border-right: 0; }
-.steps tbody tr:hover:not(.suspect) td { background: var(--cn-accent-soft); }
+.steps tbody tr:hover:not(.suspect) td { background: var(--cn-surface-soft); }
 .steps tr:last-child td { border-bottom: none; }
 .c { text-align: center; }
 .c-no { width: 40px; }

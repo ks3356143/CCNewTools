@@ -326,28 +326,29 @@ function issueCounts(): string {
 .wrap { position: relative; width: 100%; max-width: 1080px; margin: 0 auto; padding: 24px 28px 30px; }
 
 /* ---- 页头（v2：标题左对齐，功能入口优先） ---- */
-.hero { text-align: left; margin-bottom: 14px; animation: rise var(--cn-dur-5) var(--cn-ease-out) both; }
+.hero { text-align: left; margin-bottom: 14px; animation: rise var(--cn-dur-4) var(--cn-ease-out) both; }
 .badge { display: none; }
 .hero h1 { margin: 0; font-family: var(--cn-font-display); font-size: 24px; font-weight: 650; letter-spacing: -0.025em; color: var(--cn-fg); }
 .hero p { margin: 7px 0 0; color: var(--cn-muted); font-size: 12px; line-height: 1.7; }
 
-/* ---- 四类追踪 tab：工程档案夹页签（重置稿 folder-tabs） ---- */
+/* ---- 四类追踪 tab：下划线式（设计稿 track-tabs） ---- */
 .tabs {
-  display: flex; align-items: flex-end; gap: 0;
-  border-bottom: 1px solid var(--cn-border-strong);
-  margin-top: 6px;
+  display: flex; align-items: center; gap: 0;
+  border-bottom: 1px solid var(--cn-border);
+  margin-top: 4px;
 }
 .tab {
-  height: 34px; padding: 0 14px;
-  border: 1px solid var(--cn-border); border-bottom: 0;
-  background: var(--cn-surface-soft); cursor: pointer;
-  color: var(--cn-muted); font-size: 11.5px;
+  position: relative; min-height: 40px; padding: 0 16px;
+  border: 0; background: transparent; cursor: pointer;
+  color: var(--cn-muted); font-size: 12.5px;
   transition: color var(--cn-dur-2) var(--cn-ease-out), background var(--cn-dur-2) var(--cn-ease-out);
 }
-.tab + .tab { border-left: 0; }
-.tab:hover { color: var(--cn-fg); background: var(--cn-surface); }
-.tab.on { height: 39px; background: var(--cn-accent); border-color: var(--cn-accent); color: #fff; font-weight: 650; }
-.v-theme--dark .tab.on { color: #06131d; }
+.tab:hover { color: var(--cn-fg); background: var(--cn-surface-soft); }
+.tab.on { color: var(--cn-accent); font-weight: 650; }
+.tab.on::after {
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px;
+  height: 2px; background: var(--cn-accent);
+}
 .tab-hint { text-align: left; font-size: 11px; margin: 10px 2px 14px; color: var(--cn-subtle); }
 
 /* ---- 大纲配对区 ---- */
@@ -386,12 +387,13 @@ function issueCounts(): string {
   min-height: 150px; margin-top: 12px; padding: 22px;
   display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px;
   text-align: center;
-  border: 1px dashed var(--cn-accent); border-radius: 2px;
-  background: var(--cn-surface);
+  border: 1px dashed var(--cn-accent-line); border-radius: var(--cn-r-3);
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
   cursor: pointer;
   transition: transform var(--cn-dur-2) var(--cn-ease-out), border-color var(--cn-dur-2) var(--cn-ease-out), background var(--cn-dur-2) var(--cn-ease-out);
 }
-.v-theme--dark .drop { background: var(--cn-surface); }
+.v-theme--dark .drop { background: rgba(14, 29, 47, 0.55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03); }
 .drop:hover, .drop.over { transform: translateY(-2px); border-color: var(--cn-accent); background: var(--cn-accent-soft); }
 .drop.parsing { cursor: default; transform: none; }
 .dt { margin-top: 4px; font-size: 14px; font-weight: 650; color: var(--cn-fg); }
@@ -445,7 +447,7 @@ function issueCounts(): string {
 .tabbody-leave-to { opacity: 0; transform: translateY(-4px); }
 
 @keyframes rise {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -84,7 +84,7 @@ function stepClick(n: number): void {
         <span>工具集</span>
       </button>
       <div class="brand">
-        <div class="brand-sigil" aria-hidden="true"><b>C</b><i>N</i></div>
+        <div class="brand-mark"><v-icon size="17">mdi-file-word-box</v-icon></div>
         <span class="app-title">{{ store.view === 'home' ? '测试文档工具集' : store.view === 'convert' ? '大纲转换' : '追踪文档生成' }}</span>
         <span class="ver">v{{ appVersion }}</span>
       </div>
@@ -171,78 +171,76 @@ function stepClick(n: number): void {
 </template>
 
 <style scoped>
-/* 顶栏 v3（视觉重置「蓝图纸面」）：工程纸表面 + 强底规线，无玻璃/无渐变。
-   保持 64px 高度（业务屏 height 依赖）；图标按钮 34px 直角。 */
+/* 顶栏 v2（视觉系统「工程仪器」）：半透明玻璃表面 + 细底边，装饰退场、信息清晰。
+   扫光/深蓝渐变已按设计稿移除；backdrop-filter 带 -webkit- 前缀（Edge 100 可用） */
 .v-app-bar {
-  background: var(--cn-surface) !important;
-  border-bottom: 1px solid var(--cn-border-strong);
+  background: var(--cn-surface-glass) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  backdrop-filter: blur(16px) saturate(130%);
+  border-bottom: 1px solid var(--cn-border);
   box-shadow: none !important;
   color: var(--cn-fg);
 }
 /* 「‹ 工具集」返回 */
 .back {
   display: flex; align-items: center; gap: 1px;
-  margin-left: 10px; padding: 5px 9px 5px 5px;
-  color: var(--cn-muted); font-size: 12px; cursor: pointer;
-  background: none; border: 1px solid transparent; border-radius: 2px;
+  margin-left: 10px; padding: 5px 9px 5px 5px; border-radius: var(--cn-r-2);
+  color: var(--cn-muted); font-size: 12.5px; cursor: pointer;
+  background: none; border: 1px solid transparent;
   transition: background var(--cn-dur-2) var(--cn-ease-out), color var(--cn-dur-2) var(--cn-ease-out);
 }
 .back:hover { background: var(--cn-surface-soft); color: var(--cn-fg); border-color: var(--cn-border); }
 .brand { display: flex; align-items: center; gap: 10px; }
-/* 品牌标记：双格工程签（重置稿 brand-sigil） */
-.brand-sigil {
-  width: 30px; height: 30px; margin-left: 8px;
-  display: grid; grid-template-columns: 1fr 1fr;
-  border: 1px solid var(--cn-fg);
-  font-family: var(--cn-font-mono); font-size: 10px; font-weight: 700; line-height: 1;
+.brand-mark {
+  width: 30px; height: 30px; border-radius: 7px; margin-left: 8px;
+  background: var(--cn-accent-soft); border: 1px solid var(--cn-accent-line);
+  color: var(--cn-accent);
+  display: flex; align-items: center; justify-content: center;
 }
-.brand-sigil b { display: grid; place-items: center; background: var(--cn-accent); color: #fff; }
-.v-theme--dark .brand-sigil b { color: #06131d; }
-.brand-sigil i { display: grid; place-items: center; font-style: normal; color: var(--cn-fg); }
 .app-title {
   font-family: var(--cn-font-display);
-  font-size: 15px; font-weight: 650; color: var(--cn-fg); letter-spacing: 0.03em;
+  font-size: 14.5px; font-weight: 680; color: var(--cn-fg); letter-spacing: 0.01em;
 }
 /* 版本徽标（08：版本号三处可见之一）；__APP_VERSION__ 由 vite define 注入 */
 .ver {
-  font-size: 9.5px; color: var(--cn-subtle);
-  font-family: var(--cn-font-mono); letter-spacing: 0.08em;
-  border: 1px solid var(--cn-border); padding: 2px 6px;
+  font-size: 10px; color: var(--cn-subtle); margin-left: 2px;
+  font-family: var(--cn-font-mono); letter-spacing: 0.05em;
+  border: 1px solid var(--cn-border); border-radius: var(--cn-r-1); padding: 1px 7px;
 }
 .spacer { flex: 1; }
-/* 工具内 stepper 绝对居中；首页态不渲染。直角色块 + 等宽编号（图纸流程条） */
+/* 工具内 stepper 绝对居中；首页态不渲染 */
 .stepper { display: flex; align-items: center; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .step {
-  display: flex; align-items: center; gap: 7px; padding: 4px 9px;
-  color: var(--cn-muted); border: 1px solid transparent;
+  display: flex; align-items: center; gap: 7px; padding: 5px 9px;
+  border-radius: var(--cn-r-2); color: var(--cn-muted);
+  border: 1px solid transparent;
   transition: background var(--cn-dur-2) var(--cn-ease-out), color var(--cn-dur-2) var(--cn-ease-out);
 }
 .step:hover { background: var(--cn-surface-soft); color: var(--cn-fg); }
 .dot {
-  width: 20px; height: 20px; flex: none;
+  width: 20px; height: 20px; border-radius: 50%; flex: none;
   border: 1px solid var(--cn-border-strong);
   background: var(--cn-surface);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--cn-font-mono);
-  font-size: 10px; font-weight: 700;
+  font-size: 10px; font-weight: 650;
   transition: background var(--cn-dur-2) var(--cn-ease-out), border-color var(--cn-dur-2) var(--cn-ease-out), color var(--cn-dur-2) var(--cn-ease-out);
 }
-.lbl { font-size: 11.5px; white-space: nowrap; }
-.step.active { color: var(--cn-accent); font-weight: 650; background: var(--cn-accent-soft); border-color: var(--cn-border); }
-.step.active .dot { background: var(--cn-accent); border-color: var(--cn-accent); color: #fff; }
-.v-theme--dark .step.active .dot { color: #06131d; }
+.lbl { font-size: 12px; white-space: nowrap; }
+.step.active { color: var(--cn-accent); font-weight: 650; }
+.step.active .dot { border-color: var(--cn-accent); box-shadow: inset 0 0 0 4px var(--cn-accent-soft); color: var(--cn-accent); }
 .step.done { color: var(--cn-success); }
-.step.done .dot { background: var(--cn-success-soft); border-color: #a6c9b8; color: var(--cn-success); }
-.link { width: 22px; height: 1px; background: var(--cn-border-strong); margin: 0 3px; }
-/* 顶栏图标按钮（帮助/主题）：34px 描边方钮 */
+.step.done .dot { background: var(--cn-success-soft); border-color: #a6d7bf; color: var(--cn-success); }
+.link { width: 22px; height: 1px; background: var(--cn-border); margin: 0 3px; }
+/* 顶栏图标按钮（帮助/主题）：32px 描边方钮 */
 .icon-btn {
-  width: 34px; height: 34px; margin-right: 8px;
-  border: 1px solid var(--cn-border-strong); border-radius: 2px;
+  width: 32px; height: 32px; margin-right: 8px;
+  border: 1px solid var(--cn-border); border-radius: var(--cn-r-2);
   background: var(--cn-surface); color: var(--cn-muted);
   display: grid; place-items: center; cursor: pointer;
-  transition: transform var(--cn-dur-2) var(--cn-ease-out), background var(--cn-dur-2) var(--cn-ease-out);
+  transition: transform var(--cn-dur-2) var(--cn-ease-out), border-color var(--cn-dur-2) var(--cn-ease-out), color var(--cn-dur-2) var(--cn-ease-out);
 }
-.icon-btn:hover { background: var(--cn-surface-soft); color: var(--cn-fg); }
+.icon-btn:hover { transform: translateY(-1px); border-color: var(--cn-border-strong); color: var(--cn-fg); }
 .icon-btn:active { transform: translateY(1px) scale(0.98); }
 /* 三屏切换过渡（240ms fade-slide，respect reduced-motion） */
 .screen-enter-active, .screen-leave-active { transition: opacity 0.24s var(--cn-ease-out), transform 0.24s var(--cn-ease-out); }
