@@ -317,26 +317,25 @@ function jumpTo(issue: Issue): void {
 .upload-aside { animation: rise var(--cn-dur-4) var(--cn-ease-out) both; animation-delay: 120ms; }
 @media (max-width: 1000px) { .upload-layout { grid-template-columns: 1fr; } }
 
-/* ---- 拖放区 ---- */
+/* ---- 拖放区（重置稿：虚线工程蓝 + 纸面） ---- */
 .drop {
   min-height: 170px; padding: 24px;
   display: flex; flex-direction: column; justify-content: center; gap: 14px;
-  border: 1px dashed var(--cn-accent-line);
-  border-radius: var(--cn-r-3);
-  background: rgba(255, 255, 255, 0.62);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  border: 1px dashed var(--cn-accent);
+  border-radius: 2px;
+  background: var(--cn-surface);
   cursor: pointer;
   transition: transform var(--cn-dur-2) var(--cn-ease-out), border-color var(--cn-dur-2) var(--cn-ease-out), background var(--cn-dur-2) var(--cn-ease-out);
 }
-.v-theme--dark .drop { background: rgba(14, 29, 47, 0.55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03); }
+.v-theme--dark .drop { background: var(--cn-surface); }
 .drop:hover, .drop.over { transform: translateY(-2px); border-color: var(--cn-accent); background: var(--cn-accent-soft); }
 .drop.parsing { cursor: default; transform: none; }
-.drop.parsing:hover { border-color: var(--cn-accent-line); background: rgba(255, 255, 255, 0.62); }
-.v-theme--dark .drop.parsing:hover { background: rgba(14, 29, 47, 0.55); }
+.drop.parsing:hover { border-color: var(--cn-accent); background: var(--cn-surface); }
+.v-theme--dark .drop.parsing:hover { background: var(--cn-surface); }
 .drop-row { display: flex; align-items: center; gap: 16px; }
 .upload-icon {
   position: relative; width: 54px; height: 54px; flex: none;
-  border: 1px solid var(--cn-accent-line); border-radius: 10px;
+  border: 1px solid var(--cn-accent); border-radius: 2px;
   display: grid; place-items: center;
   color: var(--cn-accent); background: var(--cn-accent-soft);
 }

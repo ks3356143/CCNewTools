@@ -148,8 +148,14 @@ const recKB = computed(() => (store.genResult?.rec ? base64KB(store.genResult.re
   padding: 34px 24px 46px;
   background-color: var(--cn-bg);
   background-image:
-    radial-gradient(circle at 12% -8%, rgba(70, 151, 226, 0.12), transparent 38%),
-    radial-gradient(circle at 96% 18%, rgba(55, 126, 192, 0.07), transparent 32%);
+    linear-gradient(rgba(7, 93, 168, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(7, 93, 168, 0.05) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.v-theme--dark .wrap {
+  background-image:
+    linear-gradient(rgba(81, 181, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(81, 181, 255, 0.06) 1px, transparent 1px);
 }
 
 /* ---- 生成中 ---- */
@@ -185,28 +191,26 @@ const recKB = computed(() => (store.genResult?.rec ? base64KB(store.genResult.re
 .done { display: grid; place-items: center; min-height: calc(100vh - 160px); }
 .success-wrap { width: min(760px, 100%); text-align: center; animation: rise var(--cn-dur-5) var(--cn-ease-out) both; }
 .success-orbit {
-  position: relative; width: 92px; height: 92px; margin: 0 auto 18px;
+  position: relative; width: 72px; height: 72px; margin: 0 auto 20px;
   display: grid; place-items: center;
+  border: 2px solid var(--cn-success);
 }
-.success-orbit::before,
 .success-orbit::after {
-  content: ""; position: absolute; border-radius: 50%;
-  border: 1px solid rgba(24, 121, 78, 0.35);
+  content: "已校验";
+  position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%);
+  padding: 2px 5px; background: var(--cn-surface);
+  color: var(--cn-success); font: 700 9px/1 var(--cn-font-mono); letter-spacing: 0.08em;
 }
-.success-orbit::before { inset: 0; }
-.success-orbit::after { inset: 10px; border-style: dashed; animation: rotate 18s linear infinite; }
-@keyframes rotate { to { transform: rotate(360deg); } }
 .success-mark {
-  width: 56px; height: 56px; border-radius: 50%;
+  width: 40px; height: 40px;
   display: grid; place-items: center;
   color: var(--cn-success);
   background: var(--cn-success-soft);
-  border: 1px solid rgba(24, 121, 78, 0.35);
-  box-shadow: 0 8px 28px rgba(24, 121, 78, 0.12);
+  border: 1px solid var(--cn-success);
 }
 .done h2 {
   margin: 0; font-family: var(--cn-font-display);
-  font-size: 27px; line-height: 1.2; font-weight: 650; letter-spacing: -0.03em; color: var(--cn-fg);
+  font-size: 30px; line-height: 1.05; font-weight: 650; letter-spacing: -0.03em; color: var(--cn-fg);
 }
 .sub { margin: 9px 0 0; color: var(--cn-muted); font-size: 12.5px; }
 .gen-warn { margin: 16px auto 0; max-width: 620px; font-size: 12.5px; text-align: left; }

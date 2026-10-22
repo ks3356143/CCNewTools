@@ -1,49 +1,50 @@
 /* ==========================================================================
-   CCNewTools 视觉系统 v2「蓝调鎏光 · 工程仪器」（2026-10-22，OpenDesign 设计稿落地）
-   原则：装饰退到边缘，数据获得实色承载；双主题为完整语义系统；
-        控件使用小圆角与明确状态；动效只走 transform / opacity。
+   CCNewTools 视觉系统 v3「蓝图纸面 · 校对台」（2026-10-22，OpenDesign 重置稿落地）
+   主张：冷白工程纸 + 蓝黑规线 + 等宽编号；取消渐变标题、大面积光晕与玻璃堆叠。
+   数据区像印刷表格，交互色只保留工程蓝，告警只用琥珀。
    兼容性纪律（内网 Edge 100 / Chromium 100）：不使用 :has()、color-mix()、
-        mask-composite、dvh、container queries；backdrop-filter 带 -webkit- 前缀。
+        mask-composite、dvh、container queries。
    ========================================================================== */
 
 :root {
   color-scheme: light;
-  --cn-font-display: "Segoe UI Variable Display", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  --cn-font-display: "Bahnschrift SemiCondensed", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
   --cn-font-body: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
   --cn-font-mono: "Cascadia Mono", "Consolas", "Courier New", monospace;
 
-  --cn-bg: #edf3f9;
-  --cn-bg-deep: #e2ebf5;
-  --cn-surface: #ffffff;
-  --cn-surface-soft: #f5f8fc;
-  --cn-surface-glass: rgba(255, 255, 255, 0.86);
-  --cn-fg: #12233b;
-  --cn-fg-soft: #2d425c;
-  --cn-muted: #5a6d84;
-  --cn-subtle: #7c8da2;
-  --cn-border: #d3dfeb;
-  --cn-border-strong: #b8c9da;
-  --cn-accent: #1267b4;
-  --cn-accent-strong: #0c4d8c;
-  --cn-accent-soft: #e7f2fd;
-  --cn-accent-line: #8cbce7;
-  --cn-info: #1768b3;
-  --cn-success: #18794e;
-  --cn-success-soft: #e8f7ef;
-  --cn-warning: #986000;
-  --cn-warning-soft: #fff3d7;
-  --cn-danger: #a83b34;
-  --cn-danger-soft: #fff0ee;
+  --cn-bg: #e9eef1;
+  --cn-bg-deep: #dfe7ea;
+  --cn-surface: #fbfcfc;
+  --cn-surface-soft: #f2f6f7;
+  --cn-surface-sunken: #e6edf0;
+  --cn-fg: #0b2231;
+  --cn-fg-soft: #263e4d;
+  --cn-muted: #5b6e79;
+  --cn-subtle: #627884;
+  --cn-border: #c9d4da;
+  --cn-border-strong: #8fa5b1;
+  --cn-accent: #075da8;
+  --cn-accent-strong: #034a88;
+  --cn-accent-soft: #dcebf6;
+  --cn-accent-line: #8fa5b1;
+  --cn-info: #075da8;
+  --cn-success: #176b4a;
+  --cn-success-soft: #e1f1e9;
+  --cn-warning: #9b6100;
+  --cn-warning-soft: #fff1d2;
+  --cn-danger: #a33b35;
+  --cn-danger-soft: #fae9e7;
 
-  --cn-shadow-1: 0 1px 2px rgba(26, 52, 84, 0.06), 0 4px 12px rgba(26, 52, 84, 0.05);
-  --cn-shadow-2: 0 2px 4px rgba(26, 52, 84, 0.06), 0 14px 34px rgba(26, 52, 84, 0.09);
-  --cn-shadow-3: 0 26px 80px rgba(21, 45, 77, 0.16);
+  --cn-shadow-1: 0 0 0 rgba(0, 0, 0, 0);
+  --cn-shadow-2: 0 8px 24px rgba(10, 35, 50, 0.12);
+  --cn-shadow-3: 0 18px 60px rgba(16, 40, 55, 0.14);
 
-  --cn-r-1: 3px;
-  --cn-r-2: 6px;
-  --cn-r-3: 10px;
-  --cn-r-4: 14px;
-  --cn-r-5: 20px;
+  /* 直角工程纸：全站 2px 圆角阶梯（保留变量以免逐个组件改动） */
+  --cn-r-1: 2px;
+  --cn-r-2: 2px;
+  --cn-r-3: 2px;
+  --cn-r-4: 2px;
+  --cn-r-5: 2px;
 
   --cn-s-1: 4px;
   --cn-s-2: 8px;
@@ -61,36 +62,36 @@
   --cn-dur-5: 600ms;
   --cn-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --cn-ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --cn-ease-spring: cubic-bezier(0.2, 1.2, 0.3, 1);
+  --cn-ease-spring: cubic-bezier(0.3, 0, 0.2, 1);
 }
 
 .v-theme--dark {
   color-scheme: dark;
-  --cn-bg: #07111d;
-  --cn-bg-deep: #0a1727;
-  --cn-surface: #0e1d2f;
-  --cn-surface-soft: #12253a;
-  --cn-surface-glass: rgba(12, 27, 45, 0.86);
-  --cn-fg: #e9f1fa;
-  --cn-fg-soft: #c7d6e7;
-  --cn-muted: #9cafc5;
-  --cn-subtle: #7f94ac;
-  --cn-border: #213a54;
-  --cn-border-strong: #34516f;
-  --cn-accent: #67b7ff;
-  --cn-accent-strong: #a2d4ff;
-  --cn-accent-soft: #102d48;
-  --cn-accent-line: #2d6898;
-  --cn-info: #79bfff;
-  --cn-success: #68d6a1;
-  --cn-success-soft: #0f2d25;
-  --cn-warning: #ffd277;
-  --cn-warning-soft: #33260f;
-  --cn-danger: #ff938b;
-  --cn-danger-soft: #381a1a;
-  --cn-shadow-1: 0 4px 14px rgba(0, 0, 0, 0.18);
-  --cn-shadow-2: 0 14px 34px rgba(0, 0, 0, 0.28);
-  --cn-shadow-3: 0 28px 86px rgba(0, 0, 0, 0.45);
+  --cn-bg: #06131d;
+  --cn-bg-deep: #0a1c29;
+  --cn-surface: #0b1d2a;
+  --cn-surface-soft: #102534;
+  --cn-surface-sunken: #173244;
+  --cn-fg: #e1edf4;
+  --cn-fg-soft: #bbced8;
+  --cn-muted: #91a6b2;
+  --cn-subtle: #8da3af;
+  --cn-border: #254255;
+  --cn-border-strong: #49687a;
+  --cn-accent: #51b5ff;
+  --cn-accent-strong: #84cbff;
+  --cn-accent-soft: #102f46;
+  --cn-accent-line: #49687a;
+  --cn-info: #51b5ff;
+  --cn-success: #65d1a0;
+  --cn-success-soft: #0d3126;
+  --cn-warning: #ffc766;
+  --cn-warning-soft: #33260e;
+  --cn-danger: #ff9289;
+  --cn-danger-soft: #351b1c;
+  --cn-shadow-1: 0 0 0 rgba(0, 0, 0, 0);
+  --cn-shadow-2: 0 10px 28px rgba(0, 0, 0, 0.34);
+  --cn-shadow-3: 0 24px 70px rgba(0, 0, 0, 0.44);
 }
 
 /* ---- 基础排版 ---- */
@@ -111,85 +112,84 @@
 .u-kicker {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   color: var(--cn-accent);
   font-family: var(--cn-font-mono);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
-.u-kicker::before,
-.u-kicker::after {
+.u-kicker::before {
   content: "";
-  width: 24px;
+  width: 26px;
   height: 1px;
-  background: var(--cn-accent-line);
+  background: var(--cn-accent);
 }
 
-/* 面板（卡片）基础：实色表面 + 稳定边框 + 轻阴影（装饰不进数据区） */
+/* 面板：工程纸 + 强规线（数据承载不使用阴影） */
 .u-panel {
   background: var(--cn-surface);
-  border: 1px solid var(--cn-border);
-  border-radius: var(--cn-r-3);
-  box-shadow: var(--cn-shadow-1);
+  border: 1px solid var(--cn-border-strong);
+  border-radius: 2px;
 }
 .u-panel-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px;
+  min-height: 42px;
+  padding: 0 13px;
   border-bottom: 1px solid var(--cn-border);
+  background: var(--cn-surface-soft);
 }
 .u-panel-head strong {
-  font-size: 13.5px;
+  font-size: 12px;
   font-weight: 650;
 }
 .u-tag {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
-  padding: 1px 8px;
-  border: 1px solid var(--cn-accent-line);
-  border-radius: var(--cn-r-1);
+  min-height: 20px;
+  padding: 1px 7px;
+  border: 1px solid var(--cn-accent);
   background: var(--cn-accent-soft);
   color: var(--cn-accent);
   font-family: var(--cn-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.02em;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 /* ---- 动效 ---- */
 @keyframes cn-reveal {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 /* ---- Vuetify 全局组件覆盖（只调视觉，不改行为） ---- */
 
-/* 按钮：38px 高、5px 圆角、明确按压反馈 */
+/* 按钮：36px、2px 直角、工程蓝实底 */
 .v-btn {
-  border-radius: var(--cn-r-2) !important;
+  border-radius: 2px !important;
   font-weight: 650;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   text-transform: none;
   transition: transform var(--cn-dur-2) var(--cn-ease-out), opacity var(--cn-dur-2) var(--cn-ease-out),
-    background-color var(--cn-dur-2) var(--cn-ease-out), box-shadow var(--cn-dur-2) var(--cn-ease-out);
+    background-color var(--cn-dur-2) var(--cn-ease-out);
 }
 .v-btn:not(.v-btn--icon):not(.v-btn--size-x-small) {
-  min-height: 38px;
-  padding-inline: 15px;
+  min-height: 36px;
+  padding-inline: 14px;
 }
 .v-btn--size-small {
-  min-height: 32px;
-  padding-inline: 11px;
-  font-size: 12px;
+  min-height: 30px;
+  padding-inline: 10px;
+  font-size: 11.5px;
 }
 .v-btn:hover {
   transform: translateY(-1px);
 }
 .v-btn:active {
-  transform: translateY(1px) scale(0.985);
+  transform: translateY(1px) scale(0.99);
 }
 .v-btn--variant-tonal {
   box-shadow: none;
@@ -198,11 +198,11 @@
   background: var(--cn-accent-soft);
 }
 
-/* 输入框：实色底 + 稳定描边 + 强调聚焦环 */
+/* 输入框：工程纸填写格（1px 强规线，聚焦蓝色描边 + 浅蓝环） */
 .v-field {
-  border-radius: var(--cn-r-2) !important;
-  background: var(--cn-surface-soft);
-  transition: background-color var(--cn-dur-2) var(--cn-ease-out), box-shadow var(--cn-dur-2) var(--cn-ease-out);
+  border-radius: 2px !important;
+  background: var(--cn-surface);
+  transition: box-shadow var(--cn-dur-2) var(--cn-ease-out), background-color var(--cn-dur-2) var(--cn-ease-out);
 }
 .v-field--variant-filled .v-field__overlay,
 .v-field--variant-solo .v-field__overlay,
@@ -220,10 +220,7 @@
   border-color: var(--cn-accent) !important;
 }
 .v-field--focused {
-  box-shadow: 0 0 0 3px rgba(18, 103, 180, 0.14);
-}
-.v-theme--dark .v-field--focused {
-  box-shadow: 0 0 0 3px rgba(103, 183, 255, 0.2);
+  box-shadow: 0 0 0 2px var(--cn-accent-soft);
 }
 .v-field__input,
 .v-field-label {
@@ -233,54 +230,55 @@
   color: var(--cn-muted);
 }
 
-/* 卡片 / 弹层 */
+/* 卡片 / 弹层：纸面 + 规线；浮层才用阴影 */
 .v-card {
-  border-radius: var(--cn-r-3) !important;
+  border-radius: 2px !important;
   background: var(--cn-surface);
 }
 .v-overlay .v-card,
 .v-menu .v-card {
-  border: 1px solid var(--cn-border);
+  border: 1px solid var(--cn-border-strong);
   box-shadow: var(--cn-shadow-2);
 }
 .v-dialog .v-card {
-  border: 1px solid var(--cn-border);
+  border: 1px solid var(--cn-border-strong);
   box-shadow: var(--cn-shadow-3);
 }
 
-/* 告警条 */
+/* 告警条：直角 + 语义描边 */
 .v-alert {
-  border-radius: var(--cn-r-2) !important;
-  font-size: 13px;
+  border-radius: 2px !important;
+  font-size: 12.5px;
 }
 
 /* Toast */
 .v-snackbar__content {
-  border-radius: var(--cn-r-2);
-  font-size: 13px;
+  border-radius: 2px;
+  font-size: 12.5px;
+  border: 1px solid var(--cn-border-strong);
 }
 
-/* 菜单 / 输入下拉 */
+/* 菜单 / 列表 */
 .v-list {
   background: var(--cn-surface);
 }
 .v-list-item {
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
-/* 标签页（追踪工具） */
+/* 标签页 */
 .v-tab {
   text-transform: none;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
 
-/* 表格数据区：实色表头 + 明确 hover（数据区不使用玻璃/光晕） */
+/* 数据表 */
 .v-table {
   background: var(--cn-surface);
 }
 
-/* 滚动条（工具型应用：细而可见） */
+/* 滚动条 */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--cn-border-strong) transparent;
@@ -299,7 +297,7 @@
   background: transparent;
 }
 
-/* 动效降级：全量关闭位移、漂移、旋转、骨架屏动画 */
+/* 动效降级 */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -81,9 +81,8 @@ function trackGlow(e: MouseEvent): void {
 </template>
 
 <style scoped>
-/* ===== 首页 v2「工程仪器工作台」（2026-10-22 视觉系统重做）=====
-   设计稿：OpenDesign「蓝调鎏光 · 工程仪器」。装饰（柔光/网格）只在背景，
-   卡片为实色表面 + 细边框；聚光仅作边缘光，不进入内容区。 */
+/* ===== 首页 v3「蓝图纸面」（2026-10-22 重置稿）=====
+   工程网格底 + 大号展示标题 + 纸面工具面板；取消光晕、渐变与玻璃。 */
 .wrap {
   position: relative;
   min-height: calc(100vh - 64px);
@@ -92,20 +91,18 @@ function trackGlow(e: MouseEvent): void {
   padding: 0 32px 22px;
   background-color: var(--cn-bg);
   background-image:
-    radial-gradient(circle at 12% -8%, rgba(70, 151, 226, 0.15), transparent 38%),
-    radial-gradient(circle at 96% 18%, rgba(55, 126, 192, 0.09), transparent 32%),
-    radial-gradient(rgba(45, 100, 151, 0.13) 0.6px, transparent 0.8px);
-  background-size: auto, auto, 18px 18px, auto;
+    linear-gradient(rgba(7, 93, 168, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(7, 93, 168, 0.055) 1px, transparent 1px);
+  background-size: 28px 28px;
 }
 .v-theme--dark .wrap {
   background-image:
-    radial-gradient(circle at 8% -8%, rgba(28, 100, 167, 0.22), transparent 38%),
-    radial-gradient(circle at 96% 18%, rgba(25, 83, 128, 0.16), transparent 32%),
-    radial-gradient(rgba(104, 157, 204, 0.11) 0.6px, transparent 0.8px);
+    linear-gradient(rgba(81, 181, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(81, 181, 255, 0.07) 1px, transparent 1px);
 }
 
-/* ---- 环境层（慢速漂移柔光，只动 transform） ---- */
-.ambient { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+/* ---- 环境层停用（重置稿取消光晕） ---- */
+.ambient { display: none; }
 .blob { position: absolute; border-radius: 50%; }
 .b1 {
   width: 76vw; height: 76vw; left: -18vw; top: -34vw;
@@ -134,21 +131,11 @@ function trackGlow(e: MouseEvent): void {
 .title {
   margin: 0;
   font-family: var(--cn-font-display);
-  font-size: clamp(32px, 4.2vw, 52px);
-  line-height: 1.12; font-weight: 640; letter-spacing: -0.04em;
-  color: var(--cn-accent-strong);
+  font-size: clamp(40px, 5vw, 64px);
+  line-height: 0.96; font-weight: 650; letter-spacing: -0.04em;
+  color: var(--cn-fg);
   animation: rise var(--cn-dur-5) var(--cn-ease-out) both;
   animation-delay: 40ms;
-}
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .title {
-    background-image: linear-gradient(118deg, #0a1c36 12%, #164f88 60%, #147d9c 100%);
-    -webkit-background-clip: text; background-clip: text;
-    color: transparent;
-  }
-  .v-theme--dark .title {
-    background-image: linear-gradient(118deg, #f0f7ff 12%, #8ec9fe 60%, #53d0d5 100%);
-  }
 }
 .sub {
   margin: 15px auto 0; max-width: 610px;
@@ -172,36 +159,34 @@ function trackGlow(e: MouseEvent): void {
   padding: 24px;
   background: var(--cn-surface);
   border: 1px solid var(--cn-border-strong);
-  border-radius: var(--cn-r-3);
-  box-shadow: var(--cn-shadow-1);
+  border-radius: 2px;
   display: flex; flex-direction: column;
-  transition: transform var(--cn-dur-3) var(--cn-ease-out), box-shadow var(--cn-dur-3) var(--cn-ease-out), border-color var(--cn-dur-3) var(--cn-ease-out);
+  transition: transform var(--cn-dur-3) var(--cn-ease-out), border-color var(--cn-dur-3) var(--cn-ease-out), background var(--cn-dur-3) var(--cn-ease-out);
   animation: rise var(--cn-dur-5) var(--cn-ease-out) both;
   animation-delay: calc(150ms + var(--i) * 90ms);
 }
-/* 光标聚光：只在卡片内部一层极轻径向光，不进内容区 */
+.card:hover { transform: translateY(-3px); border-color: var(--cn-accent); background: var(--cn-surface); }
+.card:active { transform: translateY(1px); }
+.card:focus-visible { outline: 2px solid var(--cn-accent); outline-offset: 3px; }
+/* 主卡蓝色顶规线（重置稿 primary panel） */
 .card::before {
   content: "";
-  position: absolute; inset: 0; pointer-events: none;
-  opacity: 0;
-  background: radial-gradient(260px circle at var(--mx) var(--my), rgba(40, 132, 213, 0.13), transparent 68%);
-  transition: opacity var(--cn-dur-3) var(--cn-ease-out);
+  position: absolute; left: -1px; right: -1px; top: -1px;
+  height: 4px; background: var(--cn-accent);
+  opacity: 0.9;
 }
-.card:hover { transform: translateY(-4px); box-shadow: var(--cn-shadow-2); border-color: var(--cn-accent-line); }
-.card:hover::before { opacity: 1; }
-.card:active { transform: translateY(-1px) scale(0.995); }
-.card:focus-visible { outline: 2px solid var(--cn-accent); outline-offset: 3px; }
+.card::after { content: none; }
 
 .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; position: relative; z-index: 1; }
 .icon {
-  width: 44px; height: 44px; border-radius: 8px;
+  width: 42px; height: 42px;
   display: grid; place-items: center;
   color: var(--cn-accent);
   background: var(--cn-accent-soft);
-  border: 1px solid var(--cn-accent-line);
+  border: 1px solid var(--cn-accent);
   transition: transform var(--cn-dur-2) var(--cn-ease-out);
 }
-.card:hover .icon { transform: translateY(-1px) scale(1.04); }
+.card:hover .icon { transform: translateY(-1px); }
 .idx { color: var(--cn-subtle); font-family: var(--cn-font-mono); font-size: 10px; letter-spacing: 0.12em; }
 .card h3 {
   margin: 20px 0 7px; position: relative; z-index: 1;
@@ -217,11 +202,11 @@ function trackGlow(e: MouseEvent): void {
 .steps { display: grid; gap: 8px; margin: 18px 0 20px; position: relative; z-index: 1; }
 .step { display: flex; align-items: center; gap: 9px; color: var(--cn-fg-soft); font-size: 12px; }
 .snum {
-  width: 20px; height: 20px; border-radius: 50%; flex: none;
+  width: 20px; height: 20px; flex: none;
   border: 1px solid var(--cn-border-strong);
   display: grid; place-items: center;
-  color: var(--cn-accent); font-family: var(--cn-font-mono); font-size: 10px;
-  background: var(--cn-surface-soft);
+  color: var(--cn-accent); font-family: var(--cn-font-mono); font-size: 10px; font-weight: 700;
+  background: var(--cn-surface);
 }
 
 .enter {

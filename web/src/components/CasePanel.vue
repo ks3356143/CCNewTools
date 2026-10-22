@@ -114,9 +114,8 @@ function onChanged(): void {
 .case-card {
   margin-top: 14px;
   background: var(--cn-surface);
-  border: 1px solid var(--cn-border);
-  border-radius: var(--cn-r-2);
-  box-shadow: var(--cn-shadow-1);
+  border: 1px solid var(--cn-border-strong);
+  border-radius: 2px;
   overflow: hidden;
   transition: opacity var(--cn-dur-2) var(--cn-ease-out);
 }

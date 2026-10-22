@@ -1,10 +1,8 @@
-/* 氛围层共享样式 v2（2026-10-22 视觉系统 v2 落地）：
-   环境 = 冷蓝底色 + 两枚大范围柔光（径向渐变自带柔边，不用 blur 滤镜）+ 细点阵；
-   装饰只留在背景与边缘，数据区一律实色面板（见 design.css .u-panel）。
-   兼容性：动画只走 transform；backdrop-filter 带 -webkit- 前缀；老 Chromium（Edge 100）安全。 */
+/* 环境层 v3「蓝图纸面」（2026-10-22 视觉重置）：
+   固定工程网格底（1px 规线，28px 网格），取消光晕/点阵/玻璃；
+   所有标题为实色墨色 + 展示字体，不再使用渐变墨水。
+   兼容性：纯背景色 + linear-gradient，Edge 100 安全。 */
 .amb-wrap {
-  --b1a: 0.15;
-  --b2a: 0.1;
   position: relative;
   min-height: calc(100vh - 64px);
   overflow: hidden;
@@ -12,68 +10,42 @@
   flex-direction: column;
   background-color: var(--cn-bg);
   background-image:
-    radial-gradient(circle at 12% -8%, rgba(70, 151, 226, var(--b1a)), transparent 38%),
-    radial-gradient(circle at 96% 18%, rgba(55, 126, 192, var(--b2a)), transparent 32%),
-    radial-gradient(rgba(45, 100, 151, 0.13) 0.6px, transparent 0.8px);
-  background-size: auto, auto, 18px 18px, auto;
+    linear-gradient(rgba(7, 93, 168, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(7, 93, 168, 0.055) 1px, transparent 1px);
+  background-size: 28px 28px;
 }
 .v-theme--dark .amb-wrap {
-  --b1a: 0.22;
-  --b2a: 0.16;
   background-image:
-    radial-gradient(circle at 8% -8%, rgba(28, 100, 167, var(--b1a)), transparent 38%),
-    radial-gradient(circle at 96% 18%, rgba(25, 83, 128, var(--b2a)), transparent 32%),
-    radial-gradient(rgba(104, 157, 204, 0.11) 0.6px, transparent 0.8px);
+    linear-gradient(rgba(81, 181, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(81, 181, 255, 0.07) 1px, transparent 1px);
 }
 
-.amb { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+/* 旧光晕层停用（模板节点保留，样式中性化） */
+.amb { display: none; }
 .amb-b1,
 .amb-b2,
-.amb-b3 { position: absolute; border-radius: 50%; }
-.amb-b1 {
-  width: 76vw; height: 76vw; left: -18vw; top: -34vw;
-  background: radial-gradient(circle, rgba(75, 155, 230, 0.16) 0, rgba(75, 155, 230, 0.04) 46%, transparent 72%);
-  animation: ambDrift1 26s var(--cn-ease-standard) infinite alternate;
-}
-.amb-b2 {
-  width: 70vw; height: 70vw; right: -24vw; bottom: -40vw;
-  background: radial-gradient(circle, rgba(39, 114, 185, 0.12) 0, rgba(39, 114, 185, 0.03) 48%, transparent 74%);
-  animation: ambDrift2 32s var(--cn-ease-standard) infinite alternate;
-}
-.amb-b3 { display: none; }
-.v-theme--dark .amb-b1 { background: radial-gradient(circle, rgba(30, 110, 180, 0.2) 0, rgba(30, 110, 180, 0.05) 46%, transparent 72%); }
-.v-theme--dark .amb-b2 { background: radial-gradient(circle, rgba(22, 80, 130, 0.18) 0, rgba(22, 80, 130, 0.04) 48%, transparent 74%); }
-@keyframes ambDrift1 { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(7vw, 5vw, 0) scale(1.08); } }
-@keyframes ambDrift2 { from { transform: translate3d(0, 0, 0) scale(1.04); } to { transform: translate3d(-6vw, -4vw, 0) scale(0.96); } }
-
-/* 点阵网格（旧类保留：内容区已由 .amb-wrap 背景统一，不再单独铺一层） */
+.amb-b3,
 .amb-dots { display: none; }
 
-/* 玻璃/面板工具类：v2 改为实色面板（数据承载区不再用半透明玻璃） */
+/* 面板工具类：工程纸 + 强规线（无阴影） */
 .glass {
   background: var(--cn-surface);
-  border: 1px solid var(--cn-border);
-  border-radius: var(--cn-r-3);
-  box-shadow: var(--cn-shadow-1);
+  border: 1px solid var(--cn-border-strong);
+  border-radius: 2px;
 }
 
-/* 渐变墨水标题（浅色深蓝→青，深色亮蓝→青；@supports 兜底防透明字隐形） */
-.amb-title { color: var(--cn-accent-strong); }
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .amb-title {
-    background-image: linear-gradient(118deg, #0b1e39 8%, #164e87 58%, #137b9d 98%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  .v-theme--dark .amb-title {
-    background-image: linear-gradient(118deg, #f2f8ff 8%, #96cfff 60%, #57d6da 100%);
-  }
+/* 标题：实色墨字 + 展示字体（重置稿：取消渐变） */
+.amb-title {
+  color: var(--cn-fg);
+  font-family: var(--cn-font-display);
+}
+.v-theme--dark .amb-title {
+  color: var(--cn-fg);
 }
 
-/* 进场编排 */
+/* 进场编排（仅 opacity + transform） */
 @keyframes ambRise {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 

@@ -95,17 +95,17 @@ function reqEmpty(v: string | undefined): boolean {
 /* 输入框：浅实底 + 细边框，聚焦由全局 token 提供强调环 */
 .param-input :deep(.v-field) {
   min-height: 34px;
-  border-radius: var(--cn-r-2);
-  background: var(--cn-surface-soft);
-  box-shadow: inset 0 0 0 1px var(--cn-border);
+  border-radius: 2px;
+  background: var(--cn-surface);
+  box-shadow: inset 0 0 0 1px var(--cn-border-strong);
   transition: background var(--cn-dur-2) var(--cn-ease-out), box-shadow var(--cn-dur-2) var(--cn-ease-out);
 }
-.param-input :deep(.v-field:hover) { box-shadow: inset 0 0 0 1px var(--cn-border-strong); }
+.param-input :deep(.v-field:hover) { box-shadow: inset 0 0 0 1px var(--cn-fg-soft); }
 .param-input :deep(.v-field--focused) {
   background: var(--cn-surface);
-  box-shadow: inset 0 0 0 1px var(--cn-accent), 0 0 0 3px rgba(18, 103, 180, 0.14);
+  box-shadow: inset 0 0 0 1px var(--cn-accent), 0 0 0 2px var(--cn-accent-soft);
 }
-.v-theme--dark .param-input :deep(.v-field--focused) { box-shadow: inset 0 0 0 1px var(--cn-accent), 0 0 0 3px rgba(103, 183, 255, 0.2); }
+.v-theme--dark .param-input :deep(.v-field--focused) { box-shadow: inset 0 0 0 1px var(--cn-accent), 0 0 0 2px var(--cn-accent-soft); }
 .param-input :deep(.v-field__input) { font-size: 12px; min-height: 34px; padding-top: 0; padding-bottom: 0; }
 .param-input :deep(input::placeholder) { color: var(--cn-subtle); opacity: 0.85; }
 
@@ -113,7 +113,7 @@ function reqEmpty(v: string | undefined): boolean {
 .err .param-label { color: var(--cn-danger); }
 .err :deep(.v-field) {
   background: var(--cn-danger-soft);
-  box-shadow: inset 0 0 0 1px rgba(168, 59, 52, 0.5);
+  box-shadow: inset 0 0 0 1px var(--cn-danger);
 }
 .err :deep(.v-field:hover) { box-shadow: inset 0 0 0 1px var(--cn-danger); }
 .param-error {
