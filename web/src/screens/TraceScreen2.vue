@@ -196,7 +196,7 @@ async function download(): Promise<void> {
 </template>
 
 <style scoped>
-.wrap { position: relative; width: 100%; max-width: 1280px; margin: 0 auto; padding: 24px 28px 30px; }
+.wrap { position: relative; width: 100%; max-width: 1280px; margin: 0 auto; padding: 24px 24px 30px; }
 
 /* ---- 页头 ---- */
 .head { margin-bottom: 14px; animation: rise var(--cn-dur-4) var(--cn-ease-out) both; }
@@ -246,12 +246,16 @@ async function download(): Promise<void> {
 .pv-scroll th:last-child, .pv-scroll td:last-child { border-right: 0; }
 .pv-scroll thead th {
   position: sticky; top: 0; z-index: 2;
-  background: #e8f0f8; color: #2d4662;
+  height: 38px;
+  background: #f4f9fe; color: #4c617b;
   font-weight: 650; font-size: 11.5px;
+  white-space: nowrap;
+  border-color: #c9d9ea;
 }
-.v-theme--dark .pv-scroll thead th { background: #172d44; color: #c8dcef; }
-.pv-scroll thead tr:nth-child(2) th { z-index: 1; background: #f0f5fa; }
-.v-theme--dark .pv-scroll thead tr:nth-child(2) th { background: #13273c; }
+.v-theme--dark .pv-scroll thead th { background: #162943; color: #c8dcef; border-color: var(--cn-border); }
+/* 第二行表头：产品蓝锚定（v5 评审 009），替代原来的浅灰第二行 */
+.pv-scroll thead tr:nth-child(2) th { z-index: 1; height: 34px; background: #173b62; color: #fff; }
+.v-theme--dark .pv-scroll thead tr:nth-child(2) th { background: #1d4a7a; color: #fff; }
 .pv-scroll tbody tr:hover td { background: #f4f9fd; }
 .v-theme--dark .pv-scroll tbody tr:hover td { background: #12273c; }
 .pv-scroll td { color: var(--cn-fg-soft); }
@@ -264,7 +268,7 @@ async function download(): Promise<void> {
   transition: border-color var(--cn-dur-1) var(--cn-ease-out), background var(--cn-dur-1) var(--cn-ease-out);
 }
 .res-input:hover { border-color: var(--cn-border-strong); background: var(--cn-surface-soft); }
-.res-input:focus { outline: none; border-color: var(--cn-accent); background: var(--cn-surface); box-shadow: 0 0 0 2px rgba(18, 103, 180, 0.14); }
+.res-input:focus { outline: none; border-color: var(--cn-accent); background: var(--cn-surface); box-shadow: 0 0 0 3px rgba(47, 128, 232, 0.16); }
 
 /* ---- 操作区 ---- */
 .acts {

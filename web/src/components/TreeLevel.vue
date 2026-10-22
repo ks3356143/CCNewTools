@@ -77,28 +77,33 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
    避免"行 padding × depth + 嵌套 margin"双重叠加（2026-10-09 内网实测"缩进太大"） */
 .lvl { min-width: 0; }
 .row {
-  width: 100%; min-height: 30px;
+  width: 100%; min-height: 34px;
   display: flex; align-items: center; gap: 6px;
   padding: 3px 8px; border-radius: var(--cn-r-1);
   text-align: left; cursor: pointer;
   transition: background var(--cn-dur-1) var(--cn-ease-out), color var(--cn-dur-1) var(--cn-ease-out);
 }
 .row:hover { background: var(--cn-surface-soft); }
-.level-row { font-size: 12.5px; font-weight: 600; color: var(--cn-fg-soft); }
-.level-row.is-item { font-weight: 500; color: var(--cn-muted); font-size: 12px; }
-/* 子级展开：淡入 + 上移 3px（240ms）；收起仍为 v-if 即时移除（大文档不保留 DOM 的既定取舍） */
+.level-row { font-size: 13px; font-weight: 600; color: var(--cn-fg-soft); }
+.level-row.is-item { font-weight: 500; color: var(--cn-muted); font-size: 12.5px; }
+/* 子级展开：淡入 + 上移 3px（200ms）；收起仍为 v-if 即时移除（大文档不保留 DOM 的既定取舍） */
 .indent {
-  margin-left: 14px;
+  margin-left: 16px;
   border-left: 1px solid var(--cn-border);
-  animation: tree-open var(--cn-dur-3) var(--cn-ease-out);
+  animation: tree-open 200ms var(--cn-ease-out);
 }
 @keyframes tree-open {
   from { opacity: 0; transform: translateY(-3px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.case-row { padding-left: 9px; margin-right: 4px; font-size: 12px; color: var(--cn-muted); }
+.case-row { padding-left: 9px; margin-right: 4px; font-size: 12.5px; color: var(--cn-muted); }
 .case-row:hover { color: var(--cn-fg); }
-.case-row.cur { background: var(--cn-accent-soft); color: var(--cn-accent); font-weight: 600; }
+/* 选中态：浅蓝底 + 左侧 3px 主色标记（v5 评审 006），一眼可见但不压过正文 */
+.case-row.cur {
+  background: #e9f3ff; color: #1459a9; font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--cn-accent);
+}
+.v-theme--dark .case-row.cur { background: var(--cn-accent-soft); color: var(--cn-accent-strong); }
 .chev { transition: transform var(--cn-dur-2) var(--cn-ease-out); flex: none; color: var(--cn-subtle); }
 .chev.closed { transform: rotate(-90deg); }
 .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }

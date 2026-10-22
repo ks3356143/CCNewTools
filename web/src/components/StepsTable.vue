@@ -102,25 +102,29 @@ function renumber(): void {
 <style scoped>
 .steps { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .steps th {
-  text-align: left; font-size: 11.5px; font-weight: 600; white-space: nowrap;
-  padding: 8px 10px;
-  background: var(--cn-surface-soft);
-  border-bottom: 1px solid var(--cn-border);
-  color: var(--cn-muted);
+  height: 38px;
+  text-align: left; font-size: 11.5px; font-weight: 650; white-space: nowrap;
+  padding: 0 12px;
+  background: #f4f9fe;
+  border-bottom: 1px solid var(--cn-row-line);
+  color: #4c617b;
 }
+.v-theme--dark .steps th { background: #162943; color: #b7c9dc; }
 .steps td {
-  padding: 9px 10px; vertical-align: middle;
-  border-bottom: 1px solid var(--cn-border);
-  font-size: 12.5px; line-height: 1.65; color: var(--cn-fg-soft);
+  height: 42px;
+  padding: 6px 12px; vertical-align: middle;
+  border-bottom: 1px solid var(--cn-row-line);
+  font-size: 13px; line-height: 1.55; color: var(--cn-fg-soft);
 }
-.steps tbody tr:hover:not(.suspect) td { background: var(--cn-surface-soft); }
+.steps tbody tr:hover:not(.suspect) td { background: #f3f8ff; }
+.v-theme--dark .steps tbody tr:hover:not(.suspect) td { background: var(--cn-accent-soft); }
 .steps tr:last-child td { border-bottom: none; }
 .c { text-align: center; }
-.c-no { width: 40px; }
+.c-no { width: 48px; }
 td.no { color: var(--cn-accent); font-weight: 650; font-size: 12px; }
-.c-act { width: 40%; }
-/* 操作列：按钮 36px（桌面可点性），4×36 + gap2×3 + box padding 2×2 = 156，列宽 172 盖住 */
-.c-ops { width: 172px; }
+.c-act { width: 42%; }
+/* 操作列：4×32 + gap6 + 盒内边距 = 138，列宽 156（v5 评审值） */
+.c-ops { width: 156px; }
 td.editable, .edit { outline: none; cursor: text; min-height: 22px; }
 .edit {
   padding: 2px 6px;
@@ -129,8 +133,8 @@ td.editable, .edit { outline: none; cursor: text; min-height: 22px; }
   transition: border-color var(--cn-dur-1) var(--cn-ease-out), background var(--cn-dur-1) var(--cn-ease-out);
 }
 .edit:hover { border-color: var(--cn-border-strong); background: var(--cn-surface-soft); }
-.edit:focus { border: 1px solid var(--cn-accent); box-shadow: 0 0 0 2px rgba(18, 103, 180, 0.14); background: var(--cn-surface); }
-.v-theme--dark .edit:focus { box-shadow: 0 0 0 2px rgba(103, 183, 255, 0.18); }
+.edit:focus { border: 1px solid var(--cn-accent); box-shadow: 0 0 0 3px rgba(47, 128, 232, 0.16); background: var(--cn-surface); }
+.v-theme--dark .edit:focus { box-shadow: 0 0 0 3px rgba(101, 169, 244, 0.22); }
 tr.suspect td { background: var(--cn-danger-soft); }
 tr.suspect td:first-child { box-shadow: inset 3px 0 0 var(--cn-danger); }
 .sus-tag {
@@ -140,13 +144,13 @@ tr.suspect td:first-child { box-shadow: inset 3px 0 0 var(--cn-danger); }
 }
 .v-theme--dark .sus-tag { background: rgba(255, 147, 139, 0.12); }
 .fix { margin-left: 4px; text-decoration: underline; text-underline-offset: 3px; font-size: 10.5px; color: var(--cn-accent); }
-.ops { width: 172px; padding-left: 4px; padding-right: 10px; }
+.ops { width: 156px; padding-left: 4px; padding-right: 6px; }
 .ops .ops-box {
   display: inline-flex; gap: 2px;
   background: var(--cn-surface-soft);
   border-radius: var(--cn-r-2); padding: 2px;
 }
-.ops .ops-box .v-btn { --v-btn-size: 26px; height: 36px; width: 36px; color: var(--cn-muted); }
+.ops .ops-box .v-btn { --v-btn-size: 24px; height: 32px; width: 32px; color: var(--cn-muted); }
 .sus-note {
   font-size: 11px; color: var(--cn-danger);
   padding: 8px 12px; border-top: 1px dashed rgba(168, 59, 52, 0.35);

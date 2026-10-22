@@ -323,7 +323,7 @@ function issueCounts(): string {
 </template>
 
 <style scoped>
-.wrap { position: relative; width: 100%; max-width: 1240px; margin: 0 auto; padding: 24px 28px 30px; }
+.wrap { position: relative; width: 100%; max-width: 1240px; margin: 0 auto; padding: 24px 24px 30px; }
 
 /* ---- 页头（v2：标题左对齐，功能入口优先） ---- */
 .hero { text-align: left; margin-bottom: 14px; animation: rise var(--cn-dur-4) var(--cn-ease-out) both; }

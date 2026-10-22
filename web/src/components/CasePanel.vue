@@ -73,7 +73,7 @@ function onChanged(): void {
     <v-icon size="34" class="empty-icon">mdi-file-document-outline</v-icon>
     <b>没有可核对的用例</b>
     <span>请返回「选择大纲」导入测试大纲，解析完成后再来核对。</span>
-    <v-btn size="small" variant="tonal" color="primary" @click="store.screen = 1">返回选择大纲</v-btn>
+    <v-btn size="small" color="primary" @click="store.screen = 1">返回选择大纲</v-btn>
   </div>
 </template>
 
@@ -89,7 +89,7 @@ function onChanged(): void {
 .title-row { display: flex; align-items: center; gap: 12px; margin-top: 5px; flex-wrap: wrap; }
 .title-row h2 {
   margin: 0; font-family: var(--cn-font-display);
-  font-size: 19px; font-weight: 650; letter-spacing: -0.015em; color: var(--cn-fg);
+  font-size: 17px; font-weight: 650; letter-spacing: -0.015em; color: var(--cn-fg);
 }
 .btns { margin-left: auto; display: flex; gap: 7px; }
 

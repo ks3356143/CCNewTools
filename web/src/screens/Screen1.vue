@@ -279,7 +279,7 @@ function jumpTo(issue: Issue): void {
 </template>
 
 <style scoped>
-.wrap { position: relative; width: 100%; max-width: 1240px; margin: 0 auto; padding: 24px 28px 30px;
+.wrap { position: relative; width: 100%; max-width: 1240px; margin: 0 auto; padding: 24px 24px 30px;
   display: flex; flex-direction: column; min-height: calc(100vh - 64px); }
 
 /* ---- 页头 ---- */
@@ -342,8 +342,8 @@ function jumpTo(issue: Issue): void {
 }
 .upload-icon.ok { color: var(--cn-success); background: var(--cn-success-soft); border-color: #a6d7bf; }
 .drop-copy { flex: 1; min-width: 0; }
-.drop-copy h3 { margin: 0 0 5px; font-size: 15px; font-weight: 650; color: var(--cn-fg); }
-.drop-copy p { margin: 0; color: var(--cn-muted); font-size: 12px; line-height: 1.6; }
+.drop-copy h3 { margin: 0 0 5px; font-size: 16px; font-weight: 650; color: var(--cn-fg); }
+.drop-copy p { margin: 0; color: var(--cn-muted); font-size: 12.5px; line-height: 1.6; }
 .drop-copy p b { color: var(--cn-fg-soft); font-weight: 600; }
 .drop-action { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
 .file-type { color: var(--cn-subtle); font-family: var(--cn-font-mono); font-size: 10px; letter-spacing: 0.08em; }

@@ -189,7 +189,7 @@ const totalCases = computed(() => store.cases.length)
 }
 .search :deep(.v-field--focused) {
   background: var(--cn-surface);
-  box-shadow: inset 0 0 0 1px var(--cn-accent), 0 0 0 3px rgba(18, 103, 180, 0.13);
+  box-shadow: inset 0 0 0 1px var(--cn-accent), 0 0 0 3px rgba(47, 128, 232, 0.13);
 }
 .search :deep(.v-field__input) { font-size: 12px; min-height: 31px; padding-top: 0; padding-bottom: 0; }
 .note {
@@ -203,3 +203,5 @@ const totalCases = computed(() => store.cases.length)
 .found.overflow { color: var(--cn-warning); }
 .empty { padding: 18px 12px; font-size: 12px; color: var(--cn-subtle); }
 </style>
+
+.v-theme--dark .search :deep(.v-field--focused) { box-shadow: inset 0 0 0 1px var(--cn-accent), 0 0 0 3px rgba(101, 169, 244, 0.22); }

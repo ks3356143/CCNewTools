@@ -51,14 +51,14 @@ function reqEmpty(v: string | undefined): boolean {
           </div>
           <div class="param-field" :class="{ err: reqEmpty(store.params.tester) }">
             <div class="param-label">测试人员 <span class="required">*</span></div>
-            <v-text-field v-model="store.params.tester" placeholder="必填" variant="solo-filled" flat density="compact" hide-details class="param-input" @update:model-value="onInput" />
+            <v-text-field v-model="store.params.tester" placeholder="请输入" variant="solo-filled" flat density="compact" hide-details class="param-input" @update:model-value="onInput" />
             <div v-if="reqEmpty(store.params.tester)" class="param-error">
               <v-icon size="11">mdi-alert-circle-outline</v-icon>必填
             </div>
           </div>
           <div class="param-field" :class="{ err: reqEmpty(store.params.monitor) }">
             <div class="param-label">监测人员 <span class="required">*</span></div>
-            <v-text-field v-model="store.params.monitor" placeholder="必填" variant="solo-filled" flat density="compact" hide-details class="param-input" @update:model-value="onInput" />
+            <v-text-field v-model="store.params.monitor" placeholder="请输入" variant="solo-filled" flat density="compact" hide-details class="param-input" @update:model-value="onInput" />
             <div v-if="reqEmpty(store.params.monitor)" class="param-error">
               <v-icon size="11">mdi-alert-circle-outline</v-icon>必填
             </div>
@@ -73,7 +73,7 @@ function reqEmpty(v: string | undefined): boolean {
 <style scoped>
 .pcard { display: flex; flex-direction: column; }
 .param-head { display: flex; align-items: center; gap: 8px; padding: 2px 2px 12px; cursor: pointer; user-select: none; }
-.param-head h3 { margin: 0; font-size: 12.5px; font-weight: 650; color: var(--cn-fg); }
+.param-head h3 { margin: 0; font-size: 13.5px; font-weight: 650; color: var(--cn-fg); }
 .param-count { color: var(--cn-subtle); font-size: 10px; letter-spacing: 0.08em; }
 .chev { margin-left: auto; color: var(--cn-subtle); transition: transform var(--cn-dur-3) var(--cn-ease-standard); }
 .chev.closed { transform: rotate(180deg); }
@@ -88,13 +88,13 @@ function reqEmpty(v: string | undefined): boolean {
 .param-field { margin-bottom: 11px; }
 .param-label {
   display: flex; align-items: center; gap: 3px;
-  margin-bottom: 5px; color: var(--cn-muted); font-size: 11px;
+  margin-bottom: 5px; color: var(--cn-muted); font-size: 11.5px;
 }
 .required { color: var(--cn-danger); font-weight: 700; }
 
 /* 输入框：浅实底 + 细边框，聚焦由全局 token 提供强调环 */
 .param-input :deep(.v-field) {
-  min-height: 34px;
+  min-height: 36px;
   border-radius: var(--cn-r-2);
   background: var(--cn-surface-soft);
   box-shadow: inset 0 0 0 1px var(--cn-border);
@@ -108,19 +108,20 @@ function reqEmpty(v: string | undefined): boolean {
   box-shadow: inset 0 0 0 1.5px var(--cn-accent);
 }
 .v-theme--dark .param-input :deep(.v-field--focused) { box-shadow: inset 0 0 0 1.5px var(--cn-accent); }
-.param-input :deep(.v-field__input) { font-size: 12px; min-height: 34px; padding-top: 0; padding-bottom: 0; }
+.param-input :deep(.v-field__input) { font-size: 12.5px; min-height: 36px; padding-top: 0; padding-bottom: 0; }
 .param-input :deep(input::placeholder) { color: var(--cn-subtle); opacity: 0.85; }
 
-/* 必填错误态：危险色底 + 描边 + 行内提示（不再是模糊的荧光，语义明确） */
-.err .param-label { color: var(--cn-danger); }
+/* 必填错误态：1px 危险色描边 + #FFF9FA 极浅底 + 行内提示（v5 评审 010：
+   去掉纯红填充，错误仍清晰但不比主操作抢眼） */
 .err :deep(.v-field) {
-  background: var(--cn-danger-soft);
-  box-shadow: inset 0 0 0 1px rgba(168, 59, 52, 0.5);
+  background: #fff9fa;
+  box-shadow: inset 0 0 0 1px var(--cn-danger);
 }
 .err :deep(.v-field:hover) { box-shadow: inset 0 0 0 1px var(--cn-danger); }
+.v-theme--dark .err :deep(.v-field) { background: var(--cn-danger-soft); }
 .param-error {
   display: flex; align-items: center; gap: 4px;
-  margin-top: 4px; color: var(--cn-danger); font-size: 10.5px;
+  margin-top: 4px; color: #b63d4d; font-size: 10.5px; line-height: 16px;
 }
 .param-note {
   margin-top: 4px; padding: 9px 10px;

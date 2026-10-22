@@ -146,7 +146,8 @@ function gen(): void {
 .verify-head {
   flex: none;
   display: flex; align-items: center; gap: 22px;
-  padding: 14px 20px 13px;
+  min-height: 76px;
+  padding: 12px 24px;
   background: var(--cn-surface);
   border-bottom: 1px solid var(--cn-border);
 }
@@ -157,22 +158,22 @@ function gen(): void {
   font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
 }
 .kicker::before { content: ""; width: 18px; height: 1px; background: var(--cn-accent-line); }
-.vtitle h2 { margin: 4px 0 0; font-family: var(--cn-font-display); font-size: 17px; font-weight: 650; letter-spacing: -0.02em; color: var(--cn-fg); }
+.vtitle h2 { margin: 4px 0 0; font-family: var(--cn-font-display); font-size: 22px; line-height: 1.3; font-weight: 650; letter-spacing: -0.02em; color: var(--cn-fg); }
 .meta { margin: 3px 0 0; color: var(--cn-subtle); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.summary { display: flex; align-items: center; gap: 8px; flex: none; }
+.summary { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
 .sus {
   display: inline-flex; align-items: center; gap: 4px;
-  min-height: 24px; padding: 1px 10px;
+  min-height: 26px; padding: 0 9px;
   border: 1px solid transparent; border-radius: var(--cn-r-1);
-  font: inherit; font-size: 11.5px; cursor: pointer;
+  font: inherit; font-size: 12px; line-height: 18px; font-weight: 600; cursor: pointer;
   color: var(--cn-danger); background: var(--cn-danger-soft);
 }
 .sus.zero { color: var(--cn-success); background: var(--cn-success-soft); cursor: default; }
 .sus.warn { color: var(--cn-warning); background: var(--cn-warning-soft); }
-.progress-wrap { margin-left: auto; width: 300px; max-width: 34vw; flex: none; }
+.progress-wrap { margin-left: 0; width: 200px; max-width: 30vw; flex: none; }
 .progress-labels { display: flex; justify-content: space-between; margin-bottom: 5px; color: var(--cn-muted); font-size: 10.5px; }
 .progress-labels .u-mono { color: var(--cn-accent); }
-.progress-track { height: 4px; border-radius: 2px; background: var(--cn-border); overflow: hidden; }
+.progress-track { height: 6px; border-radius: 3px; background: var(--cn-border); overflow: hidden; }
 .progress-track i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--cn-accent); transition: width var(--cn-dur-4) var(--cn-ease-standard); }
 .progress-track i.done { background: var(--cn-success); }
 
@@ -180,7 +181,7 @@ function gen(): void {
 .verify-content {
   flex: 1; min-height: 0; overflow: hidden;
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 320px;
+  grid-template-columns: 288px minmax(0, 1fr) 312px;
   grid-template-areas: "side editor params";
 }
 .verify-sidebar {
@@ -193,7 +194,7 @@ function gen(): void {
   grid-area: editor;
   min-width: 0; min-height: 0;
   overflow-y: auto;
-  padding: 16px 18px 0;
+  padding: 16px 24px 0;
 }
 /* 纵向 flex 里子项默认会被压缩（全局参数卡片被裁掉半截的根因），一律按自然高度排 */
 .main > * { flex: none; }
@@ -203,14 +204,14 @@ function gen(): void {
   min-height: 0; overflow-y: auto;
   background: var(--cn-surface);
   border-left: 1px solid var(--cn-border);
-  padding: 13px 14px 20px;
+  padding: 14px 16px 20px;
 }
 
 /* ---- 底部操作栏 ---- */
 .actionbar {
   flex: none;
   display: flex; align-items: center; gap: 8px;
-  min-height: 58px; padding: 0 18px;
+  min-height: 64px; padding: 0 24px;
   background: var(--cn-surface);
   border-top: 1px solid var(--cn-border);
 }
@@ -236,12 +237,15 @@ function gen(): void {
   .progress-wrap { margin-left: 0; width: 100%; max-width: none; }
   .verify-content {
     grid-template-columns: 1fr;
-    grid-template-areas: "side" "params" "editor";
+    grid-template-areas: "side" "editor" "params";
     overflow: visible;
+    /* 吸底操作栏会盖住最后一段内容，留出同等高度 */
+    padding-bottom: 72px;
   }
-  .verify-sidebar { height: 300px; border-right: 0; border-bottom: 1px solid var(--cn-border); }
-  .verify-params { border-left: 0; border-bottom: 1px solid var(--cn-border); overflow: visible; }
-  .verify-editor { overflow: visible; padding-bottom: 0; }
+  /* 窄屏：目录限高可滚，编辑区优先于参数区（核心工作在前） */
+  .verify-sidebar { height: auto; max-height: 340px; overflow-y: auto; border-right: 0; border-bottom: 1px solid var(--cn-border); }
+  .verify-params { border-left: 0; border-top: 1px solid var(--cn-border); overflow: visible; }
+  .verify-editor { overflow: visible; padding-bottom: 16px; }
   .actionbar { position: sticky; bottom: 0; z-index: 10; }
   .save-hint { display: none; }
 }

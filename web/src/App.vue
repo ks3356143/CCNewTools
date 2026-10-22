@@ -235,14 +235,15 @@ function stepClick(n: number): void {
 .link { width: 22px; height: 1px; background: var(--cn-border); margin: 0 3px; }
 /* 顶栏图标按钮（帮助/主题）：32px 描边方钮 */
 .icon-btn {
-  width: 32px; height: 32px; margin-right: 8px;
-  border: 1px solid var(--cn-border); border-radius: var(--cn-r-2);
-  background: var(--cn-surface); color: var(--cn-muted);
+  width: 36px; height: 36px; margin-right: 6px;
+  border: 1px solid transparent; border-radius: var(--cn-r-2);
+  background: transparent; color: var(--cn-muted);
   display: grid; place-items: center; cursor: pointer;
-  transition: transform var(--cn-dur-2) var(--cn-ease-out), border-color var(--cn-dur-2) var(--cn-ease-out), color var(--cn-dur-2) var(--cn-ease-out);
+  transition: background var(--cn-dur-2) var(--cn-ease-out), color var(--cn-dur-2) var(--cn-ease-out);
 }
-.icon-btn:hover { transform: translateY(-1px); border-color: var(--cn-border-strong); color: var(--cn-fg); }
-.icon-btn:active { transform: translateY(1px) scale(0.98); }
+/* v5 评审 012：默认安静、hover 才上浅蓝，边框留给容器与表格 */
+.icon-btn:hover { background: var(--cn-accent-soft); color: var(--cn-fg); }
+.icon-btn:active { transform: scale(0.97); }
 /* 三屏切换过渡（240ms fade-slide，respect reduced-motion） */
 .screen-enter-active, .screen-leave-active { transition: opacity 0.24s var(--cn-ease-out), transform 0.24s var(--cn-ease-out); }
 .screen-enter-from { opacity: 0; transform: translateY(8px); }
