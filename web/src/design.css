@@ -258,6 +258,12 @@
 .v-snackbar__content {
   border-radius: var(--cn-r-2);
   font-size: 13px;
+  border: 1px solid var(--cn-border-strong);
+  background: var(--cn-surface-glass) !important;
+  color: var(--cn-fg) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(14px) saturate(120%);
+  box-shadow: var(--cn-shadow-2);
 }
 
 /* 菜单 / 输入下拉 */

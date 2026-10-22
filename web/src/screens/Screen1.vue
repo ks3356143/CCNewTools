@@ -235,8 +235,6 @@ function jumpTo(issue: Issue): void {
               </v-btn>
             </div>
           </template>
-
-          <div class="foot">离线运行，文档内容不出本机。</div>
         </div>
 
         <aside class="upload-aside">
@@ -275,12 +273,14 @@ function jumpTo(issue: Issue): void {
           </div>
         </aside>
       </div>
+      <div class="foot">离线运行，文档内容不出本机。</div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.wrap { position: relative; width: 100%; max-width: 1080px; margin: 0 auto; padding: 24px 28px 30px; }
+.wrap { position: relative; width: 100%; max-width: 1080px; margin: 0 auto; padding: 24px 28px 30px;
+  display: flex; flex-direction: column; min-height: calc(100vh - 64px); }
 
 /* ---- 页头 ---- */
 .page-head {
@@ -319,7 +319,7 @@ function jumpTo(issue: Issue): void {
 
 /* ---- 拖放区 ---- */
 .drop {
-  min-height: 170px; padding: 24px;
+  min-height: 220px; padding: 24px;
   display: flex; flex-direction: column; justify-content: center; gap: 14px;
   border: 1px dashed var(--cn-accent-line);
   border-radius: var(--cn-r-3);
@@ -392,7 +392,7 @@ function jumpTo(issue: Issue): void {
 .p-row { display: flex; align-items: center; gap: 11px; padding: 10px 14px; transition: background var(--cn-dur-1) var(--cn-ease-out); }
 .p-row:hover { background: var(--cn-surface-soft); }
 .p-row + .p-row { border-top: 1px solid var(--cn-border); }
-.p-idx { flex: none; color: var(--cn-subtle); font-size: 9px; letter-spacing: 0.08em; }
+.p-idx { flex: none; color: var(--cn-subtle); font-size: 10px; letter-spacing: 0.08em; }
 .p-main { flex: 1; min-width: 0; }
 .p-name { font-size: 12.5px; font-weight: 600; color: var(--cn-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-meta { margin-top: 2px; font-size: 11px; color: var(--cn-subtle); font-variant-numeric: tabular-nums; }
@@ -411,7 +411,7 @@ function jumpTo(issue: Issue): void {
   font-family: var(--cn-font-mono); font-size: 10px; font-weight: 650;
 }
 
-.foot { margin-top: 16px; text-align: center; color: var(--cn-subtle); font-family: var(--cn-font-mono); font-size: 10px; letter-spacing: 0.03em; }
+.foot { margin-top: auto; padding-top: 22px; text-align: center; color: var(--cn-subtle); font-family: var(--cn-font-mono); font-size: 10px; letter-spacing: 0.03em; }
 
 @keyframes rise {
   from { opacity: 0; transform: translateY(14px); }

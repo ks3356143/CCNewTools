@@ -227,7 +227,7 @@ const recKB = computed(() => (store.genResult?.rec ? base64KB(store.genResult.re
   background: var(--cn-accent-soft);
   border: 1px solid var(--cn-accent-line);
   display: grid; place-items: end center; padding-bottom: 5px;
-  color: var(--cn-accent); font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--cn-accent); font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
 }
 .file-icon::before {
   content: ""; position: absolute; right: -1px; top: -1px;

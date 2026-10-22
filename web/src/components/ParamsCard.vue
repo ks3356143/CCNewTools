@@ -74,7 +74,7 @@ function reqEmpty(v: string | undefined): boolean {
 .pcard { display: flex; flex-direction: column; }
 .param-head { display: flex; align-items: center; gap: 8px; padding: 2px 2px 12px; cursor: pointer; user-select: none; }
 .param-head h3 { margin: 0; font-size: 12.5px; font-weight: 650; color: var(--cn-fg); }
-.param-count { color: var(--cn-subtle); font-size: 9px; letter-spacing: 0.08em; }
+.param-count { color: var(--cn-subtle); font-size: 10px; letter-spacing: 0.08em; }
 .chev { margin-left: auto; color: var(--cn-subtle); transition: transform var(--cn-dur-3) var(--cn-ease-standard); }
 .chev.closed { transform: rotate(180deg); }
 
@@ -101,11 +101,13 @@ function reqEmpty(v: string | undefined): boolean {
   transition: background var(--cn-dur-2) var(--cn-ease-out), box-shadow var(--cn-dur-2) var(--cn-ease-out);
 }
 .param-input :deep(.v-field:hover) { box-shadow: inset 0 0 0 1px var(--cn-border-strong); }
+/* 聚焦态：完整一圈 1.5px 强调描边（此前"内描边 + 外环"叠加在视觉上像上下两条蓝线，
+   用户截图指出；去掉外环后聚焦框是干净的整圈圆角描边） */
 .param-input :deep(.v-field--focused) {
   background: var(--cn-surface);
-  box-shadow: inset 0 0 0 1px var(--cn-accent), 0 0 0 3px rgba(18, 103, 180, 0.14);
+  box-shadow: inset 0 0 0 1.5px var(--cn-accent);
 }
-.v-theme--dark .param-input :deep(.v-field--focused) { box-shadow: inset 0 0 0 1px var(--cn-accent), 0 0 0 3px rgba(103, 183, 255, 0.2); }
+.v-theme--dark .param-input :deep(.v-field--focused) { box-shadow: inset 0 0 0 1.5px var(--cn-accent); }
 .param-input :deep(.v-field__input) { font-size: 12px; min-height: 34px; padding-top: 0; padding-bottom: 0; }
 .param-input :deep(input::placeholder) { color: var(--cn-subtle); opacity: 0.85; }
 

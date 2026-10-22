@@ -95,7 +95,7 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
 .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .name.excluded { text-decoration: line-through; opacity: 0.5; }
 .cnt { margin-left: auto; font-size: 10px; color: var(--cn-subtle); flex: none; }
-.cid { margin-left: auto; font-size: 9.5px; opacity: 0.75; flex: none; }
+.cid { margin-left: auto; font-size: 10px; opacity: 0.75; flex: none; }
 .dot-holder { width: 13px; display: inline-flex; justify-content: center; flex: none; }
 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cn-danger); }
 .more { padding: 3px 6px 4px; font-size: 10.5px; color: var(--cn-warning); }

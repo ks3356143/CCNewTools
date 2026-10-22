@@ -154,7 +154,7 @@ function gen(): void {
 .kicker {
   display: inline-flex; align-items: center; gap: 7px;
   color: var(--cn-accent); font-family: var(--cn-font-mono);
-  font-size: 9.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
 }
 .kicker::before { content: ""; width: 18px; height: 1px; background: var(--cn-accent-line); }
 .vtitle h2 { margin: 4px 0 0; font-family: var(--cn-font-display); font-size: 17px; font-weight: 650; letter-spacing: -0.02em; color: var(--cn-fg); }

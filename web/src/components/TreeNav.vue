@@ -164,7 +164,7 @@ const totalCases = computed(() => store.cases.length)
         :depth="0"
         @toggle="toggle"
       />
-      <div v-if="treeRoots.length === 0" class="empty">没有匹配的用例</div>
+      <div v-if="treeRoots.length === 0" class="empty">{{ totalCases === 0 ? '暂无用例，请返回「选择大纲」重新导入' : '没有匹配的用例' }}</div>
     </div>
     <div v-if="keyword && treeRoots.length > 0" class="found">
       匹配 {{ tree.hits }} / {{ totalCases }} 个用例
