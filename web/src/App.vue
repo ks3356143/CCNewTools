@@ -175,8 +175,8 @@ function stepClick(n: number): void {
    扫光/深蓝渐变已按设计稿移除；backdrop-filter 带 -webkit- 前缀（Edge 100 可用） */
 .v-app-bar {
   background: var(--cn-surface-glass) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(130%);
-  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  backdrop-filter: blur(18px) saturate(130%);
   border-bottom: 1px solid var(--cn-border);
   box-shadow: none !important;
   color: var(--cn-fg);
@@ -192,9 +192,10 @@ function stepClick(n: number): void {
 .back:hover { background: var(--cn-surface-soft); color: var(--cn-fg); border-color: var(--cn-border); }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-mark {
-  width: 30px; height: 30px; border-radius: 7px; margin-left: 8px;
-  background: var(--cn-accent-soft); border: 1px solid var(--cn-accent-line);
-  color: var(--cn-accent);
+  width: 30px; height: 30px; border-radius: 9px; margin-left: 8px;
+  background: linear-gradient(145deg, #5ebef3, #2b79d5 62%, #1955a1);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(33, 108, 190, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   display: flex; align-items: center; justify-content: center;
 }
 .app-title {

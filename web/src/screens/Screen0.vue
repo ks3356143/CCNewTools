@@ -142,12 +142,12 @@ function trackGlow(e: MouseEvent): void {
 }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .title {
-    background-image: linear-gradient(118deg, #0a1c36 12%, #164f88 60%, #147d9c 100%);
+    background-image: linear-gradient(100deg, #133964 6%, #2167b5 56%, #18a8c4 100%);
     -webkit-background-clip: text; background-clip: text;
     color: transparent;
   }
   .v-theme--dark .title {
-    background-image: linear-gradient(118deg, #f0f7ff 12%, #8ec9fe 60%, #53d0d5 100%);
+    background-image: linear-gradient(100deg, #d9edff 4%, #79bfff 52%, #62d9e9 100%);
   }
 }
 .sub {
@@ -184,7 +184,7 @@ function trackGlow(e: MouseEvent): void {
   content: "";
   position: absolute; inset: 0; pointer-events: none;
   opacity: 0;
-  background: radial-gradient(260px circle at var(--mx) var(--my), rgba(40, 132, 213, 0.13), transparent 68%);
+  background: radial-gradient(260px circle at var(--mx) var(--my), rgba(47, 128, 232, 0.15), transparent 68%);
   transition: opacity var(--cn-dur-3) var(--cn-ease-out);
 }
 .card:hover { transform: translateY(-4px); box-shadow: var(--cn-shadow-2); border-color: var(--cn-accent-line); }

@@ -12,18 +12,18 @@
   flex-direction: column;
   background-color: var(--cn-bg);
   background-image:
-    radial-gradient(circle at 12% -8%, rgba(70, 151, 226, var(--b1a)), transparent 38%),
-    radial-gradient(circle at 96% 18%, rgba(55, 126, 192, var(--b2a)), transparent 32%),
-    radial-gradient(rgba(45, 100, 151, 0.13) 0.6px, transparent 0.8px);
+    radial-gradient(circle at 12% -8%, rgba(47, 128, 232, var(--b1a)), transparent 38%),
+    radial-gradient(circle at 96% 18%, rgba(62, 176, 212, var(--b2a)), transparent 32%),
+    radial-gradient(rgba(110, 153, 195, 0.18) 0.6px, transparent 0.8px);
   background-size: auto, auto, 18px 18px, auto;
 }
 .v-theme--dark .amb-wrap {
   --b1a: 0.22;
   --b2a: 0.16;
   background-image:
-    radial-gradient(circle at 8% -8%, rgba(28, 100, 167, var(--b1a)), transparent 38%),
-    radial-gradient(circle at 96% 18%, rgba(25, 83, 128, var(--b2a)), transparent 32%),
-    radial-gradient(rgba(104, 157, 204, 0.11) 0.6px, transparent 0.8px);
+    radial-gradient(circle at 8% -8%, rgba(47, 128, 232, var(--b1a)), transparent 38%),
+    radial-gradient(circle at 96% 18%, rgba(62, 176, 212, var(--b2a)), transparent 32%),
+    radial-gradient(rgba(110, 153, 195, 0.14) 0.6px, transparent 0.8px);
 }
 
 .amb { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -32,17 +32,17 @@
 .amb-b3 { position: absolute; border-radius: 50%; }
 .amb-b1 {
   width: 76vw; height: 76vw; left: -18vw; top: -34vw;
-  background: radial-gradient(circle, rgba(75, 155, 230, 0.16) 0, rgba(75, 155, 230, 0.04) 46%, transparent 72%);
+  background: radial-gradient(circle, rgba(75, 154, 239, 0.18) 0, rgba(75, 154, 239, 0.05) 46%, transparent 72%);
   animation: ambDrift1 26s var(--cn-ease-standard) infinite alternate;
 }
 .amb-b2 {
   width: 70vw; height: 70vw; right: -24vw; bottom: -40vw;
-  background: radial-gradient(circle, rgba(39, 114, 185, 0.12) 0, rgba(39, 114, 185, 0.03) 48%, transparent 74%);
+  background: radial-gradient(circle, rgba(62, 176, 212, 0.12) 0, rgba(62, 176, 212, 0.03) 48%, transparent 74%);
   animation: ambDrift2 32s var(--cn-ease-standard) infinite alternate;
 }
 .amb-b3 { display: none; }
-.v-theme--dark .amb-b1 { background: radial-gradient(circle, rgba(30, 110, 180, 0.2) 0, rgba(30, 110, 180, 0.05) 46%, transparent 72%); }
-.v-theme--dark .amb-b2 { background: radial-gradient(circle, rgba(22, 80, 130, 0.18) 0, rgba(22, 80, 130, 0.04) 48%, transparent 74%); }
+.v-theme--dark .amb-b1 { background: radial-gradient(circle, rgba(47, 128, 232, 0.24) 0, rgba(47, 128, 232, 0.06) 46%, transparent 72%); }
+.v-theme--dark .amb-b2 { background: radial-gradient(circle, rgba(62, 176, 212, 0.14) 0, rgba(62, 176, 212, 0.04) 48%, transparent 74%); }
 @keyframes ambDrift1 { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(7vw, 5vw, 0) scale(1.08); } }
 @keyframes ambDrift2 { from { transform: translate3d(0, 0, 0) scale(1.04); } to { transform: translate3d(-6vw, -4vw, 0) scale(0.96); } }
 
@@ -61,13 +61,13 @@
 .amb-title { color: var(--cn-accent-strong); }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .amb-title {
-    background-image: linear-gradient(118deg, #0b1e39 8%, #164e87 58%, #137b9d 98%);
+    background-image: linear-gradient(100deg, #133964 6%, #2167b5 56%, #18a8c4 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
   .v-theme--dark .amb-title {
-    background-image: linear-gradient(118deg, #f2f8ff 8%, #96cfff 60%, #57d6da 100%);
+    background-image: linear-gradient(100deg, #d9edff 4%, #79bfff 52%, #62d9e9 100%);
   }
 }
 

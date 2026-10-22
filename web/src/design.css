@@ -1,7 +1,7 @@
 /* ==========================================================================
-   CCNewTools 视觉系统 v2「蓝调鎏光 · 工程仪器」（2026-10-22，OpenDesign 设计稿落地）
-   原则：装饰退到边缘，数据获得实色承载；双主题为完整语义系统；
-        控件使用小圆角与明确状态；动效只走 transform / opacity。
+   CCNewTools 视觉系统 v4「冷蓝晨雾 · 精密仪器」（2026-10-22，OpenDesign v4 稿落地）
+   蓝调鎏光 DNA 精炼：冷蓝白底 + 深海蓝玻璃顶栏 + 大圆角玻璃层级 + 蓝调柔影；
+   标题深蓝→青渐变墨水；数据区平整安静；单色强调（accent）。
    兼容性纪律（内网 Edge 100 / Chromium 100）：不使用 :has()、color-mix()、
         mask-composite、dvh、container queries；backdrop-filter 带 -webkit- 前缀。
    ========================================================================== */
@@ -12,38 +12,38 @@
   --cn-font-body: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
   --cn-font-mono: "Cascadia Mono", "Consolas", "Courier New", monospace;
 
-  --cn-bg: #edf3f9;
-  --cn-bg-deep: #e2ebf5;
+  --cn-bg: #eef5fc;
+  --cn-bg-deep: #e4eef9;
   --cn-surface: #ffffff;
-  --cn-surface-soft: #f5f8fc;
-  --cn-surface-glass: rgba(255, 255, 255, 0.86);
-  --cn-fg: #12233b;
-  --cn-fg-soft: #2d425c;
-  --cn-muted: #5a6d84;
-  --cn-subtle: #7c8da2;
-  --cn-border: #d3dfeb;
-  --cn-border-strong: #b8c9da;
-  --cn-accent: #1267b4;
-  --cn-accent-strong: #0c4d8c;
-  --cn-accent-soft: #e7f2fd;
-  --cn-accent-line: #8cbce7;
-  --cn-info: #1768b3;
-  --cn-success: #18794e;
-  --cn-success-soft: #e8f7ef;
-  --cn-warning: #986000;
-  --cn-warning-soft: #fff3d7;
-  --cn-danger: #a83b34;
-  --cn-danger-soft: #fff0ee;
+  --cn-surface-soft: #f7fbff;
+  --cn-surface-glass: rgba(255, 255, 255, 0.78);
+  --cn-fg: #152741;
+  --cn-fg-soft: #4c617b;
+  --cn-muted: #6b809a;
+  --cn-subtle: #7b8da4;
+  --cn-border: #d9e5f2;
+  --cn-border-strong: #bed2e7;
+  --cn-accent: #2f80e8;
+  --cn-accent-strong: #1767ce;
+  --cn-accent-soft: #eaf4ff;
+  --cn-accent-line: #bfd9fb;
+  --cn-info: #397bc5;
+  --cn-success: #1f9975;
+  --cn-success-soft: #e6f7f1;
+  --cn-warning: #c58a22;
+  --cn-warning-soft: #fff5df;
+  --cn-danger: #d55463;
+  --cn-danger-soft: #fff0f2;
 
-  --cn-shadow-1: 0 1px 2px rgba(26, 52, 84, 0.06), 0 4px 12px rgba(26, 52, 84, 0.05);
-  --cn-shadow-2: 0 2px 4px rgba(26, 52, 84, 0.06), 0 14px 34px rgba(26, 52, 84, 0.09);
-  --cn-shadow-3: 0 26px 80px rgba(21, 45, 77, 0.16);
+  --cn-shadow-1: 0 4px 12px rgba(31, 72, 118, 0.07), 0 1px 2px rgba(31, 72, 118, 0.04);
+  --cn-shadow-2: 0 12px 32px rgba(31, 72, 118, 0.1), 0 2px 6px rgba(31, 72, 118, 0.05);
+  --cn-shadow-3: 0 24px 60px rgba(20, 58, 104, 0.14), 0 8px 18px rgba(20, 58, 104, 0.06);
 
-  --cn-r-1: 3px;
-  --cn-r-2: 6px;
-  --cn-r-3: 10px;
+  --cn-r-1: 6px;
+  --cn-r-2: 9px;
+  --cn-r-3: 12px;
   --cn-r-4: 14px;
-  --cn-r-5: 20px;
+  --cn-r-5: 18px;
 
   --cn-s-1: 4px;
   --cn-s-2: 8px;
@@ -59,38 +59,38 @@
   --cn-dur-3: 240ms;
   --cn-dur-4: 320ms;
   --cn-dur-5: 600ms;
-  --cn-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --cn-ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --cn-ease-spring: cubic-bezier(0.2, 1.2, 0.3, 1);
+  --cn-ease-out: cubic-bezier(0.2, 0.75, 0.25, 1);
+  --cn-ease-standard: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --cn-ease-spring: cubic-bezier(0.2, 0.75, 0.25, 1);
 }
 
 .v-theme--dark {
   color-scheme: dark;
-  --cn-bg: #07111d;
-  --cn-bg-deep: #0a1727;
-  --cn-surface: #0e1d2f;
-  --cn-surface-soft: #12253a;
-  --cn-surface-glass: rgba(12, 27, 45, 0.86);
-  --cn-fg: #e9f1fa;
-  --cn-fg-soft: #c7d6e7;
-  --cn-muted: #9cafc5;
-  --cn-subtle: #7f94ac;
-  --cn-border: #213a54;
-  --cn-border-strong: #34516f;
-  --cn-accent: #67b7ff;
-  --cn-accent-strong: #a2d4ff;
-  --cn-accent-soft: #102d48;
-  --cn-accent-line: #2d6898;
-  --cn-info: #79bfff;
-  --cn-success: #68d6a1;
-  --cn-success-soft: #0f2d25;
-  --cn-warning: #ffd277;
-  --cn-warning-soft: #33260f;
-  --cn-danger: #ff938b;
-  --cn-danger-soft: #381a1a;
-  --cn-shadow-1: 0 4px 14px rgba(0, 0, 0, 0.18);
-  --cn-shadow-2: 0 14px 34px rgba(0, 0, 0, 0.28);
-  --cn-shadow-3: 0 28px 86px rgba(0, 0, 0, 0.45);
+  --cn-bg: #0d1b2d;
+  --cn-bg-deep: #0b1828;
+  --cn-surface: #12243b;
+  --cn-surface-soft: #162a43;
+  --cn-surface-glass: rgba(18, 36, 59, 0.78);
+  --cn-fg: #edf6ff;
+  --cn-fg-soft: #afc3d8;
+  --cn-muted: #94a9bf;
+  --cn-subtle: #7f94ab;
+  --cn-border: #28415e;
+  --cn-border-strong: #375572;
+  --cn-accent: #65a9f4;
+  --cn-accent-strong: #8ac2ff;
+  --cn-accent-soft: #173657;
+  --cn-accent-line: #375572;
+  --cn-info: #79b9ff;
+  --cn-success: #5ed3ac;
+  --cn-success-soft: #143e39;
+  --cn-warning: #f0bf61;
+  --cn-warning-soft: #433820;
+  --cn-danger: #ff8794;
+  --cn-danger-soft: #49242d;
+  --cn-shadow-1: 0 4px 12px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.14);
+  --cn-shadow-2: 0 12px 32px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.15);
+  --cn-shadow-3: 0 24px 60px rgba(0, 0, 0, 0.34), 0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
 /* ---- 基础排版 ---- */
@@ -220,10 +220,10 @@
   border-color: var(--cn-accent) !important;
 }
 .v-field--focused {
-  box-shadow: 0 0 0 3px rgba(18, 103, 180, 0.14);
+  box-shadow: 0 0 0 3px rgba(47, 128, 232, 0.13);
 }
 .v-theme--dark .v-field--focused {
-  box-shadow: 0 0 0 3px rgba(103, 183, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(101, 169, 244, 0.2);
 }
 .v-field__input,
 .v-field-label {
@@ -313,4 +313,15 @@
   .v-btn:active {
     transform: none;
   }
+}
+
+
+/* 主按钮：v4 蓝色纵向渐变 + 内高光（仅 flat/elevated 主按钮，tonal/text/outlined 不受影响） */
+.v-btn.bg-primary:not(.v-btn--variant-tonal):not(.v-btn--variant-text):not(.v-btn--variant-outlined) {
+  background: linear-gradient(180deg, #3c8fe9, #216fce) !important;
+  box-shadow: 0 8px 18px rgba(34, 111, 206, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.v-btn.bg-primary:not(.v-btn--variant-tonal):not(.v-btn--variant-text):not(.v-btn--variant-outlined):hover {
+  background: linear-gradient(180deg, #3385df, #185fb8) !important;
+  box-shadow: 0 10px 22px rgba(34, 111, 206, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
