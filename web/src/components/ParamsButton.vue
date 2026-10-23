@@ -4,6 +4,7 @@ import { requiredParamsMissing } from '../store.ts'
 
 // 独立组件：参数输入时只有这颗按钮重渲染，不会带着整个核对屏的模板一起 diff
 const missing = computed(requiredParamsMissing)
+defineProps<{ expanded?: boolean }>()
 const emit = defineEmits<{ open: [] }>()
 </script>
 
@@ -11,6 +12,7 @@ const emit = defineEmits<{ open: [] }>()
   <span class="params-wrap" :class="{ pending: missing }">
     <v-btn
       size="small" variant="tonal" class="params-btn" :class="{ pending: missing }"
+      aria-haspopup="dialog" aria-controls="params-drawer" :aria-expanded="expanded ? 'true' : 'false'"
       :title="missing ? '测试人员 / 监测人员未填写，点击填写' : '填写软件配置项、人员等全局参数'"
       @click="emit('open')"
     >

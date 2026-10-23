@@ -89,10 +89,10 @@ function renumber(): void {
         </td>
         <td class="c ops">
           <div class="ops-box">
-            <v-btn icon size="x-small" variant="text" title="上移" :disabled="i === 0" @click="moveRow(i, -1)"><v-icon size="14">mdi-arrow-up</v-icon></v-btn>
-            <v-btn icon size="x-small" variant="text" title="下移" :disabled="i === row.steps.length - 1" @click="moveRow(i, 1)"><v-icon size="14">mdi-arrow-down</v-icon></v-btn>
-            <v-btn icon size="x-small" variant="text" title="在下方插入" @click="addRow(i)"><v-icon size="14">mdi-plus</v-icon></v-btn>
-            <v-btn icon size="x-small" variant="text" title="删除本行" :disabled="row.steps.length <= 1" @click="delRow(i)"><v-icon size="14">mdi-delete-outline</v-icon></v-btn>
+            <v-btn icon size="x-small" variant="text" title="上移" aria-label="上移一步" :disabled="i === 0" @click="moveRow(i, -1)"><v-icon size="14">mdi-arrow-up</v-icon></v-btn>
+            <v-btn icon size="x-small" variant="text" title="下移" aria-label="下移一步" :disabled="i === row.steps.length - 1" @click="moveRow(i, 1)"><v-icon size="14">mdi-arrow-down</v-icon></v-btn>
+            <v-btn icon size="x-small" variant="text" title="在下方插入" aria-label="在下方插入一行" @click="addRow(i)"><v-icon size="14">mdi-plus</v-icon></v-btn>
+            <v-btn icon size="x-small" variant="text" title="删除本行" aria-label="删除本行" :disabled="row.steps.length <= 1" @click="delRow(i)"><v-icon size="14">mdi-delete-outline</v-icon></v-btn>
           </div>
         </td>
       </tr>
@@ -120,7 +120,7 @@ function renumber(): void {
   border-bottom: 1px solid var(--cn-row-line);
   font-size: 13px; line-height: 1.55; color: var(--cn-fg);
 }
-.steps tbody tr:hover:not(.suspect) td { background: #f3f8ff; }
+.steps tbody tr:hover:not(.suspect) td { background: var(--cn-hover-bg); }
 .v-theme--dark .steps tbody tr:hover:not(.suspect) td { background: var(--cn-accent-soft); }
 .steps tr:last-child td { border-bottom: none; }
 .c { text-align: center; }

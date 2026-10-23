@@ -35,6 +35,7 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
       v-if="hasContent"
       class="row level-row"
       :class="{ 'is-root': depth === 0, 'is-item': depth >= 2 }"
+      :aria-expanded="open ? 'true' : 'false'"
       @click="toggle"
     >
       <v-icon size="14" class="chev" :class="{ closed: !open }">mdi-chevron-down</v-icon>
@@ -58,6 +59,7 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
         class="row case-row"
         :data-idx="cn.idx"
         :class="{ cur: cn.idx === store.currentIdx }"
+        :aria-current="cn.idx === store.currentIdx ? 'true' : undefined"
         @click="goCase(cn.idx)"
       >
         <v-icon v-if="cn.row.reviewed" size="12" color="success">mdi-check</v-icon>
@@ -83,7 +85,7 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
   text-align: left; cursor: pointer;
   transition: background var(--cn-dur-1) var(--cn-ease-out), color var(--cn-dur-1) var(--cn-ease-out);
 }
-.row:hover { background: #f2f8fe; }
+.row:hover { background: var(--cn-hover-bg); }
 .v-theme--dark .row:hover { background: var(--cn-surface-soft); }
 .level-row { font-size: 12.5px; font-weight: 600; color: var(--cn-fg-soft); }
 .level-row.is-root { color: var(--cn-fg); font-weight: 650; }
@@ -102,7 +104,7 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
 .case-row:hover { color: var(--cn-fg); }
 /* 选中态：浅蓝底 + 左侧 3px 主色标记（v5 评审 006），一眼可见但不压过正文 */
 .case-row.cur {
-  background: #e9f3ff; color: #1459a9; font-weight: 600;
+  background: var(--cn-active-bg); color: #1459a9; font-weight: 600;
   box-shadow: inset 3px 0 0 var(--cn-accent);
 }
 .v-theme--dark .case-row.cur { background: rgba(101, 169, 244, 0.12); color: var(--cn-fg); }

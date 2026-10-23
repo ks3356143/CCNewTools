@@ -117,10 +117,10 @@ function stepClick(n: number): void {
         </template>
       </nav>
       <div class="spacer" />
-      <button class="icon-btn" title="使用说明" @click="about = true">
+      <button class="icon-btn" title="使用说明" aria-label="使用说明" @click="about = true">
         <v-icon size="17">mdi-help-circle-outline</v-icon>
       </button>
-      <button class="icon-btn" :title="store.theme === 'dark' ? '切换浅色' : '切换深色'" @click="toggleTheme">
+      <button class="icon-btn" :title="store.theme === 'dark' ? '切换浅色' : '切换深色'" :aria-label="store.theme === 'dark' ? '切换浅色主题' : '切换深色主题'" @click="toggleTheme">
         <v-icon size="17">{{ store.theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
       </button>
     </v-app-bar>

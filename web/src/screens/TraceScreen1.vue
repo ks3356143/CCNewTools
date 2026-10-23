@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, useTemplateRef, onMounted, watch } from 'vue'
+import { ref, computed, useTemplateRef, onMounted, watch, nextTick } from 'vue'
 import { store, TRACE_TABS, traceNeedsOutline, setTraceType, doTraceParse, loadProjects, openTraceProject, showToast } from '../store.ts'
 import { deleteProject } from '../api.ts'
 import type { ProjectMeta, TraceType } from '../types.ts'
@@ -17,6 +17,14 @@ const alignProject = ref<ProjectMeta | null>(null)
 const alignFileName = ref('')
 
 const tab = computed(() => TRACE_TABS.find(t => t.key === store.traceType)!)
+
+/** 左右方向键切换 tab（roving tabindex）：切换后把焦点放到新 tab 上 */
+function moveTab(dir: number): void {
+  const i = TRACE_TABS.findIndex(t => t.key === store.traceType)
+  const j = (i + dir + TRACE_TABS.length) % TRACE_TABS.length
+  setTraceType(TRACE_TABS[j].key as TraceType)
+  void nextTick(() => document.querySelectorAll<HTMLButtonElement>('.tabs .tab')[j]?.focus())
+}
 const needAlign = computed(() => traceNeedsOutline(store.traceType))
 const alignReady = computed(() => alignProject.value !== null || alignFileName.value !== '')
 const alignLabel = computed(() => alignProject.value?.name ?? alignFileName.value)
@@ -190,6 +198,8 @@ function issueCounts(): string {
         type="button" role="tab"
         class="tab" :class="{ on: store.traceType === t.key }"
         :aria-selected="store.traceType === t.key"
+        :tabindex="store.traceType === t.key ? 0 : -1"
+        @keydown.left.prevent="moveTab(-1)" @keydown.right.prevent="moveTab(1)"
         @click="setTraceType(t.key as TraceType)"
       >
         {{ t.label }}

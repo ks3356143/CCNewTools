@@ -17,7 +17,11 @@
   --cn-surface: #ffffff;
   --cn-surface-soft: #f7fbff;
   --cn-sidebar: #f8fbfe;
-  --cn-control-line: #c9dbec;
+  --cn-hover-bg: #f3f8fe;
+  --cn-active-bg: #e8f2ff;
+  --cn-disabled-bg: #edf3f8;
+  --cn-disabled-fg: #879aaf;
+  --cn-control-line: #698eac;
   --cn-surface-glass: rgba(255, 255, 255, 0.78);
   --cn-fg: #152741;
   --cn-fg-soft: #4c617b;
@@ -80,6 +84,10 @@
   --cn-surface: #122238;
   --cn-surface-soft: #172a43;
   --cn-sidebar: #0d1826;
+  --cn-hover-bg: #172a43;
+  --cn-active-bg: #1b3452;
+  --cn-disabled-bg: #172a43;
+  --cn-disabled-fg: #7f94ab;
   --cn-control-line: #507aa4;
   --cn-surface-glass: rgba(15, 31, 50, 0.82);
   --cn-fg: #e8f2fd;
@@ -241,19 +249,19 @@ textarea:focus-visible,
 }
 .v-btn--variant-tonal {
   background: var(--cn-surface) !important;
-  border: 1px solid var(--cn-border-strong);
+  border: 1px solid var(--cn-control-line);
   box-shadow: none;
 }
 .v-btn--variant-tonal:hover {
-  background: var(--cn-accent-soft) !important;
+  background: var(--cn-hover-bg) !important;
   border-color: var(--cn-accent-line);
 }
 .v-btn--disabled:not(.v-btn--icon),
 .v-btn.v-btn--disabled:not(.v-btn--icon) {
   opacity: 1 !important;
-  background: var(--cn-surface-soft) !important;
+  background: var(--cn-disabled-bg) !important;
   border: 1px solid var(--cn-border) !important;
-  color: var(--cn-subtle) !important;
+  color: var(--cn-disabled-fg) !important;
   box-shadow: none !important;
   transform: none !important;
 }
@@ -329,6 +337,7 @@ textarea:focus-visible,
 /* Toast */
 .v-snackbar__content {
   border-radius: var(--cn-r-2);
+  max-width: min(420px, calc(100vw - 24px));
   font-size: 13px;
   border: 1px solid var(--cn-border-strong);
   background: var(--cn-surface) !important;
@@ -394,11 +403,11 @@ textarea:focus-visible,
 
 /* 主按钮：v4 蓝色纵向渐变 + 内高光（仅 flat/elevated 主按钮，tonal/text/outlined 不受影响） */
 .v-btn.bg-primary:not(.v-btn--variant-tonal):not(.v-btn--variant-text):not(.v-btn--variant-outlined):not(.v-btn--disabled) {
-  background: linear-gradient(180deg, #3c8fe9, #216fce) !important;
+  background: linear-gradient(180deg, #2a6fc7, #1a5aab) !important;
   box-shadow: 0 8px 18px rgba(34, 111, 206, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 .v-btn.bg-primary:not(.v-btn--variant-tonal):not(.v-btn--variant-text):not(.v-btn--variant-outlined):not(.v-btn--disabled):hover {
-  background: linear-gradient(180deg, #3385df, #185fb8) !important;
+  background: linear-gradient(180deg, #2564b8, #164e97) !important;
   box-shadow: 0 10px 22px rgba(34, 111, 206, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 /* 抽屉与系统动效令牌对齐（Vuetify 默认 0.2s/另一种缓动） */

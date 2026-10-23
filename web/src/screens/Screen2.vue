@@ -97,7 +97,7 @@ function gen(): void {
             </div>
           </v-card>
         </v-menu>
-        <ParamsButton @open="openParams" />
+        <ParamsButton :expanded="paramsOpen" @open="openParams" />
       </div>
       <div class="progress-wrap">
         <div class="progress-labels">
@@ -139,7 +139,7 @@ function gen(): void {
     </div>
 
     <!-- 全局参数抽屉：不占常驻列宽，随开随用；点“生成文档”缺必填时自动打开 -->
-    <v-navigation-drawer v-model="paramsOpen" temporary location="right" :width="392" class="params-drawer">
+    <v-navigation-drawer id="params-drawer" v-model="paramsOpen" temporary location="right" :width="392" class="params-drawer" role="dialog" aria-modal="true" aria-label="全局参数">
       <div class="drawer-head">
         <div class="drawer-title">
           <b>全局参数</b>
