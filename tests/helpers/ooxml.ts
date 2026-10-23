@@ -1,5 +1,4 @@
 import { zipSync, strToU8 } from 'fflate'
-import { DOMParser } from '@xmldom/xmldom'
 import { readDocx, type OfficeFile } from '../../src/core/parse/docx.ts'
 
 /** 合成 .docx 的最小 OOXML 构造器（07 测试策略：脱敏样本，纯代码生成不依赖 Word） */

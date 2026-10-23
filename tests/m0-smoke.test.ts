@@ -6,6 +6,7 @@ import { zipSync, strToU8, unzipSync, strFromU8 } from 'fflate'
 import { handle } from '../src/server/app.ts'
 import { VERSION } from '../src/server/app.ts'
 import { exeDirNotice } from '../src/server/store.ts'
+import { IssueCollector } from '../src/core/domain.ts'
 
 /** M0 冒烟：核心依赖在 Bun 下可用（实施计划 0.4） */
 
@@ -107,5 +108,16 @@ describe('M0 冒烟', () => {
       expect(exeDirNotice('D:\\')).toBeNull()
       expect(exeDirNotice('C:\\Users\\a\\AppData\\Local\\temporary-x', 'C:\\Users\\a\\AppData\\Local\\temp')).toBeNull()
     })
+  })
+})
+
+describe('IssueCollector 计数', () => {
+  test('error/warning/info 分别计数', () => {
+    const c = new IssueCollector()
+    c.error('E', '错误', '上下文')
+    c.warning('W', '告警')
+    c.info('I', '提示')
+    c.info('I2', '提示2')
+    expect(c.counts()).toEqual({ error: 1, warning: 1, info: 2 })
   })
 })

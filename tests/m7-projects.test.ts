@@ -195,6 +195,18 @@ describe('M7 无副本项目（09）', () => {
   })
 })
 
+describe('M7 损坏容错（06）', () => {
+  test('项目.json 损坏 → 列表跳过、打开失败而不是抛错', async () => {
+    const id = 'deadbeefcafe'
+    mkdirSync(join(DATA, '项目', id), { recursive: true })
+    writeFileSync(join(DATA, '项目', id, '项目.json'), '{broken', 'utf8')
+    const list = await listProjects()
+    expect(list.some((p: any) => p.id === id)).toBe(false)
+    const r = await openProject(id)
+    expect(r.ok).toBe(false)
+  })
+})
+
 describe('M7 旧数据迁移（09）', () => {
   test('编辑记录/*.json → 建档（无副本、编辑保留）、旧文件删除', async () => {
     const outline = { name: '旧版大纲.docx', hash: createHash('sha1').update('m7-legacy').digest('hex') }

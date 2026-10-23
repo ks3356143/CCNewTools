@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { store, goCase } from '../store.ts'
-import { activeSuspects } from '../suspect.ts'
+import SuspectDot from './SuspectDot.vue'
 import type { CaseRow, PathNode } from '../types.ts'
 
 const props = defineProps<{ node: PathNode; openFn: (key: string) => boolean; depth: number }>()
@@ -34,7 +34,7 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
     <button
       v-if="hasContent"
       class="row level-row"
-      :class="{ 'is-item': depth >= 2 }"
+      :class="{ 'is-root': depth === 0, 'is-item': depth >= 2 }"
       @click="toggle"
     >
       <v-icon size="14" class="chev" :class="{ closed: !open }">mdi-chevron-down</v-icon>
@@ -62,7 +62,7 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
       >
         <v-icon v-if="cn.row.reviewed" size="12" color="success">mdi-check</v-icon>
         <span v-else class="dot-holder">
-          <span v-if="activeSuspects(cn.row) > 0" class="dot" />
+          <SuspectDot :row="cn.row" />
         </span>
         <span class="name" :class="{ excluded: cn.row.excluded }">{{ cn.row.mingcheng }}</span>
         <span class="cid u-mono">{{ cn.row.caseId }}</span>
@@ -79,31 +79,33 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
 .row {
   width: 100%; min-height: 28px;
   display: flex; align-items: center; gap: 5px;
-  padding: 2px 8px; border-radius: var(--cn-r-1);
+  padding: 2px 10px; border-radius: var(--cn-r-1);
   text-align: left; cursor: pointer;
   transition: background var(--cn-dur-1) var(--cn-ease-out), color var(--cn-dur-1) var(--cn-ease-out);
 }
-.row:hover { background: var(--cn-surface-soft); }
+.row:hover { background: #f2f8fe; }
+.v-theme--dark .row:hover { background: var(--cn-surface-soft); }
 .level-row { font-size: 12.5px; font-weight: 600; color: var(--cn-fg-soft); }
+.level-row.is-root { color: var(--cn-fg); font-weight: 650; }
 .level-row.is-item { font-weight: 500; color: var(--cn-muted); font-size: 12px; }
 /* 子级展开：淡入 + 上移 3px（200ms）；收起仍为 v-if 即时移除（大文档不保留 DOM 的既定取舍） */
 .indent {
   margin-left: 14px;
   border-left: 1px solid var(--cn-border);
-  animation: tree-open 200ms var(--cn-ease-out);
+  animation: tree-open 180ms var(--cn-ease-out);
 }
 @keyframes tree-open {
   from { opacity: 0; transform: translateY(-3px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.case-row { padding-left: 9px; margin-right: 4px; font-size: 12px; color: var(--cn-muted); }
+.case-row { padding-left: 10px; margin-right: 4px; font-size: 12px; color: var(--cn-muted); }
 .case-row:hover { color: var(--cn-fg); }
 /* 选中态：浅蓝底 + 左侧 3px 主色标记（v5 评审 006），一眼可见但不压过正文 */
 .case-row.cur {
   background: #e9f3ff; color: #1459a9; font-weight: 600;
   box-shadow: inset 3px 0 0 var(--cn-accent);
 }
-.v-theme--dark .case-row.cur { background: var(--cn-accent-soft); color: var(--cn-accent-strong); }
+.v-theme--dark .case-row.cur { background: rgba(101, 169, 244, 0.12); color: var(--cn-fg); }
 .chev { transition: transform var(--cn-dur-2) var(--cn-ease-out); flex: none; color: var(--cn-subtle); }
 .chev.closed { transform: rotate(-90deg); }
 .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
@@ -111,6 +113,5 @@ const hiddenCases = computed(() => Math.max(0, props.node.cases.length - CASE_LI
 .cnt { margin-left: auto; font-size: 10px; color: var(--cn-subtle); flex: none; }
 .cid { margin-left: auto; font-size: 10px; opacity: 0.75; flex: none; }
 .dot-holder { width: 13px; display: inline-flex; justify-content: center; flex: none; }
-.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cn-danger); }
-.more { padding: 3px 6px 4px; font-size: 10.5px; color: var(--cn-warning); }
+.more { padding: 3px 6px 4px; font-size: 10.5px; color: var(--cn-warning-text); }
 </style>

@@ -252,10 +252,10 @@ async function download(): Promise<void> {
   white-space: nowrap;
   border-color: #c9d9ea;
 }
-.v-theme--dark .pv-scroll thead th { background: #162943; color: #c8dcef; border-color: var(--cn-border); }
+.v-theme--dark .pv-scroll thead th { background: #172a43; color: #b7c9dc; border-color: var(--cn-border); }
 /* 第二行表头：产品蓝锚定（v5 评审 009），替代原来的浅灰第二行 */
 .pv-scroll thead tr:nth-child(2) th { z-index: 1; height: 34px; background: #173b62; color: #fff; }
-.v-theme--dark .pv-scroll thead tr:nth-child(2) th { background: #1d4a7a; color: #fff; }
+.v-theme--dark .pv-scroll thead tr:nth-child(2) th { background: #0d1826; color: #e8f2fd; border-bottom: 2px solid var(--cn-accent); }
 .pv-scroll tbody tr:hover td { background: #f4f9fd; }
 .v-theme--dark .pv-scroll tbody tr:hover td { background: #12273c; }
 .pv-scroll td { color: var(--cn-fg-soft); }

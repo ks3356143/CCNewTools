@@ -235,3 +235,21 @@ describe('M4 /api/generate', () => {
     expect(xml).not.toContain('YL_A_B_002')
   })
 })
+
+describe('M4 请求边界', () => {
+  test('畸形 JSON 请求体 → 400 而不是 500', async () => {
+    const res = await fetch(URL0 + '/api/settings', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{broken'
+    })
+    expect(res.status).toBe(400)
+    const r = await res.json()
+    expect(r.ok).toBe(false)
+  })
+
+  test('未知接口 → 404', async () => {
+    const res = await fetch(URL0 + '/api/nope')
+    expect(res.status).toBe(404)
+  })
+})

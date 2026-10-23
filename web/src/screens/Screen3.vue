@@ -219,7 +219,11 @@ const recKB = computed(() => (store.genResult?.rec ? base64KB(store.genResult.re
   border: 1px solid var(--cn-border-strong);
   border-radius: var(--cn-r-2);
   box-shadow: var(--cn-shadow-1);
+  animation: rise var(--cn-dur-3) var(--cn-ease-out) both;
+  transition: transform var(--cn-dur-2) var(--cn-ease-out), box-shadow var(--cn-dur-2) var(--cn-ease-out);
 }
+.download-card:nth-child(2) { animation-delay: 60ms; }
+.download-card:hover { transform: translateY(-2px); box-shadow: var(--cn-shadow-2); }
 .download-top { display: flex; gap: 12px; align-items: center; }
 .file-icon {
   width: 38px; height: 46px; flex: none; position: relative;

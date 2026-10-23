@@ -1,4 +1,4 @@
-import { extname, join, normalize, resolve } from 'node:path'
+import { extname, join, normalize, resolve, relative, isAbsolute, sep } from 'node:path'
 import { handleApi } from './api.ts'
 import { EMBEDDED_ASSETS } from './assets.ts'
 import pkg from '../../package.json' with { type: 'json' }
@@ -29,7 +29,12 @@ export async function handle(req: Request): Promise<Response> {
 }
 
 async function serveStatic(url: URL): Promise<Response> {
-  let p = decodeURIComponent(url.pathname)
+  let p: string
+  try {
+    p = decodeURIComponent(url.pathname)
+  } catch {
+    return new Response('Bad Request', { status: 400 })
+  }
   if (p === '/') p = '/index.html'
   // 单文件编译形态：先查嵌入资产（M6，08 一：全部资源打进二进制）
   const embedded = EMBEDDED_ASSETS[p]
@@ -45,9 +50,11 @@ async function serveStatic(url: URL): Promise<Response> {
       })
     }
   }
-  // 开发/磁盘形态回退
+  // 开发/磁盘形态回退。编码过的斜杠（%2f）在 decode 后会变成路径分隔符，
+  // 只用 startsWith(DIST_DIR) 会放过 dist2 这类同前缀兄弟目录，必须用 relative 判越界。
   const file = normalize(join(DIST_DIR, p))
-  if (!file.startsWith(DIST_DIR)) return new Response('Forbidden', { status: 403 })
+  const rel = relative(DIST_DIR, file)
+  if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) return new Response('Forbidden', { status: 403 })
 
   const target = Bun.file(file)
   if (await target.exists()) {

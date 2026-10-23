@@ -626,8 +626,8 @@ async function apiTraceGenerate(req: Request): Promise<Response> {
   const t0 = Date.now()
   const tmpl = templateFile(tmplName)
   const buf0 = rows.length > BATCH_RENDER_THRESHOLD
-    ? renderTemplateBatched(tmpl, { traceRows: data, configName: body.configName ?? '' }, TRACE_LOOPS)
-    : stripAnchorMarks(renderTemplate(tmpl, { traceRows: data, configName: body.configName ?? '' }))
+    ? renderTemplateBatched(tmpl, { traceRows: data, configName }, TRACE_LOOPS)
+    : stripAnchorMarks(renderTemplate(tmpl, { traceRows: data, configName }))
   // vMerge 后处理：按 span 标记对数据行做纵向合并（双层表头 = 2 行）
   const buf = applyVmergeToDocx(buf0, rows, 2)
   const elapsed = Date.now() - t0

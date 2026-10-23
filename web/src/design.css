@@ -16,6 +16,8 @@
   --cn-bg-deep: #e4eef9;
   --cn-surface: #ffffff;
   --cn-surface-soft: #f7fbff;
+  --cn-sidebar: #f8fbfe;
+  --cn-control-line: #c9dbec;
   --cn-surface-glass: rgba(255, 255, 255, 0.78);
   --cn-fg: #152741;
   --cn-fg-soft: #4c617b;
@@ -32,10 +34,14 @@
   --cn-info: #397bc5;
   --cn-success: #1f9975;
   --cn-success-soft: #e6f7f1;
+  --cn-success-text: #11735a;
   --cn-warning: #c58a22;
   --cn-warning-soft: #fff5df;
+  --cn-warning-text: #8a5a12;
   --cn-danger: #d55463;
   --cn-danger-soft: #fff0f2;
+  --cn-danger-text: #b63d4d;
+  --cn-danger-line: #e8adb5;
   --cn-danger-glow: rgba(213, 84, 99, 0.34);
 
   --cn-shadow-1: 0 4px 12px rgba(31, 72, 118, 0.07), 0 1px 2px rgba(31, 72, 118, 0.04);
@@ -73,6 +79,8 @@
   --cn-bg-deep: #0b1828;
   --cn-surface: #122238;
   --cn-surface-soft: #172a43;
+  --cn-sidebar: #0d1826;
+  --cn-control-line: #507aa4;
   --cn-surface-glass: rgba(15, 31, 50, 0.82);
   --cn-fg: #e8f2fd;
   --cn-fg-soft: #b7c9dc;
@@ -80,18 +88,22 @@
   --cn-subtle: #7f94ab;
   --cn-border: #28405c;
   --cn-border-strong: #375572;
-  --cn-row-line: #223a54;
+  --cn-row-line: #28405c;
   --cn-accent: #65a9f4;
   --cn-accent-strong: #8ac2ff;
   --cn-accent-soft: #173657;
   --cn-accent-line: #375572;
   --cn-info: #79b9ff;
   --cn-success: #45c29b;
-  --cn-success-soft: #14352f;
+  --cn-success-soft: rgba(69, 194, 155, 0.12);
+  --cn-success-text: #45c29b;
   --cn-warning: #e0af5a;
-  --cn-warning-soft: #2e2a1d;
+  --cn-warning-soft: rgba(224, 175, 90, 0.12);
+  --cn-warning-text: #e0af5a;
   --cn-danger: #f07886;
-  --cn-danger-soft: #33232a;
+  --cn-danger-soft: rgba(240, 120, 134, 0.12);
+  --cn-danger-text: #f07886;
+  --cn-danger-line: #6d3b45;
   --cn-danger-glow: rgba(240, 120, 134, 0.36);
   --cn-shadow-1: 0 4px 12px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.14);
   --cn-shadow-2: 0 12px 32px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.15);
@@ -102,14 +114,18 @@
 /* 装饰光晕/长文本不允许把整页顶出横向滚动（用户反馈 F5 后画面像被横移） */
 html,
 body { overflow-x: hidden; overflow-x: clip; } /* clip 不建立滚动容器，避免破坏窄屏吸底栏 */
+/* 主题切换只过渡颜色属性，不做整页 crossfade（OD v5.4） */
+.v-application, .v-main, .v-app-bar, .v-card, .verify-head, .verify-sidebar {
+  transition: background-color 180ms ease, border-color 180ms ease, color 160ms ease;
+}
+
 .v-application {
   font-family: var(--cn-font-body);
   color: var(--cn-fg);
   /* v5：数字统一等宽占位，长表/进度/计数扫读时列不跳 */
   font-variant-numeric: tabular-nums;
-  /* 老内核（Chrome/Edge 100）不认 dvh，先给 vh 兜底 */
+  /* 桌面无动态视口，固定 100vh；禁止同名双声明（压缩器会只留 dvh，Chromium 100 整条丢弃） */
   min-height: 100vh;
-  min-height: 100dvh;
 }
 :focus-visible {
   outline: none;
@@ -158,6 +174,7 @@ textarea:focus-visible,
 .u-empty > .v-icon { color: var(--cn-accent); opacity: 0.55; }
 .u-empty > b { font-size: 13px; font-weight: 600; color: var(--cn-fg-soft); }
 .u-empty > span { font-size: 12px; line-height: 1.7; color: var(--cn-subtle); }
+.v-theme--dark .u-empty { background: #0f1e31; border-color: #507aa4; }
 
 .u-panel {
   background: var(--cn-surface);
@@ -204,7 +221,7 @@ textarea:focus-visible,
   font-weight: 650;
   letter-spacing: 0.01em;
   text-transform: none;
-  transition: transform var(--cn-dur-2) var(--cn-ease-out), opacity var(--cn-dur-2) var(--cn-ease-out),
+  transition: transform var(--cn-dur-1) var(--cn-ease-out), opacity var(--cn-dur-1) var(--cn-ease-out),
     background-color var(--cn-dur-2) var(--cn-ease-out), box-shadow var(--cn-dur-2) var(--cn-ease-out);
 }
 .v-btn:not(.v-btn--icon):not(.v-btn--size-x-small):not(.v-btn--size-small) {
@@ -384,11 +401,21 @@ textarea:focus-visible,
   background: linear-gradient(180deg, #3385df, #185fb8) !important;
   box-shadow: 0 10px 22px rgba(34, 111, 206, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
+/* 抽屉与系统动效令牌对齐（Vuetify 默认 0.2s/另一种缓动） */
+.v-navigation-drawer {
+  transition-duration: 0.24s !important;
+  transition-timing-function: var(--cn-ease-out) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .v-navigation-drawer { transition-duration: 0.01ms !important; }
+}
+
 /* 键盘焦点环：按钮变体各自声明了 box-shadow（tonal 为 none、主按钮为渐变阴影），
    通用 :focus-visible 会被更高优先级覆盖，这里单独补一条 */
 .v-btn:not(.v-btn--disabled):focus-visible {
   box-shadow: 0 0 0 3px rgba(47, 128, 232, 0.22) !important;
 }
+.v-theme--dark .v-btn--variant-tonal { border-color: var(--cn-control-line); }
 .v-theme--dark .v-btn:not(.v-btn--disabled):focus-visible {
   box-shadow: 0 0 0 3px rgba(101, 169, 244, 0.28) !important;
 }

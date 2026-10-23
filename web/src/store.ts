@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import type { CaseRow, GlobalParams, GeneratedFile, Issue, ParseResponse, ProjectMeta, TraceTable, TraceRowVM, TraceType } from './types.ts'
+import type { CaseRow, GlobalParams, GeneratedFile, Issue, ParseResponse, ProjectMeta, TraceTable, TraceType } from './types.ts'
 import type { TraceParseResponse } from './api.ts'
 import { parseOutline, saveEdits, saveSettings, generate, listProjects, openProject, traceParse, traceGenerate, traceOpen } from './api.ts'
 import { activeSuspects } from './suspect.ts'

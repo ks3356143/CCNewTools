@@ -329,7 +329,7 @@ function jumpTo(issue: Issue): void {
 
 /* ---- 拖放区 ---- */
 .drop {
-  min-height: 220px; padding: 24px;
+  min-height: 300px; padding: 28px;
   display: flex; flex-direction: column; justify-content: center; gap: 14px;
   border: 1px dashed var(--cn-accent-line);
   border-radius: var(--cn-r-3);
@@ -361,7 +361,7 @@ function jumpTo(issue: Issue): void {
 .bar { height: 5px; border-radius: 3px; background: var(--cn-border); overflow: hidden; }
 .bar i { display: block; height: 100%; width: 0; background: var(--cn-accent); border-radius: inherit; transition: width 0.9s var(--cn-ease-standard); }
 .dn { font-size: 12px; color: var(--cn-muted); }
-.dn.big { color: var(--cn-warning); font-weight: 550; }
+.dn.big { color: var(--cn-warning-text); font-weight: 550; }
 
 /* ---- 结果区 ---- */
 .ok-alert { font-size: 13px; text-align: left; }
@@ -391,7 +391,7 @@ function jumpTo(issue: Issue): void {
   font-family: var(--cn-font-mono); font-size: 26px; line-height: 1; font-weight: 650;
   letter-spacing: -0.04em; color: var(--cn-fg);
 }
-.stat.warn b { color: var(--cn-warning); }
+.stat.warn b { color: var(--cn-warning-text); }
 .cta { display: flex; justify-content: flex-start; margin-top: 2px; }
 
 /* ---- 最近项目面板 ---- */
@@ -399,14 +399,14 @@ function jumpTo(issue: Issue): void {
 .u-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid var(--cn-border); }
 .u-panel-head strong { font-size: 12.5px; font-weight: 650; }
 .p-list { padding: 3px 0; max-height: 520px; overflow-y: auto; }
-.p-row { display: flex; align-items: center; gap: 12px; padding: 13px 14px; transition: background var(--cn-dur-1) var(--cn-ease-out); }
+.p-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 9px 14px; transition: background var(--cn-dur-1) var(--cn-ease-out); }
 .p-row:hover { background: var(--cn-surface-soft); }
 .p-row + .p-row { border-top: 1px solid var(--cn-border); }
 .p-idx { flex: none; color: var(--cn-subtle); font-size: 10px; letter-spacing: 0.08em; }
 .p-main { flex: 1; min-width: 0; }
 .p-name { font-size: 13.5px; font-weight: 600; color: var(--cn-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-meta { margin-top: 3px; font-size: 12px; color: var(--cn-subtle); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.p-suspect { color: var(--cn-danger); }
+.p-suspect { color: var(--cn-danger-text); }
 .p-nosource { color: var(--cn-subtle); opacity: 0.7; }
 .p-acts { display: flex; align-items: center; gap: 2px; flex: none; }
 .p-del { min-width: 74px; }

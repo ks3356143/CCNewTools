@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto'
 import type { CaseRow } from './convert/rows.ts'
-import type { GlobalParams } from './domain.ts'
 
 /** 编辑记录持久化核心（05 持久化方案）：哈希命名、按大纲隔离、恢复匹配 */
 

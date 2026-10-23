@@ -107,18 +107,18 @@ function renumber(): void {
 .steps { width: 100%; min-width: 720px; border-collapse: collapse; table-layout: fixed; }
 .steps th {
   height: 38px;
-  text-align: left; font-size: 11.5px; font-weight: 650; white-space: nowrap;
+  text-align: left; font-size: 12.5px; font-weight: 600; white-space: nowrap;
   padding: 0 12px;
-  background: #f4f9fe;
+  background: #f5f9fd;
   border-bottom: 1px solid var(--cn-row-line);
   color: #4c617b;
 }
-.v-theme--dark .steps th { background: #162943; color: #b7c9dc; }
+.v-theme--dark .steps th { background: #172a43; color: #b7c9dc; }
 .steps td {
   height: 42px;
   padding: 6px 12px; vertical-align: middle;
   border-bottom: 1px solid var(--cn-row-line);
-  font-size: 13px; line-height: 1.55; color: var(--cn-fg-soft);
+  font-size: 13px; line-height: 1.55; color: var(--cn-fg);
 }
 .steps tbody tr:hover:not(.suspect) td { background: #f3f8ff; }
 .v-theme--dark .steps tbody tr:hover:not(.suspect) td { background: var(--cn-accent-soft); }
@@ -143,12 +143,13 @@ tr.suspect td { background: var(--cn-danger-soft); }
 tr.suspect td:first-child { box-shadow: inset 3px 0 0 var(--cn-danger); }
 .sus-tag {
   display: inline-flex; align-items: center; gap: 4px; margin-top: 5px;
-  font-size: 10.5px; color: var(--cn-danger);
+  font-size: 10.5px; color: var(--cn-danger-text);
   background: rgba(168, 59, 52, 0.1); border-radius: 999px; padding: 2px 9px;
 }
 .v-theme--dark .sus-tag { background: rgba(255, 147, 139, 0.12); }
 .fix { margin-left: 4px; text-decoration: underline; text-underline-offset: 3px; font-size: 10.5px; color: var(--cn-accent); }
-.ops { width: 156px; padding-left: 4px; padding-right: 6px; }
+.ops { width: 156px; padding-left: 4px; padding-right: 6px; text-align: right; }
+.steps th.c:last-child { text-align: right; }
 .ops .ops-box {
   display: inline-flex; gap: 2px;
   background: var(--cn-surface-soft);
@@ -156,7 +157,7 @@ tr.suspect td:first-child { box-shadow: inset 3px 0 0 var(--cn-danger); }
 }
 .ops .ops-box .v-btn { --v-btn-size: 24px; height: 32px; width: 32px; color: var(--cn-muted); }
 .sus-note {
-  font-size: 11px; color: var(--cn-danger);
+  font-size: 11px; color: var(--cn-danger-text);
   padding: 8px 12px; border-top: 1px dashed rgba(168, 59, 52, 0.35);
 }
 tr.suspect.flash td { animation: sus-flash 1.6s ease-out; }

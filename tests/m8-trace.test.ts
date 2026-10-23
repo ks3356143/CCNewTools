@@ -9,7 +9,7 @@ import { handle } from '../src/server/app.ts'
 import { renderTemplate, stripAnchorMarks } from '../src/core/render/docx.ts'
 import { applyVmergeToDocx } from '../src/core/render/vmerge.ts'
 import { buildTraceTable } from '../src/core/trace/build.ts'
-import { IssueCollector } from '../src/core/domain.ts'
+import { DEFAULT_PARAMS, IssueCollector } from '../src/core/domain.ts'
 import type { TraceRowVM, TraceTable } from '../src/core/trace/table.ts'
 import type { CaseRow } from '../src/core/convert/rows.ts'
 import type { RecordCase } from '../src/core/parse/record.ts'
@@ -290,6 +290,32 @@ describe('M8 /api/trace/generate（rows 渲染 + vMerge 后处理）', () => {
     // 题注 configName 由服务端设置取（测试环境为空 → 题注仅"需求追踪表"）
     expect(text).toContain('需求追踪表')
     assertWellFormed(xml)
+  })
+
+  test('题注回退：请求不带 configName 时用服务端设置里的软件配置项名称', async () => {
+    const put = async (params: unknown) => {
+      await fetch(URL0 + '/api/settings', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ params, theme: 'light' })
+      })
+    }
+    await put({ ...DEFAULT_PARAMS, configName: '设置里的软件配置项' })
+    try {
+      const rows: TraceRowVM[] = [
+        { cells: ['1', '3.1', '参数管理', '6.2.1.4.1', '参数管理测试', 'XQ_A_B', '用例一', 'YL_A_B_001'], span: [1, 1, 1, 1, 1, 1, 1, 1] }
+      ]
+      const res = await fetch(URL0 + '/api/trace/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ traceType: 'spec', rows, primary: { name: '大纲T.docx', hash: null } })
+      })
+      const r = await res.json()
+      expect(r.ok).toBe(true)
+      expect(textOf(Buffer.from(r.doc, 'base64'))).toContain('设置里的软件配置项')
+    } finally {
+      await put(DEFAULT_PARAMS)
+    }
   })
 
   test('执行结果编辑值随 rows 进入产物', async () => {

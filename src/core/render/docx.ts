@@ -67,10 +67,6 @@ const paraAnchorXml = (name: string) => `<w:p><w:r><w:t>${name}</w:t></w:r></w:p
 const rowAnchorXml = (name: string) =>
   '<w:tr><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/></w:tcPr><w:p><w:r><w:t>' + name + '</w:t></w:r></w:p></w:tc></w:tr>'
 
-function anchorXml(kind: 'row' | 'para', name: string): string {
-  return kind === 'row' ? rowAnchorXml(name) : paraAnchorXml(name)
-}
-
 /**
  * 分批渲染。data 中 loops 声明的字段按 batchSize 拆批，其余变量整场共用。
  * 逐区处理：当前 XML 定位锚点 → 逐批渲染（其余区喂空，片段即用即弃）→ 组装删锚点。
@@ -131,10 +127,6 @@ export function renderTemplateBatched(
   // 3. 写回同一 zip（避免二次解包），统一清理悬空书签结束标记
   skeletonZip.file('word/document.xml', finalXml)
   return fixOrphanBookmarkEnds(skeletonZip.generate({ type: 'nodebuffer', compression: 'DEFLATE' }) as Buffer)
-}
-
-function docXmlOf(buf: Buffer): string {
-  return new PizZip(buf).file('word/document.xml')!.asText()
 }
 
 /**

@@ -58,7 +58,8 @@ export function exeDirNotice(exeDir: string, tmpRoot: string = tmpdir()): string
 }
 
 export interface Settings {
-  params: GlobalParams
+  /** 首次运行没有设置文件时为 null（前端按默认值补） */
+  params: GlobalParams | null
   theme: string
 }
 
@@ -70,7 +71,7 @@ export function loadSettings(): Settings {
   } catch {
     // 无设置文件或损坏：用默认值（06：损坏按无记录处理）
   }
-  return { params: null as unknown as GlobalParams, theme: 'light' }
+  return { params: null, theme: 'light' }
 }
 
 export function saveSettings(s: Settings): void {

@@ -1,14 +1,24 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { store, goCase, showToast, scheduleSave, requiredParamsMissing, REQUIRED_PARAMS_HINT } from '../store.ts'
 import { activeSuspects, stepSuspectActive } from '../suspect.ts'
 import TreeNav from '../components/TreeNav.vue'
 import ParamsCard from '../components/ParamsCard.vue'
+import ParamsButton from '../components/ParamsButton.vue'
 import CasePanel from '../components/CasePanel.vue'
 
 // 全局参数改为右侧抽屉：把常驻的 312px 让给目录树与用例表（2026-10-22 用户提议）
 const paramsOpen = ref(false)
-const missingRequired = computed(requiredParamsMissing)
+// 抽屉焦点：打开聚焦首个字段，关闭焦点回到触发按钮（键盘可达）
+let lastFocus: HTMLElement | null = null
+function openParams(): void {
+  const active = document.activeElement
+  // 程序化打开（如测试/脚本）时 activeElement 是 body，回退到按钮本身
+  lastFocus = active instanceof HTMLElement && active !== document.body ? active : document.querySelector<HTMLElement>('.params-btn')
+  paramsOpen.value = true
+  void nextTick(() => document.querySelector<HTMLElement>('.params-drawer .param-input input')?.focus())
+}
+watch(paramsOpen, v => { if (!v) lastFocus?.focus() })
 const reviewedCount = computed(() => store.cases.filter(c => c.reviewed).length)
 const suspectTotal = computed(() => store.cases.reduce((n, c) => n + activeSuspects(c), 0))
 const errorCount = computed(() => store.issues.filter(i => i.level === 'error').length)
@@ -49,8 +59,8 @@ function next(): void {
   else showToast('已是最后一个用例')
 }
 function gen(): void {
-  if (missingRequired.value) {
-    paramsOpen.value = true
+  if (requiredParamsMissing()) {
+    openParams()
     showToast(REQUIRED_PARAMS_HINT)
     return
   }
@@ -87,16 +97,14 @@ function gen(): void {
             </div>
           </v-card>
         </v-menu>
-        <v-btn size="small" variant="tonal" class="params-btn" :class="{ pending: missingRequired }" :title="missingRequired ? '测试人员 / 监测人员未填写，点击填写' : '填写软件配置项、人员等全局参数'" @click="paramsOpen = true">
-          <v-icon size="15" class="mr-1">{{ missingRequired ? 'mdi-alert-circle-outline' : 'mdi-tune-variant' }}</v-icon>全局参数
-        </v-btn>
+        <ParamsButton @open="openParams" />
       </div>
       <div class="progress-wrap">
         <div class="progress-labels">
           <span>核对进度</span>
           <span class="u-mono">{{ reviewedCount }} / {{ store.cases.length }}</span>
         </div>
-        <div class="progress-track"><i :class="{ done: store.cases.length > 0 && reviewedCount === store.cases.length }" :style="{ width: (store.cases.length ? (reviewedCount / store.cases.length) * 100 : 0) + '%' }" /></div>
+        <div class="progress-track"><i :class="{ done: store.cases.length > 0 && reviewedCount === store.cases.length }" :style="{ transform: 'scaleX(' + (store.cases.length ? reviewedCount / store.cases.length : 0) + ')' }" /></div>
       </div>
     </div>
 
@@ -137,7 +145,7 @@ function gen(): void {
           <b>全局参数</b>
           <span>对所有用例生效，修改自动保存</span>
         </div>
-        <v-btn icon size="small" variant="text" class="drawer-close" title="关闭" @click="paramsOpen = false">
+        <v-btn icon size="small" variant="text" class="drawer-close" title="关闭" aria-label="关闭全局参数" @click="paramsOpen = false">
           <v-icon size="18">mdi-close</v-icon>
         </v-btn>
       </div>
@@ -182,34 +190,21 @@ function gen(): void {
 .vtitle h2 { margin: 4px 0 0; font-family: var(--cn-font-display); font-size: 22px; line-height: 1.3; font-weight: 650; letter-spacing: -0.02em; color: var(--cn-fg); }
 .meta { margin: 3px 0 0; color: var(--cn-subtle); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .summary { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
-.params-btn { height: 30px !important; }
-/* 必填未填：红色荧光呼吸提示（用户要求），不改变按钮可点性 */
-.params-btn.pending {
-  color: var(--cn-danger) !important;
-  border-color: var(--cn-danger) !important;
-  background: var(--cn-danger-soft) !important;
-  box-shadow: 0 0 0 3px var(--cn-danger-glow), 0 0 16px var(--cn-danger-glow);
-  animation: params-glow 2.4s var(--cn-ease-standard) infinite;
-}
-@keyframes params-glow {
-  0%, 100% { box-shadow: 0 0 0 3px var(--cn-danger-glow), 0 0 12px var(--cn-danger-glow); }
-  50% { box-shadow: 0 0 0 4px var(--cn-danger-glow), 0 0 22px var(--cn-danger-glow); }
-}
-@media (prefers-reduced-motion: reduce) { .params-btn.pending { animation: none; } }
 .sus {
   display: inline-flex; align-items: center; gap: 4px;
   min-height: 26px; padding: 0 9px;
   border: 1px solid transparent; border-radius: var(--cn-r-1);
   font: inherit; font-size: 12px; line-height: 18px; font-weight: 600; cursor: pointer;
-  color: var(--cn-danger); background: var(--cn-danger-soft);
+  color: var(--cn-danger-text); background: var(--cn-danger-soft);
 }
-.sus.zero { color: var(--cn-success); background: var(--cn-success-soft); cursor: default; }
-.sus.warn { color: var(--cn-warning); background: var(--cn-warning-soft); }
+.sus.zero { color: var(--cn-success-text); background: var(--cn-success-soft); cursor: default; }
+.sus.warn { color: var(--cn-warning-text); background: var(--cn-warning-soft); }
 .progress-wrap { margin-left: 0; width: 200px; max-width: 30vw; flex: none; }
-.progress-labels { display: flex; justify-content: space-between; margin-bottom: 5px; color: var(--cn-muted); font-size: 10.5px; }
-.progress-labels .u-mono { color: var(--cn-accent); }
-.progress-track { height: 6px; border-radius: 3px; background: var(--cn-border); overflow: hidden; }
-.progress-track i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--cn-accent); transition: width var(--cn-dur-4) var(--cn-ease-standard); }
+.progress-labels { display: flex; justify-content: space-between; margin-bottom: 5px; color: var(--cn-muted); font-size: 11.5px; }
+.progress-labels .u-mono { color: var(--cn-accent-text); font-size: 12.5px; font-weight: 650; }
+.progress-track { height: 6px; border-radius: 3px; background: #dceaf8; overflow: hidden; }
+.v-theme--dark .progress-track { background: var(--cn-border); }
+.progress-track i { display: block; height: 100%; width: 100%; border-radius: inherit; background: var(--cn-accent); transform-origin: left; transform: scaleX(0); transition: transform 420ms var(--cn-ease-standard); }
 .progress-track i.done { background: var(--cn-success); }
 
 /* ---- 两栏工作区（参数改抽屉）：目录 400（宽屏 420），编辑区吃满剩余 ---- */
@@ -225,7 +220,7 @@ function gen(): void {
 .verify-sidebar {
   grid-area: side;
   min-height: 0; display: flex; flex-direction: column;
-  background: var(--cn-surface);
+  background: var(--cn-sidebar);
   border-right: 1px solid var(--cn-border);
 }
 .verify-editor {
@@ -241,6 +236,8 @@ function gen(): void {
 /* ---- 全局参数抽屉 ---- */
 .params-drawer {
   max-width: 92vw;
+  border-radius: var(--cn-r-4) 0 0 var(--cn-r-4);
+  overflow: hidden;
   background: var(--cn-surface) !important;
   border-left: 1px solid var(--cn-border);
   box-shadow: var(--cn-shadow-3) !important;

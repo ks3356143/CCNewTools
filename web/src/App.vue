@@ -97,6 +97,7 @@ function stepClick(n: number): void {
         <div class="brand-mark"><v-icon size="17">mdi-file-word-box</v-icon></div>
         <span class="app-title">{{ store.view === 'home' ? '测试文档工具集' : store.view === 'convert' ? '大纲转换' : '追踪文档生成' }}</span>
         <span class="ver">v{{ appVersion }}</span>
+        <span class="local-chip" title="解析、核对与生成都在本机完成"><i />本地引擎 · 离线可用</span>
       </div>
       <div class="spacer" />
       <nav v-if="store.view !== 'home'" class="stepper">
@@ -127,7 +128,7 @@ function stepClick(n: number): void {
     <v-main>
       <!-- 显式 duration：窗口隐藏时 CSS transitionend 不触发，mode="out-in" 会永久卡在
            leave 阶段（实测复现）——显式值让 Vue 用 setTimeout 定界，不依赖动画事件 -->
-      <Transition name="screen" mode="out-in" :duration="180">
+      <Transition name="screen" mode="out-in" :duration="{ enter: 240, leave: 180 }">
         <Screen0 v-if="store.view === 'home'" />
         <Screen1 v-else-if="store.view === 'convert' && store.screen === 1" />
         <Screen2 v-else-if="store.view === 'convert' && store.screen === 2" />
@@ -244,6 +245,16 @@ function stepClick(n: number): void {
 .step.done .dot { background: var(--cn-success-soft); border-color: #a6d7bf; color: var(--cn-success); }
 .link { width: 22px; height: 1px; background: var(--cn-border); margin: 0 3px; }
 /* 顶栏图标按钮（帮助/主题）：32px 描边方钮 */
+.local-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 24px; padding: 0 9px; margin-left: 2px;
+  border: 1px solid var(--cn-border); border-radius: 999px;
+  background: var(--cn-surface-soft); color: var(--cn-muted);
+  font-size: 11px; white-space: nowrap;
+}
+.local-chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--cn-accent); flex: none; }
+@media (max-width: 1280px) { .local-chip { display: none; } }
+
 .icon-btn {
   width: 36px; height: 36px; margin-right: 6px;
   border: 1px solid transparent; border-radius: var(--cn-r-2);
@@ -254,10 +265,11 @@ function stepClick(n: number): void {
 /* v5 评审 012：默认安静、hover 才上浅蓝，边框留给容器与表格 */
 .icon-btn:hover { background: var(--cn-accent-soft); color: var(--cn-fg); }
 .icon-btn:active { transform: scale(0.97); }
-/* 三屏切换过渡（240ms fade-slide，respect reduced-motion） */
-.screen-enter-active, .screen-leave-active { transition: opacity 0.24s var(--cn-ease-out), transform 0.24s var(--cn-ease-out); }
-.screen-enter-from { opacity: 0; transform: translateY(8px); }
-.screen-leave-to { opacity: 0; transform: translateY(-4px); }
+/* 屏切换：进入 240ms / 退出 180ms，横向 12px（只动 transform/opacity） */
+.screen-enter-active { transition: opacity 0.24s var(--cn-ease-out), transform 0.24s var(--cn-ease-out); }
+.screen-leave-active { transition: opacity 0.18s var(--cn-ease-out), transform 0.18s var(--cn-ease-out); }
+.screen-enter-from { opacity: 0; transform: translateX(12px); }
+.screen-leave-to { opacity: 0; transform: translateX(-8px); }
 @media (prefers-reduced-motion: reduce) {
   .screen-enter-active, .screen-leave-active { transition: none; }
 }

@@ -184,7 +184,7 @@ const totalCases = computed(() => store.cases.length)
   min-height: 31px;
   border-radius: var(--cn-r-2);
   background: var(--cn-surface-soft);
-  box-shadow: inset 0 0 0 1px var(--cn-border);
+  box-shadow: inset 0 0 0 1px var(--cn-control-line);
   font-size: 12px;
 }
 .search :deep(.v-field--focused) {
@@ -205,3 +205,4 @@ const totalCases = computed(() => store.cases.length)
 </style>
 
 .v-theme--dark .search :deep(.v-field--focused) { box-shadow: inset 0 0 0 1px var(--cn-accent), 0 0 0 3px rgba(101, 169, 244, 0.22); }
+.v-theme--dark .search :deep(.v-field) { background: var(--cn-bg); }

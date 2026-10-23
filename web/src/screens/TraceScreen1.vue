@@ -90,6 +90,9 @@ watch(() => store.traceType, () => {
   phase.value = 'idle'
   fileName.value = ''
   progress.value = 0
+  alignProject.value = null
+  alignFileName.value = ''
+  outlineFileRef = null
 })
 
 const clearArmed = ref(false)

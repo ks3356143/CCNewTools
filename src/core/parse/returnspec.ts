@@ -8,7 +8,7 @@
  *   用例章节号 = 用例表所在最近标题的自动编号（样例：文档审查用例 6.1.1、
  *   帧生成用例 6.1.2.1.1——分别等于所属项标题的编号）
  */
-import { bodyElements, children, localName, textOf, numPrOf, type OfficeFile } from './docx.ts'
+import { bodyElements, localName, textOf, numPrOf, type OfficeFile } from './docx.ts'
 import { parseNumbering, createChapterCounter } from './numbering.ts'
 import { parseStyles, headingLevel, styleNumPr } from './styles.ts'
 import { extractItemTable } from './table.ts'

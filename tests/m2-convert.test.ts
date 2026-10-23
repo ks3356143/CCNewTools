@@ -236,6 +236,23 @@ describe('M2 准则格配对（9.5 实测变种 + 2026-10-01 不切分定稿）'
     expect(data.issues.some(i => i.code === 'CRITERIA_COUNT_MISMATCH')).toBe(true)
   })
 
+  test('准则条数多于步骤 → 多余准则并入末步并告警', () => {
+    const outline = makeOutline()
+    const c = outline.items[0].cases[0]
+    c.steps = [
+      { no: 1, text: '子项步骤1；' },
+      { no: 2, text: '子项步骤2。' }
+    ]
+    c.criteria = ['准则一；', '准则二；', '准则三；', '准则四']
+    const data = convertToTemplateData(outline, DEFAULT_PARAMS)
+    const row = data.cases[0]
+    expect(row.steps.length).toBe(2)
+    expect(row.steps[0].expect).toBe('准则一')
+    expect(row.steps[1].expect).toBe('准则二；准则三；准则四')
+    expect(row.suspectCount).toBe(0)
+    expect(data.issues.some(i => i.code === 'CRITERIA_COUNT_MISMATCH')).toBe(true)
+  })
+
   test('无准则 → 关键词切分不受影响（旧行为回归）', () => {
     const data = convertToTemplateData(makeOutline(), DEFAULT_PARAMS)
     expect(data.cases[0].expectSource).toBe('方法切分')

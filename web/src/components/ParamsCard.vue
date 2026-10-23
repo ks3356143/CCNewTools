@@ -100,10 +100,11 @@ function reqEmpty(v: string | undefined): boolean {
   min-height: 36px;
   border-radius: var(--cn-r-2);
   background: var(--cn-surface-soft);
-  box-shadow: inset 0 0 0 1px var(--cn-border);
+  box-shadow: inset 0 0 0 1px var(--cn-control-line);
   transition: background var(--cn-dur-2) var(--cn-ease-out), box-shadow var(--cn-dur-2) var(--cn-ease-out);
 }
 .param-input :deep(.v-field:hover) { box-shadow: inset 0 0 0 1px var(--cn-border-strong); }
+.v-theme--dark .param-input :deep(.v-field) { background: var(--cn-bg); }
 /* 聚焦态：完整一圈 1.5px 强调描边（此前"内描边 + 外环"叠加在视觉上像上下两条蓝线，
    用户截图指出；去掉外环后聚焦框是干净的整圈圆角描边） */
 .param-input :deep(.v-field--focused) {
