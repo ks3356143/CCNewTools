@@ -192,13 +192,33 @@ describe('M4 编辑持久化（05）', () => {
 })
 
 describe('M4 /api/generate', () => {
+  const PARAMS = {
+    configName: '测试配置项', init: '外接设备正常', constraint: '环境正常',
+    designer: '设计甲', testTime: '2026-11-12', tester: '测试甲', monitor: '监测乙'
+  }
+
+  test('必填人员为空 → 400 且不渲染（服务端兜底，任何客户端都拦得住）', async () => {
+    const first = await parse('测试大纲A.docx', sampleDocx())
+    for (const params of [undefined, { ...PARAMS, tester: '  ' }, { ...PARAMS, monitor: '' }]) {
+      const res = await fetch(URL0 + '/api/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ outline: first.outline, cases: first.cases, params })
+      })
+      expect(res.status).toBe(400)
+      const data = await res.json()
+      expect(data.ok).toBe(false)
+      expect(data.error).toContain('测试人员与监测人员')
+    }
+  })
+
   test('生成 >500 例自动分批渲染：产物落盘 + files 响应（10-大文档处理 5.3，v1.3.0）', async () => {
     const first = await parse('测试大纲A.docx', sampleDocx())
     const many = Array.from({ length: 501 }, (_, i) => ({ ...first.cases[0], caseId: 'YL_A_B_' + String(i).padStart(3, '0') }))
     const res = await fetch(URL0 + '/api/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ outline: first.outline, cases: many })
+      body: JSON.stringify({ outline: first.outline, cases: many, params: PARAMS })
     })
     const data = await res.json()
     expect(data.ok).toBe(true)
@@ -213,13 +233,15 @@ describe('M4 /api/generate', () => {
     expect(typeof data.rec).toBe('string')
   })
 
-  test('生成两份 docx（base64），排除的用例不生成', async () => {
+  test('生成两份 docx（base64），排除的用例不生成；文档人员取提交的全局参数（覆盖解析时快照）', async () => {
     const first = await parse('测试大纲A.docx', sampleDocx())
+    // 解析时设置里没有人员，用例行是空快照；生成时提交的参数必须写进文档
+    expect(first.cases[0].tester).toBe('')
     const cases = first.cases.map((c: any) => ({ ...c, excluded: c.caseId === 'YL_A_B_002' }))
     const res = await fetch(URL0 + '/api/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ outline: first.outline, cases: cases })
+      body: JSON.stringify({ outline: first.outline, cases: cases, params: PARAMS })
     })
     const data = await res.json()
     expect(data.ok).toBe(true)
@@ -233,6 +255,12 @@ describe('M4 /api/generate', () => {
     const xml = new (require('pizzip').default)(readFileSync(tmpZip)).file('word/document.xml').asText()
     expect(xml).toContain('YL_A_B_001')
     expect(xml).not.toContain('YL_A_B_002')
+    // 人员只出现在测试记录模板：提交的全局参数必须覆盖解析时的空快照
+    const tmpRec = join(process.env.CC_DATA_DIR!, 'gen-rec.docx')
+    writeFileSync(tmpRec, Buffer.from(data.rec, 'base64'))
+    const xmlRec = new (require('pizzip').default)(readFileSync(tmpRec)).file('word/document.xml').asText()
+    expect(xmlRec).toContain('测试甲')
+    expect(xmlRec).toContain('监测乙')
   })
 })
 

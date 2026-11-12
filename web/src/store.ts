@@ -200,6 +200,25 @@ export async function loadProjects(): Promise<void> {
   }
 }
 
+/** 删除项目后同步内存：删的正是当前打开的项目 → 清空解析态，步进器不再放行进核对屏 */
+export function forgetProjectIfCurrent(id: string): boolean {
+  if (!store.outline.hash || store.outline.hash.slice(0, 12) !== id) return false
+  store.parsed = false
+  store.outline = { name: '', hash: '' }
+  store.stats = { items: 0, cases: 0, steps: 0 }
+  store.issues = []
+  store.cases = []
+  store.restored = { cases: 0, steps: 0, skipped: 0 }
+  store.currentIdx = 0
+  store.genResult = null
+  store.genWarnings = []
+  store.screen = 1
+  try {
+    sessionStorage.removeItem(SESSION_KEY)
+  } catch { /* 隐私模式 / 存储禁用：静默 */ }
+  return true
+}
+
 /** 首页 → 进入工具；屏号保留（回首页不丢已上传大纲，重新进入仍在原屏） */
 export function openTool(tool: 'convert' | 'trace'): void {
   store.view = tool

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, useTemplateRef, onMounted } from 'vue'
-import { store, doParse, loadProjects, openProjectById, showToast } from '../store.ts'
+import { store, doParse, loadProjects, openProjectById, showToast, forgetProjectIfCurrent } from '../store.ts'
 import { activeSuspects } from '../suspect.ts'
 import { deleteProject } from '../api.ts'
 import type { Issue, ProjectMeta } from '../types.ts'
@@ -98,6 +98,8 @@ async function removeOne(p: ProjectMeta): Promise<void> {
     showToast('删除失败')
     return
   }
+  // 删的是当前打开的项目：清掉内存解析态，否则步进器还能把已删除的项目带进核对屏
+  forgetProjectIfCurrent(p.id)
   showToast('已删除项目')
   await loadProjects()
 }
@@ -115,6 +117,9 @@ async function clearAll(): Promise<void> {
     await deleteProject(p.id).catch(() => false)
   }
   await loadProjects()
+  // 当前打开的项目若已随清空消失，内存态一并清掉（个别删除失败仍留在列表里的则保留）
+  const curId = store.outline.hash.slice(0, 12)
+  if (curId && !store.projects.some(p => p.id === curId)) forgetProjectIfCurrent(curId)
   showToast('已清空全部项目')
 }
 

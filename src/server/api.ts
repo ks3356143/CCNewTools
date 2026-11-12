@@ -253,7 +253,23 @@ async function saveEdits(
 
 async function apiGenerate(req: Request): Promise<Response> {
   const body = (await req.json()) as { outline: { name: string; hash?: string }; cases: CaseRow[]; params: GlobalParams }
-  const cases = body.cases.filter(c => !c.excluded)
+  // 全局参数以生成这一刻提交的为准：解析时写进用例行的只是当时设置快照，
+  // 之后在抽屉里改的人员/初始化/人员信息必须生效；人员必填也在服务端兜底（前端闸门可被旧缓存绕过）
+  const params: GlobalParams = { ...DEFAULT_PARAMS, ...(body.params ?? {}) }
+  const tester = String(params.tester ?? '').trim()
+  const monitor = String(params.monitor ?? '').trim()
+  if (!tester || !monitor) {
+    return Response.json({ ok: false, error: '请先填写测试人员与监测人员' }, { status: 400 })
+  }
+  const cases = body.cases.filter(c => !c.excluded).map(c => ({
+    ...c,
+    init: params.init,
+    constraint: params.constraint,
+    designer: params.designer,
+    testTime: params.testTime,
+    tester,
+    monitor
+  }))
   if (cases.length === 0) {
     return Response.json({ ok: false, error: '没有可生成的用例（全部被排除？）' }, { status: 400 })
   }
@@ -269,7 +285,7 @@ async function apiGenerate(req: Request): Promise<Response> {
     caseName: c.mingcheng,
     caseId: c.caseId
   }))
-  const configName = body.params?.configName ?? ''
+  const configName = params.configName
   // ≤500 例走整体渲染（成熟路径），>500 例走分批渲染（内存与总数脱钩——10-大文档处理 5.2）
   const batched = cases.length > BATCH_RENDER_THRESHOLD
   const t0 = Date.now()
