@@ -22,7 +22,6 @@
   --cn-disabled-bg: #edf3f8;
   --cn-disabled-fg: #879aaf;
   --cn-control-line: #698eac;
-  --cn-surface-glass: rgba(255, 255, 255, 0.78);
   --cn-fg: #152741;
   --cn-fg-soft: #4c617b;
   --cn-muted: #6b809a;
@@ -89,7 +88,6 @@
   --cn-disabled-bg: #172a43;
   --cn-disabled-fg: #7f94ab;
   --cn-control-line: #507aa4;
-  --cn-surface-glass: rgba(15, 31, 50, 0.82);
   --cn-fg: #e8f2fd;
   --cn-fg-soft: #b7c9dc;
   --cn-muted: #8ea6be;

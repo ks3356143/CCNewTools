@@ -1,4 +1,4 @@
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
 import type { CaseRow, GlobalParams, GeneratedFile, Issue, ParseResponse, ProjectMeta, TraceTable, TraceType } from './types.ts'
 import type { TraceParseResponse } from './api.ts'
 import { parseOutline, saveEdits, saveSettings, generate, listProjects, openProject, traceParse, traceGenerate, traceOpen } from './api.ts'
@@ -15,6 +15,8 @@ export const store = reactive({
   theme: 'light',
   parsing: false,
   parsed: false,
+  /** 当前打开的大纲项目已被删除（本屏删除或外部删除清空内存态）：步进器据此给出"重新解析"提示 */
+  outlineDeleted: false,
   outline: { name: '', hash: '' },
   stats: { items: 0, cases: 0, steps: 0 },
   issues: [] as Issue[],
@@ -158,17 +160,19 @@ export function requiredParamsMissing(): boolean {
   return !store.params.tester?.trim() || !store.params.monitor?.trim()
 }
 
-export async function doParse(file: File): Promise<void> {
+export async function doParse(file: File): Promise<boolean> {
   store.parsing = true
   try {
     const res = await parseOutline(file)
     if (!res.ok) {
       showToast(res.error ?? '解析失败')
-      return
+      return false
     }
     applyParseResult(res)
+    return true
   } catch (e) {
     showToast(e instanceof Error ? e.message : '无法连接本地服务')
+    return false
   } finally {
     store.parsing = false
   }
@@ -184,6 +188,7 @@ function applyParseResult(res: ParseResponse): void {
   store.theme = res.theme || 'light'
   store.restored = res.restored
   store.parsed = true
+  store.outlineDeleted = false
   store.currentIdx = 0
   if (res.restored.cases > 0) {
     showToast('已恢复上次编辑：' + res.restored.cases + ' 处')
@@ -200,10 +205,10 @@ export async function loadProjects(): Promise<void> {
   }
 }
 
-/** 删除项目后同步内存：删的正是当前打开的项目 → 清空解析态，步进器不再放行进核对屏 */
-export function forgetProjectIfCurrent(id: string): boolean {
-  if (!store.outline.hash || store.outline.hash.slice(0, 12) !== id) return false
+/** 清空当前大纲的内存解析态（项目已删除时调用；标 outlineDeleted 供步进器给出准确提示） */
+function clearOutlineState(): void {
   store.parsed = false
+  store.outlineDeleted = true
   store.outline = { name: '', hash: '' }
   store.stats = { items: 0, cases: 0, steps: 0 }
   store.issues = []
@@ -216,8 +221,35 @@ export function forgetProjectIfCurrent(id: string): boolean {
   try {
     sessionStorage.removeItem(SESSION_KEY)
   } catch { /* 隐私模式 / 存储禁用：静默 */ }
+}
+
+/** 删除项目后同步内存：删的正是当前打开的项目 → 清空解析态，步进器不再放行进核对屏 */
+export function forgetProjectIfCurrent(id: string): boolean {
+  if (!store.outline.hash || store.outline.hash.slice(0, 12) !== id) return false
+  clearOutlineState()
   return true
 }
+
+// 进入核对屏前核对项目档案是否还在（第一屏「开始核对与编辑」按钮、问题跳转、步进器、
+// 追踪项目打开都不经过 deleteProject 回调——其它标签页/资源管理器删掉 数据/项目/<id> 后，
+// 仅凭内存态会把已不存在的项目带进第二屏）。初始 screen=2 的验收深链在 watch 注册前赋值，不触发。
+watch(
+  () => [store.view, store.screen] as const,
+  ([v, s]) => {
+    if (v !== 'convert' || s !== 2 || !store.parsed) return
+    const id = store.outline.hash.slice(0, 12)
+    if (!id) return
+    void listProjects()
+      .then(list => {
+        store.projects = list
+        if (store.screen !== 2 || !store.parsed) return // 检查期间已回到第一屏/换了大纲：不打断
+        if (list.some(p => p.id === id)) return
+        clearOutlineState()
+        showToast('文件已删除，请重新解析')
+      })
+      .catch(() => { /* 服务异常不阻断核对（保持原行为） */ })
+  }
+)
 
 /** 首页 → 进入工具；屏号保留（回首页不丢已上传大纲，重新进入仍在原屏） */
 export function openTool(tool: 'convert' | 'trace'): void {
@@ -514,6 +546,7 @@ export function resetAll(): void {
   store.view = 'home'
   store.screen = 1
   store.parsed = false
+  store.outlineDeleted = false
   store.cases = []
   store.issues = []
   store.genResult = null

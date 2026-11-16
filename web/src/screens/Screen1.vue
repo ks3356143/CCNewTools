@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, useTemplateRef, onMounted } from 'vue'
+import { ref, useTemplateRef, onMounted, watch } from 'vue'
 import { store, doParse, loadProjects, openProjectById, showToast, forgetProjectIfCurrent } from '../store.ts'
 import { activeSuspects } from '../suspect.ts'
 import { deleteProject } from '../api.ts'
@@ -17,7 +17,11 @@ function pick(): void {
   if (phase.value === 'idle') fileInput.value?.click()
 }
 function onFile(e: Event): void {
-  const f = (e.target as HTMLInputElement).files?.[0]
+  const el = e.target as HTMLInputElement
+  const f = el.files?.[0]
+  // value 立即复位：否则失败后再次选择同一个文件时 value 不变，change 事件不触发，
+  // 表现为"再点上传没反应、刷新后才行"（用户实测）；File 对象在清空 value 后仍有效
+  el.value = ''
   if (f) void startParse(f)
 }
 function onDrop(e: DragEvent): void {
@@ -32,10 +36,24 @@ async function startParse(f: File): Promise<void> {
   progress.value = 0
   phase.value = 'parsing'
   requestAnimationFrame(() => (progress.value = 70))
-  await doParse(f)
+  const ok = await doParse(f)
   progress.value = 100
-  phase.value = store.parsed ? 'done' : 'idle'
+  // 以本次解析结果为准：旧大纲仍打开时上传新文件失败，不能把旧统计当本次结果停在“解析完成”
+  phase.value = ok ? 'done' : 'idle'
 }
+
+// 当前项目被删除（本屏删除的是正在打开的项目 / 外部删除被守卫清空）时，
+// 上传区不能停留在“解析完成”并留着直进第二屏的按钮
+watch(
+  () => store.parsed,
+  v => {
+    if (!v && phase.value === 'done') {
+      phase.value = 'idle'
+      fileName.value = ''
+      progress.value = 0
+    }
+  }
+)
 
 // —— 最近项目 ——
 // Screen1 是 v-if 挂载，每次回到第一屏都会重挂载，onMounted 即拉最新列表

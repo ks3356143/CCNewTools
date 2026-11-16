@@ -74,7 +74,7 @@ function stepClick(n: number): void {
     return
   }
   if (!store.parsed) {
-    showToast('请先选择并解析大纲')
+    showToast(store.outlineDeleted ? '文件已删除，请重新解析' : '请先选择并解析大纲')
     return
   }
   if (n === 3 && store.screen !== 3) {
@@ -182,12 +182,11 @@ function stepClick(n: number): void {
 </template>
 
 <style scoped>
-/* 顶栏 v2（视觉系统「工程仪器」）：半透明玻璃表面 + 细底边，装饰退场、信息清晰。
-   扫光/深蓝渐变已按设计稿移除；backdrop-filter 带 -webkit- 前缀（Edge 100 可用） */
+/* 顶栏 v2（视觉系统「工程仪器」）：实色表面 + 细底边。
+   曾用 backdrop-filter 玻璃模糊，但在部分 Win10 / 老显卡驱动上顶栏持续闪烁
+   （用户内网机器实测第二屏顶部闪烁）；顶栏下方本就是纯色页底，模糊无视觉收益，去掉该属性 */
 .v-app-bar {
-  background: var(--cn-surface-glass) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(130%);
-  backdrop-filter: blur(18px) saturate(130%);
+  background: var(--cn-surface) !important;
   border-bottom: 1px solid var(--cn-border);
   box-shadow: none !important;
   color: var(--cn-fg);
