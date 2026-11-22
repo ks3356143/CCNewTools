@@ -76,7 +76,7 @@ async function startParse(f: File): Promise<void> {
   progress.value = 0
   phase.value = 'parsing'
   requestAnimationFrame(() => (progress.value = 70))
-  const outline = alignProject.value ? { hash: alignProject.value.hash } : alignFileName.value !== '' && outlineFileRef.value ? { file: outlineFileRef.value } : undefined
+  const outline = alignProject.value ? { hash: alignProject.value.hash } : alignFileName.value !== '' && outlineFileRef !== null ? { file: outlineFileRef } : undefined
   await doTraceParse(f, outline)
   progress.value = 100
   phase.value = store.traceParsed ? 'done' : 'idle'
@@ -243,7 +243,7 @@ function issueCounts(): string {
         </button>
       </div>
     </div>
-    <input ref="outlineInput" type="file" accept=".docx" hidden @change="onOutlineFile" />
+    <input ref="outlineInput" id="trace-outline" type="file" accept=".docx" hidden @change="onOutlineFile" />
 
     <!-- 主文档上传 -->
     <div
@@ -273,7 +273,7 @@ function issueCounts(): string {
         </button>
       </template>
     </div>
-    <input ref="fileInput" type="file" accept=".docx" hidden @change="onFile" />
+    <input ref="fileInput" id="trace-record" type="file" accept=".docx" hidden @change="onFile" />
 
     <!-- 最近项目（按 tab 类型过滤） -->
     <div v-if="visibleProjects.length > 0" class="projects">

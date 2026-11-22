@@ -9,6 +9,10 @@ import Screen2 from './screens/Screen2.vue'
 import Screen3 from './screens/Screen3.vue'
 import TraceScreen1 from './screens/TraceScreen1.vue'
 import TraceScreen2 from './screens/TraceScreen2.vue'
+import RegressScreen1 from './screens/RegressScreen1.vue'
+import RegressScreen2 from './screens/RegressScreen2.vue'
+import ReportScreen1 from './screens/ReportScreen1.vue'
+import { Toaster, toast as ding } from '@yusufceng1z/ding-vue'
 
 // vite define 注入（来源根 package.json）；必须先绑到局部常量——模板里直接写裸标识符
 // 会被 Vue 编译成 _ctx.__APP_VERSION__ 属性访问，define 的标识符替换匹配不上
@@ -18,14 +22,16 @@ const theme = useTheme()
 // 顶栏 stepper 随工具切换（11-工具集首页：顶栏三态）
 const STEPS = {
   convert: ['选择大纲', '核对与编辑', '生成文档'],
-  trace: ['选大纲', '生成文档']
+  trace: ['选大纲', '生成文档'],
+  regress: ['选大纲与记录', '生成文档'],
+  report: ['选输入并生成']
 } as const
 // 使用说明对话框（08 交付物：内置界面，顶栏 ? 打开）
 const about = ref(false)
 
 /** 当前工具的步骤名与当前步（顶栏居中 stepper；首页态无 stepper） */
-const curSteps = computed(() => (store.view === 'trace' ? STEPS.trace : STEPS.convert))
-const curStep = computed(() => (store.view === 'trace' ? store.traceScreen : store.screen))
+const curSteps = computed(() => (store.view === 'trace' ? STEPS.trace : store.view === 'regress' ? STEPS.regress : store.view === 'report' ? STEPS.report : STEPS.convert))
+const curStep = computed(() => (store.view === 'trace' ? store.traceScreen : store.view === 'regress' ? store.regressScreen : store.view === 'report' ? 1 : store.screen))
 
 onMounted(async () => {
   try {
@@ -37,6 +43,8 @@ onMounted(async () => {
   } catch {
     // 服务未就绪时忽略
   }
+  // ding 弹层主题随应用（不跟系统——应用有自己的深浅切换）
+  ding.configure({ theme: store.theme === 'dark' ? 'dark' : 'light' })
   // 禁用浏览器恢复横向滚动位置（F5 后画面被横移的诱因之一）
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
   // 刷新恢复（sessionStorage：同标签刷新保留，新标签回首页）
@@ -52,11 +60,14 @@ watch(
 function toggleTheme(): void {
   store.theme = store.theme === 'dark' ? 'light' : 'dark'
   theme.global.name.value = store.theme
+  ding.configure({ theme: store.theme === 'dark' ? 'dark' : 'light' })
   scheduleSettingsSave()
 }
 
-/** stepper 点击守卫（工具一守卫原样保留；工具二同构） */
+/** stepper 点击守卫（工具一守卫原样保留；工具二/工具三同构） */
 function stepClick(n: number): void {
+  // 工具四单屏无步进，点到不切
+  if (store.view === 'report') return
   if (store.view === 'trace') {
     if (n === 1) {
       store.traceScreen = 1
@@ -67,6 +78,29 @@ function stepClick(n: number): void {
       return
     }
     store.traceScreen = 2
+    return
+  }
+  if (store.view === 'regress') {
+    if (n === 1) {
+      store.regressScreen = 1
+      return
+    }
+    if (store.regressDraft === null) {
+      showToast('请先上传测试记录并完成解析')
+      return
+    }
+    // 必填参数硬闸（2026-11-22 用户拍板"没填不能进下一步"）：人员与测试时间范围
+    if (store.params.tester.trim() === '' || store.params.monitor.trim() === '' || (store.params.timeStart ?? '') === '' || (store.params.timeEnd ?? '') === '') {
+      store.regressScreen = 1
+      showToast('请先在第一屏填写测试人员、监测人员与测试时间范围')
+      return
+    }
+    if (store.params.timeStart > store.params.timeEnd) {
+      store.regressScreen = 1
+      showToast('测试时间的止期不能早于起期')
+      return
+    }
+    store.regressScreen = 2
     return
   }
   if (n === 1) {
@@ -95,7 +129,7 @@ function stepClick(n: number): void {
       </button>
       <div class="brand">
         <div class="brand-mark"><v-icon size="17">mdi-file-word-box</v-icon></div>
-        <span class="app-title">{{ store.view === 'home' ? '测试文档工具集' : store.view === 'convert' ? '大纲转换' : '追踪文档生成' }}</span>
+        <span class="app-title">{{ store.view === 'home' ? '测试文档工具集' : store.view === 'convert' ? '大纲转换' : store.view === 'trace' ? '追踪文档生成' : store.view === 'regress' ? '回归测试说明' : '报告统计与需求符合性' }}</span>
         <span class="ver">v{{ appVersion }}</span>
         <span class="local-chip" title="解析、核对与生成都在本机完成"><i />本地引擎 · 离线可用</span>
       </div>
@@ -133,14 +167,16 @@ function stepClick(n: number): void {
         <Screen1 v-else-if="store.view === 'convert' && store.screen === 1" />
         <Screen2 v-else-if="store.view === 'convert' && store.screen === 2" />
         <Screen3 v-else-if="store.view === 'convert'" />
+        <RegressScreen1 v-else-if="store.view === 'regress' && store.regressScreen === 1" />
+        <RegressScreen2 v-else-if="store.view === 'regress'" />
+        <ReportScreen1 v-else-if="store.view === 'report'" />
         <TraceScreen1 v-else-if="store.traceScreen === 1" />
         <TraceScreen2 v-else />
       </Transition>
     </v-main>
 
-    <v-snackbar v-model="store.toast.show" location="bottom" timeout="2600" rounded="lg">
-      {{ store.toast.text }}
-    </v-snackbar>
+    <!-- ding 弹层挂载点（2026-11-21 起替代 v-snackbar，主题随应用切换） -->
+    <Toaster position="bottom-center" />
 
     <!-- 使用说明（08：一页说明内置界面，丢失手册也能自助） -->
     <v-dialog v-model="about" max-width="620">

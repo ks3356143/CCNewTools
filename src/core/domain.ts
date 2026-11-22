@@ -43,6 +43,9 @@ export interface GlobalParams {
   testTime: string
   tester: string
   monitor: string
+  /** 回归测试记录专用（2026-11-22 用户拍板必填）：测试时间范围起/止（YYYY-MM-DD），工具在用例间自动铺开 */
+  timeStart?: string
+  timeEnd?: string
 }
 
 export const DEFAULT_PARAMS: GlobalParams = {
@@ -127,6 +130,20 @@ export interface TestItem {
   traceSrs: { chapter: string; desc: string }
   /** 追踪关系格解析出的研制任务书信息（大纲追踪表用；老文档通常没有 → undefined） */
   traceTask?: { chapter: string; desc: string }
+  /** 追踪关系格原文（F11 回归测试说明 4.1 表原文照抄用） */
+  traceRaw: string
+  /** 优先级（测试项表第 1 行第 6 格，F11；旧形态无此格 → 空串） */
+  priority: string
+  /** 需求描述格文本（F11；"--"或空原样保留） */
+  reqDesc: string
+  /** 测试项描述格原文（F11 v2：4.1 表原样拷贝） */
+  descRaw: string
+  /** 测试方法格原文（同上） */
+  methodRaw: string
+  /** 充分性要求格原文（同上） */
+  sufficientRaw: string
+  /** 通过准则格原文（同上） */
+  criteriaRaw: string
 }
 
 export interface ParsedOutline {

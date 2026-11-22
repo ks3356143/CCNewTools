@@ -3,20 +3,22 @@ import { computed } from 'vue'
 import { requiredParamsMissing } from '../store.ts'
 
 // 独立组件：参数输入时只有这颗按钮重渲染，不会带着整个核对屏的模板一起 diff
-const missing = computed(requiredParamsMissing)
-defineProps<{ expanded?: boolean }>()
+const props = defineProps<{ expanded?: boolean; missing?: boolean }>()
+const internalMissing = computed(requiredParamsMissing)
+// missing 传入时覆盖内置判定（回归屏含时间范围的完整必填态）；不传走工具一的人员判定
+const isMissing = computed(() => props.missing ?? internalMissing.value)
 const emit = defineEmits<{ open: [] }>()
 </script>
 
 <template>
-  <span class="params-wrap" :class="{ pending: missing }">
+  <span class="params-wrap" :class="{ pending: isMissing }">
     <v-btn
-      size="small" variant="tonal" class="params-btn" :class="{ pending: missing }"
+      size="small" variant="tonal" class="params-btn" :class="{ pending: isMissing }"
       aria-haspopup="dialog" aria-controls="params-drawer" :aria-expanded="expanded ? 'true' : 'false'"
-      :title="missing ? '测试人员 / 监测人员未填写，点击填写' : '填写软件配置项、人员等全局参数'"
+      :title="isMissing ? (missing !== undefined ? '测试人员、监测人员或时间范围未填写，点击填写' : '测试人员 / 监测人员未填写，点击填写') : '填写软件配置项、人员等全局参数'"
       @click="emit('open')"
     >
-      <v-icon size="15" class="mr-1">{{ missing ? 'mdi-alert-circle-outline' : 'mdi-tune-variant' }}</v-icon>全局参数
+      <v-icon size="15" class="mr-1">{{ isMissing ? 'mdi-alert-circle-outline' : 'mdi-tune-variant' }}</v-icon>全局参数
     </v-btn>
   </span>
 </template>

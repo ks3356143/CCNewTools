@@ -9,6 +9,11 @@ import type { CaseRow } from '../core/convert/rows.ts'
 import { renderTemplate, renderTemplateBatched, stripAnchorMarks, type LoopSpec } from '../core/render/docx.ts'
 import { applyVmergeToDocx } from '../core/render/vmerge.ts'
 import { buildTraceTable, TYPE_VARS, TRACE_TEMPLATE_NAMES, OUTLINE_VARS, OUTLINE_TASK_VARS, OUTLINE_TEMPLATE, OUTLINE_TASK_TEMPLATE } from '../core/trace/build.ts'
+import { selectRegressCases, buildRegressData } from '../core/regress/build.ts'
+import { regressPost } from '../core/regress/post.ts'
+import { buildConfData } from '../core/report/build.ts'
+import { reportPost } from '../core/report/post.ts'
+import type { ParsedOutline } from '../core/domain.ts'
 import type { TraceRowVM, TraceTable } from '../core/trace/table.ts'
 import { IssueCollector, DEFAULT_PARAMS, type GlobalParams } from '../core/domain.ts'
 import { sha132, mergeRestored, EDIT_STATE_VERSION, type EditState, type StoredCase } from '../core/persistence.ts'
@@ -34,6 +39,9 @@ function templateFile(name: string): Buffer {
  * 依次尝试 UTF-8 严格还原、GBK 还原（结果含汉字才采用），中文正常名零误伤。
  */
 function fixFileName(name: string): string {
+  // Bun 解析 multipart 时对非法 UTF-8 文件名已先行替换成 U+FFFD（GBK 通道原始字节已丢，无法还原）——
+  // 绝不让乱码落进项目名/产物路径，兜底通用干净名（2026-11-22 乱码修复）
+  if (name.includes('�')) return '上传文档.docx'
   if (!/[\u0080-ÿ]/.test(name)) return name
   const bytes = Uint8Array.from([...name].map(c => c.charCodeAt(0)))
   try {
@@ -171,6 +179,17 @@ export async function handleApi(req: Request, url: URL): Promise<Response> {
     if (url.pathname === '/api/trace/generate' && req.method === 'POST') {
       return await apiTraceGenerate(req)
     }
+    // 回归测试说明工具（工具三，13-回归测试说明工具）
+    if (url.pathname === '/api/regress/parse' && req.method === 'POST') {
+      return await apiRegressParse(req)
+    }
+    if (url.pathname === '/api/regress/generate' && req.method === 'POST') {
+      return await apiRegressGenerate(req)
+    }
+    // 工具四：报告统计与需求符合性（14）
+    if (url.pathname === '/api/report/generate' && req.method === 'POST') {
+      return await apiReportGenerate(req)
+    }
     // 项目制本地数据管理（09）
     if (url.pathname === '/api/projects' && req.method === 'GET') {
       return Response.json({ ok: true, projects: listProjects() })
@@ -180,6 +199,11 @@ export async function handleApi(req: Request, url: URL): Promise<Response> {
       const p = loadProject(body.id)
       if (p === null) {
         return Response.json({ ok: false, error: '项目不存在' }, { status: 400 })
+      }
+      // 信任边界防御（2026-11-22 全流程检查）：项目库同时装着工具三的记录项目，
+      // 工具一打开必须只收测试大纲，否则按大纲源名找文件直接 ENOENT 裸报错
+      if (sourceTypeOf(p.meta) !== 'outline') {
+        return Response.json({ ok: false, error: '该项目不是测试大纲，请在对应工具中打开' }, { status: 400 })
       }
       if (!p.meta.hasSource) {
         return Response.json({ ok: false, needsSource: true, error: '该项目没有源文件副本，请重新上传原大纲', name: p.meta.name })
@@ -202,7 +226,16 @@ export async function handleApi(req: Request, url: URL): Promise<Response> {
   }
 }
 
+/** 上传开始日志（内网大文件 "failed to fetch" 三层取证 2026-11-21）：请求头一到就有痕。
+ *  断点判定：日志无「上传开始」= 请求头都没到（传输层/浏览器侧）；有「开始」无「抵达」= 请求体传一半断；
+ *  有「上传抵达」= 已进服务端处理，看后续 ERROR 行 */
+function logUploadStart(req: Request, tag: string): void {
+  const cl = Number(req.headers.get('content-length') ?? '0')
+  if (cl > 0) appendLog(`上传开始：${(cl / 1048576).toFixed(1)}MB（${tag}）`)
+}
+
 async function apiParse(req: Request): Promise<Response> {
+  logUploadStart(req, '工具一')
   const form = await req.formData()
   const file = form.get('file')
   if (!(file instanceof File)) {
@@ -211,10 +244,11 @@ async function apiParse(req: Request): Promise<Response> {
   const name = fixFileName(file.name || '未命名.docx')
   const bytes = new Uint8Array(await file.arrayBuffer())
   const hash = sha132(bytes)
+  // 上传抵达日志（内网 35MB 记录 "failed to fetch" 取证 2026-11-21）：日志里有这条 = 请求已达服务
+  appendLog(`上传抵达：${name}，${(bytes.length / 1048576).toFixed(1)}MB`)
 
   try {
-    const data = parseAndRestore(name, hash, bytes)
-    // 解析成功自动建档/更新（09）：写源副本、刷统计，已有编辑保留
+    const data = parseAndRestore(name, hash, bytes)    // 解析成功自动建档/更新（09）：写源副本、刷统计，已有编辑保留
     recordParse(name, hash, bytes, data.stats)
     return Response.json({ ok: true, ...data })
   } catch (e) {
@@ -397,6 +431,7 @@ async function resolveAlign(
  * 返回统一 TraceTable（双层表头 + rows[vmerge 标记] + 问题清单）。
  */
 async function apiTraceParse(req: Request): Promise<Response> {
+  logUploadStart(req, '追踪')
   const form = await req.formData()
   const mode = String(form.get('mode') ?? '') as TraceMode
   if (!TRACE_MODES.includes(mode)) {
@@ -408,6 +443,8 @@ async function apiTraceParse(req: Request): Promise<Response> {
   }
   const name = fixFileName(file.name || '未命名.docx')
   const bytes = new Uint8Array(await file.arrayBuffer())
+  // 上传抵达日志（取证 2026-11-21）
+  appendLog(`上传抵达：${name}，${(bytes.length / 1048576).toFixed(1)}MB（追踪[${mode}]）`)
   const hash = sha132(bytes)
   try {
     const issues = new IssueCollector()
@@ -670,4 +707,284 @@ async function apiTraceGenerate(req: Request): Promise<Response> {
     // ≤10MB 保留下载双轨（习惯延续）；大文档只给落盘路径，免浏览器大内存
     ...(buf.length <= 10 * 1024 * 1024 ? { doc: buf.toString('base64') } : {})
   })
+}
+
+/**
+ * 回归测试说明工具（工具三）：配对大纲（项目库或上传）→ 全量解析大纲测试项
+ * （13-回归测试说明工具：需要 ParsedOutline 的原文五字段，不能走 trace 的转换行通道）。
+ */
+async function resolveOutlineForRegress(
+  hash: string,
+  file: File | null
+): Promise<{ parsed: ParsedOutline; info: { name: string; hash: string } } | { err: string }> {
+  if (hash !== '') {
+    const p = loadProject(hash.slice(0, 12))
+    if (p === null || !p.meta.hasSource) return { err: '所选大纲项目无效或没有源文件副本，请重新选择或上传' }
+    if (sourceTypeOf(p.meta) !== 'outline') return { err: '配对文档请选择测试大纲项目（回归测试说明需要大纲的测试项原文）' }
+    const ob = new Uint8Array(readFileSync(sourceFileOf(p.meta.id, 'outline')))
+    const iss = new IssueCollector()
+    return { parsed: extractOutline(readDocx(ob), iss), info: { name: p.meta.name, hash: p.meta.hash } }
+  }
+  if (file !== null) {
+    const ob = new Uint8Array(await file.arrayBuffer())
+    const oh = sha132(ob)
+    const n = file.name || '测试大纲.docx'
+    const iss = new IssueCollector()
+    try {
+      const parsed = extractOutline(readDocx(ob), iss)
+      recordParse(n, oh, ob, parsed.stats, 'outline')
+      return { parsed, info: { name: n, hash: oh } }
+    } catch {
+      return { err: '配对文档不是测试大纲（未找到「测试项及方法」章节），请确认后重新上传' }
+    }
+  }
+  return { err: '请提供测试大纲（从项目库选择或上传）' }
+}
+
+/** 回归解析：上传测试记录（或从项目库打开记录项目）+ 配对大纲 → 不通过用例草稿（13） */
+async function apiRegressParse(req: Request): Promise<Response> {
+  logUploadStart(req, '回归')
+  const form = await req.formData()
+  const file = form.get('file')
+  const recordHash = String(form.get('recordHash') ?? '')
+  let name: string
+  let rb: Uint8Array
+  let hash: string
+  let freshUpload = false
+  if (file instanceof File) {
+    name = fixFileName(file.name || '未命名.docx')
+    rb = new Uint8Array(await file.arrayBuffer())
+    // 上传抵达日志（取证 2026-11-21）：日志里有这条 = 记录请求已达服务
+    appendLog(`上传抵达：${name}，${(rb.length / 1048576).toFixed(1)}MB（回归记录）`)
+    hash = sha132(rb)
+    freshUpload = true
+  } else if (recordHash !== '') {
+    // 从项目库打开记录（35MB 级真实记录不该每次重传）
+    const p = loadProject(recordHash.slice(0, 12))
+    if (p === null || !p.meta.hasSource || sourceTypeOf(p.meta) !== 'record') {
+      return Response.json({ ok: false, error: '记录项目无效或没有源文件副本，请重新上传' }, { status: 400 })
+    }
+    name = p.meta.name
+    hash = p.meta.hash
+    rb = new Uint8Array(readFileSync(sourceFileOf(p.meta.id, 'record')))
+  } else {
+    return Response.json({ ok: false, error: '缺少上传的测试记录' }, { status: 400 })
+  }
+  try {
+    const issues = new IssueCollector()
+    const outlineFile = form.get('outlineFile')
+    const outline = await resolveOutlineForRegress(
+      String(form.get('outlineHash') ?? ''),
+      outlineFile instanceof File ? outlineFile : null
+    )
+    if ('err' in outline) {
+      return Response.json({ ok: false, error: outline.err }, { status: 400 })
+    }
+    const records = extractRecordCases(readDocx(rb), issues)
+    if (records.length === 0) {
+      return Response.json({ ok: false, error: issues.issues.find(i => i.level === 'error')?.message ?? '未识别到用例记录表' }, { status: 400 })
+    }
+    const draft = selectRegressCases(outline.parsed, records, DEFAULT_PARAMS)
+    const stats = { items: outline.parsed.stats.items, cases: records.length, steps: records.reduce((a, r) => a + r.stepCount, 0) }
+    if (freshUpload) recordParse(name, hash, rb, stats, 'record', outline.info.hash)
+    appendLog(
+      `回归解析：记录 ${name}（用例表 ${records.length}，不通过 ${draft.stats.failed}，命中 ${draft.stats.matched}），配对大纲 ${outline.info.name}` +
+      (draft.stats.failed === 0 ? '，记录中无不通过用例' : '')
+    )
+    return Response.json({
+      ok: true,
+      draft: draft,
+      issues: issues.issues,
+      outline: outline.info,
+      primary: { name: name, hash: hash },
+      stats: stats
+    })
+  } catch (e) {
+    return Response.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 400 })
+  }
+}
+
+/** 回归生成：勾选用例 → 渲染回归测试说明（13：只出 4.1/5/6 三章，其余章仅标题） */
+async function apiRegressGenerate(req: Request): Promise<Response> {
+  const body = (await req.json()) as {
+    outline: { name: string; hash: string }
+    record: { name: string; hash: string }
+    selected: string[]
+    params: GlobalParams
+  }
+  if (!Array.isArray(body.selected) || body.selected.length === 0) {
+    return Response.json({ ok: false, error: '没有勾选任何用例，无法生成' }, { status: 400 })
+  }
+  const params: GlobalParams = { ...DEFAULT_PARAMS, ...(body.params ?? {}) }
+  // 服务端必填兜底（2026-11-22 用户拍板"没填不能进下一步"）：人员与测试时间范围缺一不可
+  if (params.tester.trim() === '' || params.monitor.trim() === '') {
+    return Response.json({ ok: false, error: '测试人员与监测人员为必填项，请在第一屏填写后再生成' }, { status: 400 })
+  }
+  if ((params.timeStart ?? '').trim() === '' || (params.timeEnd ?? '').trim() === '') {
+    return Response.json({ ok: false, error: '测试时间范围（起止日期）为必填项，请在第一屏填写后再生成' }, { status: 400 })
+  }
+  if (params.timeStart! > params.timeEnd!) {
+    return Response.json({ ok: false, error: '测试时间范围有误：止期不能早于起期' }, { status: 400 })
+  }
+  try {
+    const op = loadProject(projectId(body.outline.hash))
+    if (op === null || !op.meta.hasSource || sourceTypeOf(op.meta) !== 'outline') {
+      return Response.json({ ok: false, error: '大纲项目无效，请重新配对上传' }, { status: 400 })
+    }
+    const rp = loadProject(projectId(body.record.hash))
+    if (rp === null || !rp.meta.hasSource || sourceTypeOf(rp.meta) !== 'record') {
+      return Response.json({ ok: false, error: '记录项目无效，请重新配对上传' }, { status: 400 })
+    }
+    const issues = new IssueCollector()
+    const parsed = extractOutline(readDocx(new Uint8Array(readFileSync(sourceFileOf(op.meta.id, 'outline')))), issues)
+    const records = extractRecordCases(readDocx(new Uint8Array(readFileSync(sourceFileOf(rp.meta.id, 'record')))), issues)
+    if (records.length === 0) {
+      return Response.json({ ok: false, error: '测试记录中没有用例记录表' }, { status: 400 })
+    }
+    const data = buildRegressData(parsed, records, body.selected, params)
+    if (data.stats.cases === 0) {
+      return Response.json({ ok: false, error: '勾选的用例均未匹配到大纲用例，无法生成' }, { status: 400 })
+    }
+    const t0 = Date.now()
+    // 双产物（2026-11-22 用户需求"两个一起"）：回归测试说明（渲染后处理）+ 回归测试记录（预填通过/期望入实测/时间范围铺开）
+    const specDocBuf = regressPost(renderTemplate(templateFile('回归测试说明模板.docx'), {
+      regItems: data.regItems,
+      regRows: data.regRows,
+      regCases: data.regCases
+    }))
+    const recDocBuf = renderTemplate(templateFile('回归测试记录模板.docx'), {
+      regItems: data.regItems,
+      regRows: data.regRows,
+      regCases: data.regCases
+    })
+    const elapsed = Date.now() - t0
+    // 落盘交付（10-大文档处理 5.3 规则沿用）：写 数据/生成/<大纲项目id12>/，≤10MB 附 base64 下载
+    const id12 = projectId(body.outline.hash)
+    const dir = join(dataRoot(), '生成', id12)
+    mkdirSync(dir, { recursive: true })
+    const outputs = [
+      { name: '回归测试说明-生成.docx', buf: specDocBuf },
+      { name: '回归测试记录-生成.docx', buf: recDocBuf }
+    ]
+    const files = outputs.map(o => {
+      const fpath = join(dir, o.name)
+      writeFileSync(fpath, o.buf)
+      return {
+        name: o.name,
+        sizeKB: (o.buf.length / 1024).toFixed(1),
+        path: fpath,
+        // ≤10MB 附 base64 供浏览器直接下载；超大产物走 path 提示
+        ...(o.buf.length <= 10 * 1024 * 1024 ? { doc: o.buf.toString('base64') } : {})
+      }
+    })
+    appendLog(
+      `生成回归测试文档：${body.outline.name} + ${body.record.name}，${data.stats.cases} 例 / ${data.stats.items} 项需求，${elapsed}ms，双产物已落盘 数据/生成/${id12}`
+    )
+    recordGenerated(body.outline.hash)
+    recordGenerated(body.record.hash)
+    return Response.json({
+      ok: true,
+      files,
+      stats: data.stats,
+      issues: data.issues
+    })
+  } catch (e) {
+    return Response.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 400 })
+  }
+}
+
+/** 工具四生成（14）：大纲 + 首轮记录（项目库或现场上传）+ 回归记录（可选上传）→ 表38 需求符合性对照。
+ *  v1 范围（用户拍板"重点是需求符合性，先做一版"）：只生成表38，其余批注位置留原文，看效果后铺开 */
+async function apiReportGenerate(req: Request): Promise<Response> {
+  logUploadStart(req, '报告')
+  const form = await req.formData()
+  const outlineFile = form.get('outlineFile')
+  const outline = await resolveOutlineForRegress(String(form.get('outlineHash') ?? ''), outlineFile instanceof File ? outlineFile : null)
+  if ('err' in outline) return Response.json({ ok: false, error: outline.err }, { status: 400 })
+
+  // 首轮记录：项目库 hash 或现场上传（现场上传自动建档，之后可从项目库直开）
+  const rfile = form.get('recordFile')
+  const recordHash = String(form.get('recordHash') ?? '')
+  let rname = ''
+  let rb: Uint8Array
+  let rhash = ''
+  let freshUpload = false
+  if (rfile instanceof File) {
+    rname = fixFileName(rfile.name || '未命名.docx')
+    rb = new Uint8Array(await rfile.arrayBuffer())
+    appendLog(`上传抵达：${rname}，${(rb.length / 1048576).toFixed(1)}MB（首轮记录）`)
+    rhash = sha132(rb)
+    freshUpload = true
+  } else if (recordHash !== '') {
+    const p = loadProject(recordHash.slice(0, 12))
+    if (p === null || !p.meta.hasSource || sourceTypeOf(p.meta) !== 'record') {
+      return Response.json({ ok: false, error: '首轮记录项目无效或没有源文件副本，请重新选择或上传' }, { status: 400 })
+    }
+    rname = p.meta.name
+    rhash = p.meta.hash
+    rb = new Uint8Array(readFileSync(sourceFileOf(p.meta.id, 'record')))
+  } else {
+    return Response.json({ ok: false, error: '缺少首轮测试记录（从项目库选择或上传）' }, { status: 400 })
+  }
+
+  // 回归记录：可选，仅现场上传（不入项目库，避免混进工具三的「最近测试记录」列表）
+  const gfile = form.get('regFile')
+  let gb: Uint8Array | null = null
+  let gname = ''
+  if (gfile instanceof File) {
+    gname = fixFileName(gfile.name || '回归测试记录.docx')
+    gb = new Uint8Array(await gfile.arrayBuffer())
+    appendLog(`上传抵达：${gname}，${(gb.length / 1048576).toFixed(1)}MB（回归记录）`)
+  }
+
+  try {
+    const issues = new IssueCollector()
+    const records = extractRecordCases(readDocx(rb), issues)
+    if (records.length === 0) {
+      return Response.json({ ok: false, error: issues.issues.find(i => i.level === 'error')?.message ?? '首轮测试记录中没有用例记录表' }, { status: 400 })
+    }
+    const regRecords = gb !== null ? extractRecordCases(readDocx(gb), new IssueCollector()) : []
+    if (gb !== null && regRecords.length === 0) {
+      return Response.json({ ok: false, error: '回归测试记录中没有用例记录表，请确认上传的文档正确' }, { status: 400 })
+    }
+    const data = buildConfData(outline.parsed, records, regRecords, DEFAULT_PARAMS)
+    const t0 = Date.now()
+    // v2（2026-11-22 用户七点反馈）：段落统计 + 表26/33/34 + 表38 全量渲染
+    const docBuf = reportPost(renderTemplate(templateFile('报告模板.docx'), {
+      confRows: data.rows,
+      t26Rows: data.t26Rows,
+      ...data.vars
+    }))
+    // 落盘交付沿用工具三规则：数据/生成/<大纲项目id12>/，≤10MB 附 base64 下载
+    const id12 = projectId(outline.info.hash)
+    const dir = join(dataRoot(), '生成', id12)
+    mkdirSync(dir, { recursive: true })
+    const fpath = join(dir, '软件测评报告-生成.docx')
+    writeFileSync(fpath, docBuf)
+    if (freshUpload) {
+      const rstats = { items: outline.parsed.stats.items, cases: records.length, steps: records.reduce((a, r) => a + r.stepCount, 0) }
+      recordParse(rname, rhash, rb, rstats, 'record', outline.info.hash)
+    }
+    appendLog(
+      `生成报告：${outline.info.name} + ${rname}` + (gb !== null ? ` + ${gname}` : '') +
+      `，表38 ${data.rows.length} 行（首轮通过 ${data.stats.firstPass} / 回归通过 ${data.stats.regPass} / 未通过 ${data.stats.firstFail + data.stats.regFail} / 未测试 ${data.stats.untested}），${Date.now() - t0}ms`
+    )
+    recordGenerated(outline.info.hash)
+    if (!freshUpload && recordHash !== '') recordGenerated(rhash)
+    return Response.json({
+      ok: true,
+      files: [{
+        name: '软件测评报告-生成.docx',
+        sizeKB: (docBuf.length / 1024).toFixed(1),
+        path: fpath,
+        ...(docBuf.length <= 10 * 1024 * 1024 ? { doc: docBuf.toString('base64') } : {})
+      }],
+      stats: data.stats,
+      issues: [...issues.issues, ...data.issues]
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    appendLog('ERROR ' + msg)
+    return Response.json({ ok: false, error: msg }, { status: 400 })
+  }
 }

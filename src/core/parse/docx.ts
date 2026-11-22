@@ -33,7 +33,7 @@ function xmlParse(xml: string, what: string): Document {
  * 42MB 正文全量 DOM 实测爆内存 24GB+ → 架构改为分块解析（见下 chunkTopLevel）后放开上限：
  * 100MB ≈ 实测分册2（42.2MB）的 2.4 倍余量。
  */
-const MAX_ZIP_MB = 200
+const MAX_ZIP_MB = 1000
 const MAX_XML_MB = 100
 /** 分块开关阈值：正文 ≤20MB 走整份 DOM（老路径，行为零变化），>20MB 走 ChunkReader 分块 */
 const CHUNK_THRESHOLD_BYTES = 20 * 1024 * 1024
@@ -52,7 +52,9 @@ export function readDocx(data: Uint8Array): OfficeFile {
     throw new Error('文件为空，请确认选择的是大纲原文')
   }
   if (data.length > MAX_ZIP_MB * 1024 * 1024) {
-    throw new Error(`文件 ${mb(data.length)}MB 超过 ${MAX_ZIP_MB}MB 上限，请确认是大纲原文`)
+    // 文案不点名"大纲"——readDocx 是通用入口，大纲/说明/记录/回归说明都走它（2026-11-21 内网反馈：
+    // 传 250MB 记录超限时提示"请确认是大纲原文"，张冠李戴）
+    throw new Error(`文件 ${mb(data.length)}MB 超过 ${MAX_ZIP_MB}MB 上限，请按测试类型拆分成多个分册分别导入`)
   }
   const magic = data.length >= 4 ? [data[0], data[1], data[2], data[3]] : []
   if (magic[0] === 0xd0 && magic[1] === 0xcf && magic[2] === 0x11 && magic[3] === 0xe0) {
@@ -78,7 +80,7 @@ export function readDocx(data: Uint8Array): OfficeFile {
   if (!docBytes) throw new Error('文件损坏：缺少 word/document.xml，请确认是 Word 文档')
   // 正文超限检查在 XML 解析之前——超大 XML 才是真正的解析负担
   if (docBytes.length > MAX_XML_MB * 1024 * 1024) {
-    throw new Error(`文档正文 ${mb(docBytes.length)}MB 超过 ${MAX_XML_MB}MB 上限，大纲规模异常庞大，请拆分后分批导入`)
+    throw new Error(`文档正文 ${mb(docBytes.length)}MB 超过 ${MAX_XML_MB}MB 上限（截图不参与解析，正文规模异常庞大），请按测试类型拆分后分批导入`)
   }
   const docXml = strFromU8(docBytes)
 

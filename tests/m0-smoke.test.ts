@@ -1,4 +1,6 @@
 import { describe, test, expect } from 'bun:test'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import { DOMParser } from '@xmldom/xmldom'
@@ -119,5 +121,19 @@ describe('IssueCollector 计数', () => {
     c.info('I', '提示')
     c.info('I2', '提示2')
     expect(c.counts()).toEqual({ error: 1, warning: 1, info: 2 })
+  })
+})
+
+/** 打包模板清单守门（2026-11-20 工具三联调踩坑）：scripts/打包.ts 的 tplFiles 必须覆盖
+ *  模板/ 目录全部 .docx——漏登记的模板在开发态一切正常（回退磁盘），exe 编译态才炸
+ *  （EMBEDDED_TEMPLATES 缺名 → 回退 exe 数据目录找不到文件）。 */
+describe('M0 打包模板清单', () => {
+  test('打包.ts 的 tplFiles 与 模板/ 目录一一对应', () => {
+    const pack = readFileSync(join(import.meta.dir, '../scripts/打包.ts'), 'utf8')
+    const m = /const tplFiles = \[([^\]]*)\]/.exec(pack)
+    expect(m).not.toBeNull()
+    const listed = [...m![1].matchAll(/'([^']+)'/g)].map(x => x[1])
+    const onDisk = readdirSync(join(import.meta.dir, '../模板')).filter(f => f.endsWith('.docx'))
+    expect(listed.sort()).toEqual(onDisk.sort())
   })
 })

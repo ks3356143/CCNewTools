@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { store, scheduleSettingsSave } from '../store.ts'
 
-defineProps<{ headless?: boolean; narrow?: boolean }>()
+defineProps<{ headless?: boolean; narrow?: boolean; timeRange?: boolean }>()
 const open = ref(true)
 
 function onInput(): void {
@@ -12,6 +12,22 @@ function onInput(): void {
 /** 必填警示：空值时给出错误态（设计稿 v2：危险色底 + 边框 + 行内提示），填写即熄 */
 function reqEmpty(v: string | undefined): boolean {
   return !v || !v.trim()
+}
+
+/** 日期选择器（2026-11-22 换 Vuetify 成熟组件 v-menu + v-date-picker）：store 存 yyyy-mm-dd 字符串，选择器收发 Date */
+const menuSingle = ref(false)
+const menuStart = ref(false)
+const menuEnd = ref(false)
+
+function strToDate(s: string | undefined): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s ?? '')) return null
+  const d = new Date(s + 'T00:00:00')
+  return isNaN(d.getTime()) ? null : d
+}
+
+function dateToStr(v: unknown): string {
+  if (!(v instanceof Date) || isNaN(v.getTime())) return ''
+  return v.getFullYear() + '-' + String(v.getMonth() + 1).padStart(2, '0') + '-' + String(v.getDate()).padStart(2, '0')
 }
 </script>
 
@@ -25,7 +41,7 @@ function reqEmpty(v: string | undefined): boolean {
     <div class="body-wrap" :class="{ closed: !open }">
       <div class="body-clip">
         <div class="body" :class="{ narrow }">
-          <div class="param-field">
+          <div v-if="!timeRange" class="param-field">
             <div class="param-label">软件配置项名称</div>
             <v-text-field
               v-model="store.params.configName"
@@ -46,9 +62,63 @@ function reqEmpty(v: string | undefined): boolean {
             <div class="param-label">设计人员</div>
             <v-text-field v-model="store.params.designer" variant="solo-filled" flat density="compact" hide-details class="param-input" @update:model-value="onInput" />
           </div>
-          <div class="param-field">
+          <div v-if="!timeRange" class="param-field">
             <div class="param-label">测试时间</div>
-            <v-text-field v-model="store.params.testTime" type="date" variant="solo-filled" flat density="compact" hide-details class="param-input" @update:model-value="onInput" />
+            <v-menu v-model="menuSingle" :close-on-content-click="false" location="bottom start">
+              <template #activator="{ props: menuProps }">
+                <v-text-field
+                  v-bind="menuProps" :model-value="store.params.testTime" readonly
+                  placeholder="点击选择日期" variant="solo-filled" flat density="compact" hide-details
+                  class="param-input" append-inner-icon="mdi-calendar"
+                />
+              </template>
+              <v-date-picker
+                :model-value="strToDate(store.params.testTime)"
+                @update:model-value="v => { store.params.testTime = dateToStr(v); onInput(); menuSingle = false }"
+                width="320"
+              />
+            </v-menu>
+          </div>
+          <!-- 回归模式（2026-11-22）：时间范围起/止必填，产物按范围在用例间自动铺开；日期用 VDatePicker 日历选择 -->
+          <div v-if="timeRange" class="param-field" :class="{ err: reqEmpty(store.params.timeStart) }">
+            <div class="param-label">测试时间（起） <span class="required">*</span></div>
+            <v-menu v-model="menuStart" :close-on-content-click="false" location="bottom start">
+              <template #activator="{ props: menuProps }">
+                <v-text-field
+                  v-bind="menuProps" :model-value="store.params.timeStart" readonly
+                  placeholder="点击选择日期" variant="solo-filled" flat density="compact" hide-details
+                  class="param-input" append-inner-icon="mdi-calendar"
+                />
+              </template>
+              <v-date-picker
+                :model-value="strToDate(store.params.timeStart)"
+                @update:model-value="v => { store.params.timeStart = dateToStr(v); onInput(); menuStart = false }"
+                width="320"
+              />
+            </v-menu>
+            <div v-if="reqEmpty(store.params.timeStart)" class="param-error">
+              <v-icon size="11">mdi-alert-circle-outline</v-icon>必填
+            </div>
+          </div>
+          <div v-if="timeRange" class="param-field" :class="{ err: reqEmpty(store.params.timeEnd) }">
+            <div class="param-label">测试时间（止） <span class="required">*</span></div>
+            <v-menu v-model="menuEnd" :close-on-content-click="false" location="bottom start">
+              <template #activator="{ props: menuProps }">
+                <v-text-field
+                  v-bind="menuProps" :model-value="store.params.timeEnd" readonly
+                  placeholder="点击选择日期" variant="solo-filled" flat density="compact" hide-details
+                  class="param-input" append-inner-icon="mdi-calendar"
+                />
+              </template>
+              <v-date-picker
+                :model-value="strToDate(store.params.timeEnd)"
+                @update:model-value="v => { store.params.timeEnd = dateToStr(v); onInput(); menuEnd = false }"
+                width="320"
+              />
+            </v-menu>
+            <div v-if="reqEmpty(store.params.timeEnd)" class="param-error">
+              <v-icon size="11">mdi-alert-circle-outline</v-icon>必填
+            </div>
           </div>
           <div class="param-field" :class="{ err: reqEmpty(store.params.tester) }">
             <div class="param-label">测试人员 <span class="required">*</span></div>
@@ -64,7 +134,7 @@ function reqEmpty(v: string | undefined): boolean {
               <v-icon size="11">mdi-alert-circle-outline</v-icon>必填
             </div>
           </div>
-          <div class="param-note">对所有用例生效；正式版会记住上次填写内容，修改自动保存。</div>
+          <div class="param-note">{{ timeRange ? '两份产物共用；测试时间按起止范围在用例间自动铺开，修改自动保存。' : '对所有用例生效；正式版会记住上次填写内容，修改自动保存。' }}</div>
         </div>
       </div>
     </div>

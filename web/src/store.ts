@@ -1,15 +1,14 @@
 import { reactive, watch } from 'vue'
-import type { CaseRow, GlobalParams, GeneratedFile, Issue, ParseResponse, ProjectMeta, TraceTable, TraceType } from './types.ts'
+import { toast } from '@yusufceng1z/ding-vue'
+import type { CaseRow, GlobalParams, GeneratedFile, Issue, ParseResponse, ProjectMeta, RegressDraft, TraceTable, TraceType } from './types.ts'
 import type { TraceParseResponse } from './api.ts'
-import { parseOutline, saveEdits, saveSettings, generate, listProjects, openProject, traceParse, traceGenerate, traceOpen } from './api.ts'
+import { parseOutline, saveEdits, saveSettings, generate, listProjects, openProject, traceParse, traceGenerate, traceOpen, regressParse, regressGenerate } from './api.ts'
 import { activeSuspects } from './suspect.ts'
 import { DEFAULT_PARAMS } from '../../src/core/domain.ts'
 
-export interface Toast { text: string; show: boolean }
-
 export const store = reactive({
-  /** 顶层视图：首页 / 工具一（大纲转换）/ 工具二（追踪文档生成）——11-工具集首页 */
-  view: 'home' as 'home' | 'convert' | 'trace',
+  /** 顶层视图：首页 / 工具一（大纲转换）/ 工具二（追踪文档生成）/ 工具三（回归测试说明）——11-工具集首页 */
+  view: 'home' as 'home' | 'convert' | 'trace' | 'regress' | 'report',
   /** 工具一屏号（view === 'convert' 时有效）；0 无意义，屏切换由 view 承担 */
   screen: 1 as 1 | 2 | 3,
   theme: 'light',
@@ -49,7 +48,16 @@ export const store = reactive({
   traceSpec: null as TraceTable | null,
   traceGenerating: false,
   traceResult: null as { name: string; sizeKB: string; doc?: string; path?: string } | null,
-  toast: { text: '', show: false } as Toast
+  // —— 工具三：回归测试说明（F11/13-回归测试说明工具）——
+  regressScreen: 1 as 1 | 2,
+  regressParsing: false,
+  /** 解析草稿：记录不通过用例 → 大纲匹配结果（类型分组），预览勾选的数据源 */
+  regressDraft: null as RegressDraft | null,
+  regressOutline: { name: '', hash: '' },
+  /** 记录文档（primary）：解析后入项目库，生成时服务端读源副本 */
+  regressPrimary: { name: '', hash: '' },
+  regressGenerating: false,
+  regressResult: null as Array<{ name: string; sizeKB: string; path?: string; doc?: string }> | null
 })
 
 // 验收深链（2026-10-22 UI 重验用）：?view=convert&screen=2 等让任意屏在首帧直接挂载——
@@ -57,7 +65,7 @@ export const store = reactive({
 if (typeof window !== 'undefined') {
   const q = new URLSearchParams(window.location.search)
   const v = q.get('view')
-  if (v === 'home' || v === 'convert' || v === 'trace') store.view = v
+  if (v === 'home' || v === 'convert' || v === 'trace' || v === 'regress' || v === 'report') store.view = v
   const s = Number(q.get('screen'))
   if (store.view === 'convert' && (s === 1 || s === 2 || s === 3)) store.screen = s as 1 | 2 | 3
   const ts = Number(q.get('traceScreen'))
@@ -91,12 +99,12 @@ if (typeof window !== 'undefined') {
   }
 }
 
-let toastTimer: ReturnType<typeof setTimeout> | undefined
+/**
+ * 全局 Toast（2026-11-21 起用 ding 弹层，用户点名库 @yusufceng1z/ding-vue）。
+ * 统一 info 形态 + 2.6s 时长，沿用旧 toast 的行为口径；主题随应用深浅切换走 toast.configure。
+ */
 export function showToast(text: string): void {
-  store.toast.text = text
-  store.toast.show = true
-  clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => (store.toast.show = false), 2600)
+  toast.info(text, { duration: 2600 })
 }
 
 // —— 刷新恢复（2026-10-22 用户反馈：核对屏 F5 后回到首页，项目与核对进度全丢）——
@@ -104,7 +112,7 @@ export function showToast(text: string): void {
 // 数据仍以项目存档为准，不额外复制。显式深链（?view=…）保持测试语义，不抢屏。
 const SESSION_KEY = 'ccn:last-session'
 interface LastSession {
-  view: 'home' | 'convert' | 'trace'
+  view: 'home' | 'convert' | 'trace' | 'regress' | 'report'
   screen: 1 | 2 | 3
   hash: string
   traceType: TraceType
@@ -125,7 +133,10 @@ export function saveSession(): void {
   } catch { /* 隐私模式 / 存储禁用：静默 */ }
 }
 
-/** 刷新后恢复上次会话（新标签没有 sessionStorage，自然回首页） */
+/** 刷新后恢复上次会话（新标签没有 sessionStorage，自然回首页）。
+ *  口径自洽（2026-11-22 用户反馈"哪个工具刷新都该留在原工具"）：
+ *  工具一还原项目与用例位置；工具二/三/四的规格与草稿只在内存里，刷新后留在本工具第 1 步；
+ *  任何工具都不允许刷新后弹到别的工具（此前 report 落进 convert 兜底 + 旧 hash 会把工具一项目打开）。 */
 export async function restoreSession(): Promise<void> {
   if (typeof window === 'undefined') return
   if (new URLSearchParams(window.location.search).has('view')) return
@@ -139,6 +150,19 @@ export async function restoreSession(): Promise<void> {
     store.traceScreen = 1
     return
   }
+  if (saved.view === 'regress') {
+    // 回归草稿只在内存里，刷新后回第 1 步重新配对上传
+    store.view = 'regress'
+    store.regressScreen = 1
+    return
+  }
+  if (saved.view === 'report') {
+    // 工具四输入是屏内局部态：刷新后留在本工具重选（同工具二/三口径）
+    store.view = 'report'
+    return
+  }
+  // 只剩 convert 走项目还原；未知形态（存档损坏/更旧版本）留在首页，不猜
+  if (saved.view !== 'convert') return
   store.view = 'convert'
   if (saved.screen === 1 || !saved.hash) {
     store.screen = 1
@@ -171,7 +195,7 @@ export async function doParse(file: File): Promise<boolean> {
     applyParseResult(res)
     return true
   } catch (e) {
-    showToast(e instanceof Error ? e.message : '无法连接本地服务')
+    showToast(e instanceof TypeError ? '无法连接本地服务：请求未送达或中途断开。请确认黑色控制台窗口仍在运行；反复出现时检查浏览器代理例外是否包含 127.0.0.1' : e instanceof Error ? e.message : '无法连接本地服务')
     return false
   } finally {
     store.parsing = false
@@ -252,7 +276,7 @@ watch(
 )
 
 /** 首页 → 进入工具；屏号保留（回首页不丢已上传大纲，重新进入仍在原屏） */
-export function openTool(tool: 'convert' | 'trace'): void {
+export function openTool(tool: 'convert' | 'trace' | 'regress' | 'report'): void {
   store.view = tool
 }
 
@@ -320,7 +344,7 @@ export async function doTraceParse(file: File, outline?: { hash?: string; file?:
     }
     applyTraceResult(res)
   } catch (e) {
-    showToast(e instanceof Error ? e.message : '无法连接本地服务')
+    showToast(e instanceof TypeError ? '无法连接本地服务：请求未送达或中途断开。请确认黑色控制台窗口仍在运行；反复出现时检查浏览器代理例外是否包含 127.0.0.1' : e instanceof Error ? e.message : '无法连接本地服务')
   } finally {
     store.traceParsing = false
   }
@@ -340,7 +364,7 @@ export async function openTraceProject(id: string): Promise<boolean> {
     showToast('已打开项目')
     return true
   } catch (e) {
-    showToast(e instanceof Error ? e.message : '无法连接本地服务')
+    showToast(e instanceof TypeError ? '无法连接本地服务：请求未送达或中途断开。请确认黑色控制台窗口仍在运行；反复出现时检查浏览器代理例外是否包含 127.0.0.1' : e instanceof Error ? e.message : '无法连接本地服务')
     return false
   } finally {
     store.traceParsing = false
@@ -362,10 +386,67 @@ export async function doTraceGenerate(): Promise<boolean> {
     store.traceResult = { name: r.name, sizeKB: r.sizeKB, doc: r.doc, path: r.files?.[0]?.path }
     return true
   } catch (e) {
-    showToast(e instanceof Error ? e.message : '无法连接本地服务')
+    showToast(e instanceof TypeError ? '无法连接本地服务：请求未送达或中途断开。请确认黑色控制台窗口仍在运行；反复出现时检查浏览器代理例外是否包含 127.0.0.1' : e instanceof Error ? e.message : '无法连接本地服务')
     return false
   } finally {
     store.traceGenerating = false
+  }
+}
+
+// —— 工具三：回归测试说明（F11/13-回归测试说明工具） ——
+
+/** 回归解析：记录（上传或项目库 hash）+ 配对大纲 → 不通过用例草稿；失败 toast 统一在此处理 */
+export async function doRegressParse(record: { file?: File; hash?: string }, outline?: { hash?: string; file?: File }): Promise<boolean> {
+  store.regressParsing = true
+  try {
+    const res = await regressParse(record, outline)
+    if (!res.ok) {
+      showToast(res.error ?? '解析失败')
+      return false
+    }
+    store.regressDraft = res.draft
+    store.regressOutline = res.outline
+    store.regressPrimary = res.primary
+    store.regressResult = null
+    void loadProjects()
+    return true
+  } catch (e) {
+    showToast(e instanceof TypeError ? '无法连接本地服务：请求未送达或中途断开。请确认黑色控制台窗口仍在运行；反复出现时检查浏览器代理例外是否包含 127.0.0.1' : e instanceof Error ? e.message : '无法连接本地服务')
+    return false
+  } finally {
+    store.regressParsing = false
+  }
+}
+
+/** 清空回归解析态：配对大纲变更或删除当前解析的记录时调用（告警区随 draft 一起消失） */
+export function clearRegressDraft(): void {
+  store.regressDraft = null
+  store.regressPrimary = { name: '', hash: '' }
+  store.regressOutline = { name: '', hash: '' }
+  store.regressResult = null
+  if (store.regressScreen === 2) store.regressScreen = 1
+}
+
+/** 回归生成：勾选的大纲 caseId → 回归测试说明 docx；全局参数取设置（初始化/前提/设计人员） */
+export async function doRegressGenerate(selected: string[]): Promise<boolean> {
+  if (store.regressDraft === null || selected.length === 0) {
+    showToast('请至少勾选一个用例')
+    return false
+  }
+  store.regressGenerating = true
+  try {
+    const r = await regressGenerate(store.regressOutline, store.regressPrimary, selected, store.params)
+    if (!r.ok) {
+      showToast(r.error ?? '生成失败')
+      return false
+    }
+    store.regressResult = r.files.map(f => ({ name: f.name, sizeKB: f.sizeKB, path: f.path, doc: f.doc }))
+    return true
+  } catch (e) {
+    showToast(e instanceof TypeError ? '无法连接本地服务：请求未送达或中途断开。请确认黑色控制台窗口仍在运行；反复出现时检查浏览器代理例外是否包含 127.0.0.1' : e instanceof Error ? e.message : '无法连接本地服务')
+    return false
+  } finally {
+    store.regressGenerating = false
   }
 }
 
@@ -383,7 +464,7 @@ export async function openProjectById(id: string, opts: { silent?: boolean } = {
     if (!opts.silent) showToast('已打开项目')
     return true
   } catch (e) {
-    showToast(e instanceof Error ? e.message : '无法连接本地服务')
+    showToast(e instanceof TypeError ? '无法连接本地服务：请求未送达或中途断开。请确认黑色控制台窗口仍在运行；反复出现时检查浏览器代理例外是否包含 127.0.0.1' : e instanceof Error ? e.message : '无法连接本地服务')
     return false
   } finally {
     store.parsing = false

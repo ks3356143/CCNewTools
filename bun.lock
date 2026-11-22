@@ -7,6 +7,7 @@
       "dependencies": {
         "@mdi/font": "^7.4.47",
         "@xmldom/xmldom": "^0.9.12",
+        "@yusufceng1z/ding-vue": "^0.0.9",
         "docxtemplater": "^3.71.0",
         "fflate": "^0.8.3",
         "pizzip": "^3.3.0",
@@ -135,6 +136,10 @@
     "@vuetify/v0": ["@vuetify/v0@1.2.3", "https://registry.npmmirror.com/@vuetify/v0/-/v0-1.2.3.tgz", { "peerDependencies": { "@adobe/leonardo-contrast-colors": ">=1.0.0", "@ant-design/colors": ">=7.0.0", "@flagsmith/flagsmith": ">=11.0.0", "@floating-ui/dom": ">=1.8.0", "@js-temporal/polyfill": ">=0.5.0", "@material/material-color-utilities": ">=0.3.0", "launchdarkly-js-client-sdk": "^3.0.0", "posthog-js": "^1.0.0", "vue": ">=3.5.0 || >=3.6.0-0", "vue-i18n": ">=10.0.0" }, "optionalPeers": ["@adobe/leonardo-contrast-colors", "@ant-design/colors", "@flagsmith/flagsmith", "@floating-ui/dom", "@js-temporal/polyfill", "@material/material-color-utilities", "launchdarkly-js-client-sdk", "posthog-js", "vue-i18n"] }, "sha512-8qpYa88KxKrvi4jQcz+Zg4WH04un48Lt7Tj0Qq+LqvbUvHi+H177vWqBn9tQWgpxBVs1RXrTz5zw0Cy6txJHlw=="],
 
     "@xmldom/xmldom": ["@xmldom/xmldom@0.9.12", "https://registry.npmmirror.com/@xmldom/xmldom/-/xmldom-0.9.12.tgz", {}, "sha512-5AXjrcMClTryPe9LgZrygpB1lj7s0S9E0+W+AHaVKAVyHanafK86iPSvG5xHVSp/jC+VH1UXu0TAEmY279xH7A=="],
+
+    "@yusufceng1z/ding": ["@yusufceng1z/ding@0.0.9", "", {}, "sha512-WtIq8OmYK0d0HczoxH43eIlcCTtGyjLI0XObfLftF8BePeUJZOL6CYdMVI+VCepc2ok5jPyIduz0QozINdKnWg=="],
+
+    "@yusufceng1z/ding-vue": ["@yusufceng1z/ding-vue@0.0.9", "", { "dependencies": { "@yusufceng1z/ding": "0.0.9" }, "peerDependencies": { "vue": "^3.3.0" } }, "sha512-hlF/58LBgtarZ+OUyNrY73cOdI8Zpn8I9zHJ1snXLCiN63ND8h9+1m9H7D34s5H2d+MUroKtkLiSo4mL1Cragg=="],
 
     "bun-types": ["bun-types@1.4.2", "https://registry.npmmirror.com/bun-types/-/bun-types-1.4.2.tgz", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
 

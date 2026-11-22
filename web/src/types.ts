@@ -66,3 +66,32 @@ export interface PathNode {
   /** 子树用例总数（自下而上累加） */
   caseCount: number
 }
+
+/** 回归测试说明（F11/13）：记录中一个不通过用例的草稿行（含大纲匹配结果） */
+export interface RegFailCase {
+  recordCaseId: string
+  recordCaseName: string
+  /** 命中的大纲用例标识（YL_…_001）；未匹配为空串 */
+  caseId: string
+  mingcheng: string
+  summary: string
+  stepCount: number
+  failSteps: number[]
+  problemId: string
+  executed: string
+  recordTypeName: string
+  matched: boolean
+  typeName: string
+  itemName: string
+  itemId: string
+  chapter: string
+  reqChapter: string
+}
+
+/** 回归草稿：类型分组（reqChapter 与产物 4.1.x 同序）+ 未匹配清单 + 告警 */
+export interface RegressDraft {
+  types: Array<{ typeName: string; reqChapter: string; cases: RegFailCase[] }>
+  unmatched: RegFailCase[]
+  issues: Issue[]
+  stats: { recordCases: number; failed: number; matched: number }
+}

@@ -28,7 +28,7 @@ function makeOutline(): ParsedOutline {
     ],
     typeName: '功能测试', groupName: 'A星模板功能测试', itemName: 'A星指令参数管理',
     description: { shared: null, entries: [] }, cases: [case1, case2], criteriaCases: [],
-    traceSrs: { chapter: '4.3.1.2', desc: 'A星指令参数管理' }
+    traceSrs: { chapter: '4.3.1.2', desc: 'A星指令参数管理' }, traceRaw: '', priority: '', reqDesc: '', descRaw: '', methodRaw: '', sufficientRaw: '', criteriaRaw: ''
   }
   const item2: TestItem = {
     name: '文档审查', itemId: 'XQ_DC', chapter: '6.2.1.1',
@@ -37,7 +37,7 @@ function makeOutline(): ParsedOutline {
     description: { shared: '文档审查综述。', entries: [] },
     cases: [{ itemId: 'XQ_DC_DC001', name: '软件文档审查', summary: '', steps: [{ no: 1, text: '审查文档内容是否完整；' }] }],
     criteriaCases: [],
-    traceSrs: { chapter: '/', desc: '/' }
+    traceSrs: { chapter: '/', desc: '/' }, traceRaw: '', priority: '', reqDesc: '', descRaw: '', methodRaw: '', sufficientRaw: '', criteriaRaw: ''
   }
   return { items: [item1, item2], issues: [], stats: { items: 2, cases: 3, steps: 4 } }
 }
@@ -271,7 +271,7 @@ describe('M2 准则格配对（9.5 实测变种 + 2026-10-01 不切分定稿）'
       typeName: '功能测试', groupName: 'A星模板功能测试', itemName: '撞号项',
       description: { shared: null, entries: [] },
       cases: [{ itemId: 'XQ_SU_ZLPA_SU01', name: '撞号用例', summary: '', steps: [{ no: 1, text: '操作，查看结果是否正确；' }] }],
-      criteriaCases: [], traceSrs: { chapter: '/', desc: '/' }
+      criteriaCases: [], traceSrs: { chapter: '/', desc: '/' }, traceRaw: '', priority: '', reqDesc: '', descRaw: '', methodRaw: '', sufficientRaw: '', criteriaRaw: ''
     }
     outline.items.splice(1, 0, dup)
     const data = convertToTemplateData(outline, DEFAULT_PARAMS)
@@ -298,7 +298,7 @@ describe('M2 标题槽位（2026-10-01 层级镜像改造）', () => {
       name: name, itemId: id, chapter: chapter, path: path, typeName: '功能测试', groupName: group, itemName: item,
       description: { shared: null, entries: [] },
       cases: [{ itemId: id + '_01', name: name + '用例', summary: '', steps: [{ no: 1, text: '操作，查看结果是否正确；' }] }],
-      criteriaCases: [], traceSrs: { chapter: '/', desc: '/' }
+      criteriaCases: [], traceSrs: { chapter: '/', desc: '/' }, traceRaw: '', priority: '', reqDesc: '', descRaw: '', methodRaw: '', sufficientRaw: '', criteriaRaw: ''
     })
     return {
       items: [
@@ -340,7 +340,7 @@ describe('M2 标题槽位（2026-10-01 层级镜像改造）', () => {
       typeName: '功能测试', groupName: '某组', itemName: '五层项',
       description: { shared: null, entries: [] },
       cases: [{ itemId: 'XQ_F_01', name: '五层用例', summary: '', steps: [{ no: 1, text: '操作，查看结果是否正确；' }] }],
-      criteriaCases: [], traceSrs: { chapter: '/', desc: '/' }
+      criteriaCases: [], traceSrs: { chapter: '/', desc: '/' }, traceRaw: '', priority: '', reqDesc: '', descRaw: '', methodRaw: '', sufficientRaw: '', criteriaRaw: ''
     }
     const data = convertToTemplateData({ items: [five], issues: [], stats: { items: 1, cases: 1, steps: 1 } }, DEFAULT_PARAMS)
     const r = data.cases[0]
@@ -397,7 +397,7 @@ describe('M2 标题槽位（2026-10-01 层级镜像改造）', () => {
       typeName: '文档审查', groupName: null, itemName: '文档审查',
       description: { shared: null, entries: [] },
       cases: [{ itemId: 'XQ_DC_01', name: '文档审查用例', summary: '', steps: [{ no: 1, text: '审查内容是否完整；' }] }],
-      criteriaCases: [], traceSrs: { chapter: '/', desc: '/' }
+      criteriaCases: [], traceSrs: { chapter: '/', desc: '/' }, traceRaw: '', priority: '', reqDesc: '', descRaw: '', methodRaw: '', sufficientRaw: '', criteriaRaw: ''
     }
     // 新变种：XXX分系统/BCD容器/文档审查（项与类型同层的场景不存在额外重复层）
     const st2: TestItem = {
@@ -430,7 +430,7 @@ describe('M2 容器-类型语义重组（2026-10-12 内网 WQ 大纲反馈）', 
       description: { shared: null, entries: [] },
       cases: [{ itemId: itemId + '01', name: name + '用例', summary: '', steps: [{ no: 1, text: '执行检查；' }] }],
       criteriaCases: [],
-      traceSrs: { chapter: '/', desc: '/' }
+      traceSrs: { chapter: '/', desc: '/' }, traceRaw: '', priority: '', reqDesc: '', descRaw: '', methodRaw: '', sufficientRaw: '', criteriaRaw: ''
     }
   }
   const C = 'WQ敏捷研发软件配置项测试'

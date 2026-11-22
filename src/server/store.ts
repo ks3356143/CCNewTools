@@ -22,6 +22,9 @@ function primaryDataDir(): string {
 }
 
 export function dataRoot(): string {
+  // 显式指定目录不缓存（生产不设此变量；测试文件按序切换临时目录时，缓存会把首调目录锁死，
+  // 2026-11-22 m10 排在 m4 前触发服务端访问后 m4 换环境变量失效）
+  if (process.env.CC_DATA_DIR) return primaryDataDir()
   if (cached !== null) return cached
   const candidate = primaryDataDir()
   try {

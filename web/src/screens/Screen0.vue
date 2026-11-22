@@ -21,6 +21,22 @@ const TOOLS = [
     desc: '大纲 / 记录 / 回归说明 → 四类追踪表',
     note: '大纲·说明·报告·回归说明四种追踪表，纵向合并，复制贴入自有文档',
     steps: ['选类型', '生成下载']
+  },
+  {
+    key: 'regress' as const,
+    icon: 'mdi-history',
+    name: '回归测试说明',
+    desc: '测试大纲 + 测试记录 → 回归测试说明',
+    note: '筛出记录中不通过的用例，生成 4.1 回归需求 / 5 概述 / 6 测试用例',
+    steps: ['选大纲与记录', '生成下载']
+  },
+  {
+    key: 'report' as const,
+    icon: 'mdi-clipboard-check-outline',
+    name: '报告统计与需求符合性',
+    desc: '大纲 + 首轮/回归记录 → 软件测评报告',
+    note: '需求符合性对照表逐条生成 · 统计数目界面直接展示 · 只填批注标注的内容',
+    steps: ['选输入', '生成下载']
   }
 ]
 
@@ -160,10 +176,13 @@ function trackGlow(e: MouseEvent): void {
 /* ---- 工具卡片 ---- */
 .grid {
   position: relative;
-  width: 100%; max-width: 1020px;
+  width: 100%; max-width: 1240px;
   margin: 38px auto 0;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+  /* 四工具一排（2026-11-22 用户需求）：宽屏固定 4 列，卡片宽 ≈300px 与原观感一致；
+     中屏降 2×2，窄屏单列 */
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;
 }
+@media (max-width: 1180px) { .grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
 
 .card {

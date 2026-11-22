@@ -332,15 +332,18 @@ textarea:focus-visible,
   font-size: 13px;
 }
 
-/* Toast */
-.v-snackbar__content {
-  border-radius: var(--cn-r-2);
-  max-width: min(420px, calc(100vw - 24px));
-  font-size: 13px;
-  border: 1px solid var(--cn-border-strong);
-  background: var(--cn-surface) !important;
-  color: var(--cn-fg) !important;
-  box-shadow: var(--cn-shadow-2);
+/* ding 弹层的 Chromium 100 兜底（内网 Edge 100 硬约束，2026-11-21）：
+   ding 注入样式含 color-mix(Chromium 111+) 与 :has(105+)，老内核整条声明静默丢弃——
+   进度条底色/次按钮字色/按钮 hover 背景会失效。以下静态等价规则补齐；
+   有按钮 toast 的 8px 右内边距（:has 规则）老内核不补，观感差异极小可接受。 */
+.tst-progress {
+  background: var(--on) !important;
+  opacity: calc(var(--tp, 1) * 0.14) !important;
+}
+.tst-secondary { opacity: 0.68 !important; }
+@media (hover: hover) {
+  .tst-action:hover { background: var(--on) !important; color: var(--fill) !important; }
+  .tst-secondary:hover, .tst-close:hover { background: var(--fill) !important; color: var(--on) !important; }
 }
 
 /* 菜单 / 输入下拉 */

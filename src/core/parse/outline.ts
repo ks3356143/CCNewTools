@@ -124,7 +124,7 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
 }
 
 function assembleItem(
-  t: { name: string; itemId: string; traceText: string; description: import('./table.ts').CellParas; method: import('./table.ts').CellParas; criteria: import('./table.ts').CellParas },
+  t: import('./table.ts').ItemTable,
   stack: HeadingRef[],
   issues: IssueCollector
 ): TestItem | null {
@@ -179,7 +179,14 @@ function assembleItem(
     criteriaCases: critCell.entries,
     criteriaOrphans: critCell.orphanItems,
     traceSrs: parseTraceRel(t.traceText).srs,
-    traceTask: parseTraceRel(t.traceText).task
+    traceTask: parseTraceRel(t.traceText).task,
+    traceRaw: t.traceText,
+    priority: t.priority,
+    reqDesc: t.reqDesc,
+    descRaw: t.descRaw,
+    methodRaw: t.methodRaw,
+    sufficientRaw: t.sufficientRaw,
+    criteriaRaw: t.criteriaRaw
   }
   resolveCriteria(item, issues)
   resolveSummaries(item, issues)

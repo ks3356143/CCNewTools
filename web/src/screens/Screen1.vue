@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, useTemplateRef, onMounted, watch } from 'vue'
+import { ref, computed, useTemplateRef, onMounted, watch } from 'vue'
 import { store, doParse, loadProjects, openProjectById, showToast, forgetProjectIfCurrent } from '../store.ts'
 import { activeSuspects } from '../suspect.ts'
 import { deleteProject } from '../api.ts'
@@ -12,6 +12,10 @@ const fileName = ref('')
 const progress = ref(0)
 /** 大文件提示（10-大文档处理 P1：>20MB 正文走分块解析，耗时明显变长，先给出预期） */
 const bigFile = ref(false)
+
+/** 工具一最近项目只列测试大纲（sourceType=outline）；工具三会把记录项目存进同一项目库，
+ *  裸列 store.projects 会把记录项目混进大纲列表——点「打开」按大纲源名找文件直接 ENOENT（2026-11-22 全流程检查抓到） */
+const outlineProjects = computed(() => store.projects.filter(p => (p.sourceType ?? 'outline') === 'outline'))
 
 function pick(): void {
   if (phase.value === 'idle') fileInput.value?.click()
@@ -131,14 +135,15 @@ async function clearAll(): Promise<void> {
   }
   clearTimeout(confirmTimer)
   clearArmed.value = false
-  for (const p of [...store.projects]) {
+  // 只清大纲项目：项目库同时装着工具三的记录项目，裸清 store.projects 会把它们连带删掉
+  for (const p of [...outlineProjects.value]) {
     await deleteProject(p.id).catch(() => false)
   }
   await loadProjects()
   // 当前打开的项目若已随清空消失，内存态一并清掉（个别删除失败仍留在列表里的则保留）
   const curId = store.outline.hash.slice(0, 12)
   if (curId && !store.projects.some(p => p.id === curId)) forgetProjectIfCurrent(curId)
-  showToast('已清空全部项目')
+  showToast('已清空全部大纲项目')
 }
 
 function issueCounts(): string {
@@ -261,7 +266,7 @@ function jumpTo(issue: Issue): void {
         </div>
 
         <aside class="upload-aside">
-          <div v-if="phase === 'idle' && store.projects.length > 0" class="panel recent">
+          <div v-if="phase === 'idle' && outlineProjects.length > 0" class="panel recent">
             <div class="u-panel-head">
               <strong>最近项目</strong>
               <v-btn size="x-small" variant="text" color="error" :class="{ armed: clearArmed }" @click="clearAll">
@@ -269,7 +274,7 @@ function jumpTo(issue: Issue): void {
               </v-btn>
             </div>
             <div class="p-list">
-              <div v-for="p in store.projects" :key="p.id" class="p-row">
+              <div v-for="p in outlineProjects" :key="p.id" class="p-row">
                 <span class="u-mono p-idx">DOCX</span>
                 <div class="p-main">
                   <div class="p-name">{{ stripDocx(p.name) }}</div>

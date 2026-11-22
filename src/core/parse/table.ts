@@ -16,6 +16,18 @@ export interface ItemTable {
   method: CellParas
   /** 通过准则格的段落（9.5） */
   criteria: CellParas
+  /** 优先级（第 1 行第 6 格，如 高/中/低；F11 回归工具用） */
+  priority: string
+  /** 需求描述格的文本（F11 回归工具 4.1 表原文照抄用，"--"或空原样保留） */
+  reqDesc: string
+  /** 测试项描述格原文（F11 v2：4.1 需求表按用户拍板原样拷贝大纲整表） */
+  descRaw: string
+  /** 测试方法格原文（同上） */
+  methodRaw: string
+  /** 充分性要求格原文（同上） */
+  sufficientRaw: string
+  /** 通过准则格原文（同上；criteria 结构化字段供转换层另用） */
+  criteriaRaw: string
 }
 
 /** 单元格内段落（保序，剔除空段） */
@@ -46,6 +58,8 @@ export function extractItemTable(tbl: Element): ItemTable | null {
   // 格内软换行（br）是排版断行，名称/标识按单行语义处理（2026-10-08 新变种）
   const name = row1.length > 1 ? textOf(row1[1]).replace(/\n/g, '').trim() : ''
   const itemId = row1.length > 3 ? textOf(row1[3]).replace(/\n/g, '').trim() : ''
+  // 第 6 格 = 优先级（F11；旧形态无此格时留空）
+  const priority = row1.length > 5 ? textOf(row1[5]).replace(/\n/g, '').trim() : ''
 
   // 其余行按行标签取值；值格 = 从行尾向前的第一个非空格（跳过第 0 格标签；
   // 垂直合并产生的空格自然被跳过，单段值格也不会与标签格混淆）
@@ -68,9 +82,15 @@ export function extractItemTable(tbl: Element): ItemTable | null {
   return {
     name,
     itemId,
-    traceText: (byLabel.get('追踪关系') ?? []).map(p => p.text).join(' ').trim(),
+    traceText: (byLabel.get('追踪关系') ?? []).map(p => p.text).join('\n').trim(),
     description: byLabel.get('测试项描述') ?? [],
     method: byLabel.get('测试方法') ?? [],
-    criteria: byLabel.get('通过准则') ?? []
+    criteria: byLabel.get('通过准则') ?? [],
+    priority,
+    reqDesc: (byLabel.get('需求描述') ?? []).map(p => p.text).join('\n').trim(),
+    descRaw: (byLabel.get('测试项描述') ?? []).map(p => p.text).join('\n').trim(),
+    methodRaw: (byLabel.get('测试方法') ?? []).map(p => p.text).join('\n').trim(),
+    sufficientRaw: (byLabel.get('充分性要求') ?? []).map(p => p.text).join('\n').trim(),
+    criteriaRaw: (byLabel.get('通过准则') ?? []).map(p => p.text).join('\n').trim()
   }
 }

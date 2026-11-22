@@ -34,7 +34,7 @@ function makeOutline(): ParsedOutline {
     ],
     typeName: '功能测试', groupName: 'A星模板功能测试', itemName: 'A星指令参数管理',
     description: { shared: null, entries: [] }, cases: [c1, c2], criteriaCases: [],
-    traceSrs: { chapter: '4.3.1.2', desc: 'A星指令参数管理' }
+    traceSrs: { chapter: '4.3.1.2', desc: 'A星指令参数管理' }, traceRaw: '', priority: '', reqDesc: '', descRaw: '', methodRaw: '', sufficientRaw: '', criteriaRaw: ''
   }
   const item2: TestItem = {
     name: '文档审查', itemId: 'XQ_DC', chapter: '6.2.1.1',
@@ -43,7 +43,7 @@ function makeOutline(): ParsedOutline {
     description: { shared: '文档审查综述。', entries: [] },
     cases: [{ itemId: 'XQ_DC_DC001', name: '软件文档审查', summary: '文档审查综述。', steps: [{ no: 1, text: '审查内容是否完整；' }] }],
     criteriaCases: [],
-    traceSrs: { chapter: '/', desc: '/' }
+    traceSrs: { chapter: '/', desc: '/' }, traceRaw: '', priority: '', reqDesc: '', descRaw: '', methodRaw: '', sufficientRaw: '', criteriaRaw: ''
   }
   const item3: TestItem = {
     name: '指令边界测试', itemId: 'XQ_BJ_ZL', chapter: '6.2.1.7.1.1',
@@ -55,7 +55,7 @@ function makeOutline(): ParsedOutline {
     description: { shared: null, entries: [] },
     cases: [{ itemId: 'XQ_BJ_ZL001', name: '指令边界测试用例', summary: '边界综述。', steps: [{ no: 1, text: '输入超长指令，查看是否正确拦截；' }] }],
     criteriaCases: [],
-    traceSrs: { chapter: '4.3.2', desc: '指令边界测试' }
+    traceSrs: { chapter: '4.3.2', desc: '指令边界测试' }, traceRaw: '', priority: '', reqDesc: '', descRaw: '', methodRaw: '', sufficientRaw: '', criteriaRaw: ''
   }
   return { items: [item1, item2, item3], issues: [], stats: { items: 3, cases: 4, steps: 5 } }
 }

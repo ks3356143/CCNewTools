@@ -482,7 +482,8 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     // 报告表说明源：SRS 空 + 大纲章节号/项名/项标识/类型从说明用例表追踪关系行提取
     const rec: RecordCase = {
       caseName: '用例1', caseId: 'YL_A_001', traceChapter: '', traceItemName: '', traceItemId: '',
-      stepCount: 1, stepResults: ['通过'], executed: '已执行', problemId: '/', typeName: ''
+      stepCount: 1, stepResults: ['通过'], stepExpects: [''], stepActuals: [''],
+      executed: '已执行', problemId: '/', typeName: ''
     }
     const t2 = buildTraceTable({ type: 'report', specAlign: rsData, records: [rec] }, new IssueCollector())
     expect(t2.rows[0].cells[1]).toBe('')

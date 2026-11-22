@@ -23,6 +23,10 @@ export interface RecordCase {
   stepCount: number
   /** 各步骤「通过与否」列的值 */
   stepResults: string[]
+  /** 各步骤「期望结果与评估标准」列文字（工具四表38 列4 用例文字来源；旧格式无该列 → 空串数组） */
+  stepExpects: string[]
+  /** 各步骤「实测结果」列文字 */
+  stepActuals: string[]
   /** 「执行状态」格值（已执行/未执行…） */
   executed: string
   /** 「问题单标识」格值（"/"或空 = 无问题单） */
@@ -86,6 +90,10 @@ export interface CaseRecordTable {
   stepCount: number
   /** 各步骤「通过与否」列的值 */
   stepResults: string[]
+  /** 各步骤「期望结果与评估标准」列文字（工具四表38 列4 用例文字来源；旧格式无该列 → 空） */
+  stepExpects: string[]
+  /** 各步骤「实测结果」列文字（同上，通常空或为截图说明文字） */
+  stepActuals: string[]
 }
 
 /**
@@ -115,9 +123,14 @@ export function parseCaseRecordTable(tbl: Element): CaseRecordTable | null {
   // 步骤行：表头行含「输入及操作」格，其后首格为纯数字的行，直到标签行（执行状态）为止
   const headIdx = labelRows.findIndex(cells => cells.some(c => normLabel(textOf(c).trim()) === '输入及操作'))
   const stepResults: string[] = []
+  const stepExpects: string[] = []
+  const stepActuals: string[] = []
   if (headIdx >= 0) {
-    // 「通过与否」列 = 表头行中该标签格的下标（步骤行 tc 布局与表头一致）
+    // 「通过与否」列 = 表头行中该标签格的下标（步骤行 tc 布局与表头一致）；
+    // 期望/实测列同法定位（工具四表38 列4 的用例文字来源）
     const pIdx = labelRows[headIdx].findIndex(c => normLabel(textOf(c).trim()) === '通过与否')
+    const eIdx = labelRows[headIdx].findIndex(c => normLabel(textOf(c).trim()) === '期望结果与评估标准')
+    const aIdx = labelRows[headIdx].findIndex(c => normLabel(textOf(c).trim()) === '实测结果')
     for (let r = headIdx + 1; r < labelRows.length; r++) {
       const cells = labelRows[r]
       if (cells.length === 0) continue
@@ -125,13 +138,21 @@ export function parseCaseRecordTable(tbl: Element): CaseRecordTable | null {
       if (!/^\d+$/.test(first)) break
       let res = ''
       if (pIdx >= 0 && pIdx < cells.length) res = textOf(cells[pIdx]).trim()
+      let exp = ''
+      if (eIdx >= 0 && eIdx < cells.length) exp = textOf(cells[eIdx]).trim()
+      let act = ''
+      if (aIdx >= 0 && aIdx < cells.length) act = textOf(cells[aIdx]).trim()
       stepResults.push(res)
+      stepExpects.push(exp)
+      stepActuals.push(act)
     }
   }
   return {
     labels: labels,
     stepCount: stepResults.length,
     stepResults: stepResults,
+    stepExpects: stepExpects,
+    stepActuals: stepActuals,
   }
 }
 
@@ -178,6 +199,8 @@ export function extractRecordCases(office: OfficeFile, issues: IssueCollector): 
         traceItemId: trace.itemId,
         stepCount: rec.stepCount,
         stepResults: rec.stepResults,
+        stepExpects: rec.stepExpects,
+        stepActuals: rec.stepActuals,
         executed: rec.labels.get('执行状态') ?? '',
         problemId: rec.labels.get('问题单标识') ?? '',
         typeName: stackTypeName(stack),

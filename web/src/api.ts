@@ -72,6 +72,15 @@ export interface TraceGenerateResponse {
   doc?: string
 }
 
+/** 回归生成响应（2026-11-22 双产物）：回归测试说明 + 回归测试记录两份文件，≤10MB 各附 base64 */
+export interface RegressGenerateResponse {
+  ok: boolean
+  error?: string
+  files: Array<{ name: string; sizeKB: string; path: string; doc?: string }>
+  stats?: { items: number; cases: number; steps: number }
+  issues?: Issue[]
+}
+
 /** 追踪解析响应（12-追踪文档工具 v2）：统一 TraceTable + 问题清单 + 配对文档信息 */
 export interface TraceParseResponse {
   ok: boolean
@@ -130,4 +139,77 @@ export function downloadBase64(base64: string, filename: string): void {
 
 export function base64KB(base64: string): string {
   return ((base64.length * 3) / 4 / 1024).toFixed(1)
+}
+
+/** 回归解析响应（F11/13-回归测试说明工具） */
+export interface RegressParseResponse {
+  ok: boolean
+  error?: string
+  draft: import('./types.ts').RegressDraft
+  issues: Issue[]
+  outline: { name: string; hash: string }
+  primary: { name: string; hash: string }
+  stats: { items: number; cases: number; steps: number }
+}
+
+/** 回归解析：测试记录（上传文件或项目库 hash）+ 配对大纲（项目库 hash 或新上传文件） */
+export async function regressParse(
+  record: { file?: File; hash?: string },
+  outline?: { hash?: string; file?: File }
+): Promise<RegressParseResponse> {
+  const form = new FormData()
+  if (record.file) form.append('file', record.file)
+  if (record.hash) form.append('recordHash', record.hash)
+  if (outline?.hash) form.append('outlineHash', outline.hash)
+  if (outline?.file) form.append('outlineFile', outline.file)
+  const res = await fetch('/api/regress/parse', { method: 'POST', body: form })
+  return (await res.json()) as RegressParseResponse
+}
+
+/** 回归生成：勾选的大纲 caseId + 全局参数 → 回归测试说明 docx（≤10MB 附 base64） */
+export async function regressGenerate(
+  outline: { name: string; hash: string },
+  record: { name: string; hash: string },
+  selected: string[],
+  params: import('./types.ts').GlobalParams
+): Promise<RegressGenerateResponse> {
+  return post<RegressGenerateResponse>('/api/regress/generate', { outline, record, selected, params })
+}
+
+/** 报告生成响应（工具四 14-报告统计与需求符合性）：表38 产物 + 统计数目 + 告警 */
+export interface ReportGenerateResponse {
+  ok: boolean
+  error?: string
+  files: Array<{ name: string; sizeKB: string; path?: string; doc?: string }>
+  stats: {
+    items: number
+    outlineCases: number
+    outlineSteps: number
+    recordCases: number
+    executedSteps: number
+    failedSteps: number
+    regCases: number
+    regZero: number
+    regLeft: number
+    firstPass: number
+    regPass: number
+    firstFail: number
+    regFail: number
+    untested: number
+  }
+  issues: Issue[]
+}
+
+/** 工具四生成：大纲 + 首轮记录 +（可选）回归记录 → 软件测评报告（表38 需求符合性对照） */
+export async function reportGenerate(
+  input: { outline: { hash?: string; file?: File }; record: { hash?: string; file?: File }; regFile?: File | null }
+): Promise<ReportGenerateResponse> {
+  const form = new FormData()
+  if (input.outline.hash) form.append('outlineHash', input.outline.hash)
+  if (input.outline.file) form.append('outlineFile', input.outline.file)
+  if (input.record.hash) form.append('recordHash', input.record.hash)
+  if (input.record.file) form.append('recordFile', input.record.file)
+  if (input.regFile) form.append('regFile', input.regFile)
+  const res = await fetch('/api/report/generate', { method: 'POST', body: form })
+  return (await res.json()) as ReportGenerateResponse
 }

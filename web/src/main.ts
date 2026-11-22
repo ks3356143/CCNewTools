@@ -6,6 +6,7 @@ import './design.css'
 import { createApp } from 'vue'
 import { createVuetify } from 'vuetify'
 import { mdi } from 'vuetify/iconsets/mdi'
+import { zhHans } from 'vuetify/locale'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import App from './App.vue'
@@ -17,6 +18,8 @@ const vuetify = createVuetify({
     defaultSet: 'mdi',
     sets: { mdi }
   },
+  // 日期选择器（VDatePicker）等组件的中文界面（2026-11-22 日期选择器换成熟组件）
+  locale: { locale: 'zhHans', messages: { zhHans } },
   theme: {
     defaultTheme: 'light',
     themes: {
