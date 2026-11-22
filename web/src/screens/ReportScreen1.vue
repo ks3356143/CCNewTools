@@ -300,7 +300,7 @@ onMounted(() => {
       </div>
     </template>
 
-    <div class="foot">离线运行，文档内容不出本机。v1：表38 需求符合性对照先行，其余批注位置按你的反馈逐步铺开。</div>
+    <div class="foot">离线运行，文档内容不出本机。表38 与全文统计按既定口径自动填写，生成后请按告警逐条核对。</div>
     </div>
   </div>
 </template>
