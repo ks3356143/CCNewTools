@@ -48,38 +48,41 @@ export interface RegressDraft {
 }
 
 const baseId = (id: string): string => id.replace(/_\d{3,}$/, '')
-const normText = (s: string): string => s.replace(/\s+/g, '')
+/** 零宽字符（Word 粘贴常见 U+200B~U+200D/U+2060）不在 \s 与 trim 的空白集内——标识格里混一个就废掉整条精确匹配 */
+const ZW_RE = /[\u200b-\u200d\u2060]/g
+const normText = (s: string): string => s.replace(ZW_RE, '').replace(/\s+/g, '')
 /** 标识比对统一入口：Word 单元格常见首尾空白，裸相等会把「YL_A_001 」直接打成未匹配（2026-11-22 鲁棒性审查） */
-const normId = (s: string): string => s.trim()
+const normId = (s: string): string => s.replace(ZW_RE, '').trim()
 
-/** 匹配结果：kind 标命中路径（无尾号/单用例兜底是猜测性匹配，歧义时必须提示） */
-export interface MatchResult { row: CaseRow; kind: 'exact' | 'base' | 'single'; baseCount: number }
+/** 匹配结果：kind 标命中路径（无尾号/单用例兜底是猜测性匹配，歧义时必须提示）；
+ *  byName = 撞号消歧时用例名是否硬命中（false 且 baseCount>1 → 回退首个，调用方应告警请人工核对） */
+export interface MatchResult { row: CaseRow; byName: boolean; kind: 'exact' | 'base' | 'single'; baseCount: number }
 
 /** 同标识多命中时按用例名消歧（2026-11-22 报告工具全流程检查实证的撞号真 bug）：
  *  真实大纲存在同一 itemId 撞号在两个章节、各有一行同名 caseId 的形态
  *  （如 XQ_SU_ZSPG 在 .4.2.35 的设置功能与 .7.1.3.5 的知识评估功能测试各有一个 YL_SU_ZSPG_001），
  *  盲取第一行会把记录结果记到错误项头上——记录表的「测试用例名称」格与大纲用例名一致才是同一行的硬证据；
- *  名称对不上再回退首个（原有 REGRESS_DUP_CASEID 告警继续兜底）。 */
-function pickByName(cands: CaseRow[], rec: RecordCase): CaseRow {
-  if (rec.caseName.trim() === '' || cands.length === 1) return cands[0]
+ *  名称对不上再回退首个（byName=false，由调用方出告警兜底）。 */
+function pickByName(cands: CaseRow[], rec: RecordCase): { row: CaseRow; byName: boolean } {
+  if (rec.caseName.trim() === '' || cands.length === 1) return { row: cands[0], byName: false }
   const hit = cands.find(r => normText(r.mingcheng) === normText(rec.caseName))
-  return hit ?? cands[0]
+  return hit !== undefined ? { row: hit, byName: true } : { row: cands[0], byName: false }
 }
 
 /** 记录用例 → 大纲转换行：精确 → 去尾号前缀 → 记录追踪行标识定位单用例测试项兜底。
- *  精确命中多个（同标识跨项重名）也返回首个 + baseCount，由调用方出告警。
+ *  精确命中多个（同标识跨项重名）按用例名消歧，名称对不上回退首个 + baseCount，由调用方出告警。
  *  （工具四报告统计复用同一匹配口径，2026-11-22 起导出） */
 export function matchRow(rows: CaseRow[], rec: RecordCase): MatchResult | null {
   const exact = rows.filter(r => normId(r.caseId) === normId(rec.caseId))
-  if (exact.length > 0) return { row: pickByName(exact, rec), kind: 'exact', baseCount: exact.length }
+  if (exact.length > 0) { const p = pickByName(exact, rec); return { ...p, kind: 'exact', baseCount: exact.length } }
   const b = baseId(normId(rec.caseId))
   if (b !== '') {
     const same = rows.filter(r => baseId(normId(r.caseId)) === b)
-    if (same.length > 0) return { row: pickByName(same, rec), kind: 'base', baseCount: same.length }
+    if (same.length > 0) { const p = pickByName(same, rec); return { ...p, kind: 'base', baseCount: same.length } }
   }
   if (rec.traceItemId !== '') {
     const inItem = rows.filter(r => normId(r.itemItemId) === normId(rec.traceItemId))
-    if (inItem.length === 1) return { row: inItem[0], kind: 'single', baseCount: 1 }
+    if (inItem.length === 1) return { row: inItem[0], byName: false, kind: 'single', baseCount: 1 }
   }
   return null
 }

@@ -116,6 +116,7 @@ function aggregate(
     const m = matchRow(rows, rec)
     if (m === null) continue
     let row = m.row
+    let relocated = false
     if (rec.traceItemName !== '') {
       const matchedItem = itemByKey.get(keyOf(m.row.itemItemId, m.row.chapter))
       // 标识配到的项与追踪名不符 → 全大纲找「项名=追踪名 且 用例名=记录用例名」的唯一行，重定位
@@ -131,8 +132,18 @@ function aggregate(
             '记录表 ' + rec.caseId + '（' + rec.caseName + '）标识指向测试项「' + matchedItem.name + '」但追踪名为「' + rec.traceItemName +
             '」，已按追踪名+用例名重定位到「' + toItem.name + '」（' + cands[0].caseId + '）——大纲可能改版改号，请人工核对')
           row = cands[0]
+          relocated = true
         }
       }
+    }
+    // 撞号消歧回退（2026-11-24 同事反馈排查出的静默盲区）：名称对不上且未重定位 → 结果记到回退行头上，
+    // 被挤掉的那个项会凭空「未测试」，必须点名请人工核对（工具三 REGRESS_DUP_CASEID 的对等口径）
+    if (!relocated && m.baseCount > 1 && !m.byName) {
+      // CaseRow.itemName 是挂载标题而非表内项名（真实大纲恰好同名，合成夹具才见分野）——取解析层项名最准
+      const firstName = itemByKey.get(keyOf(m.row.itemItemId, m.row.chapter))?.name ?? m.row.itemName
+      issues.warning('REPORT_DUP_CASEID',
+        '记录表 ' + rec.caseId + '（' + rec.caseName + '）的标识在大纲中有 ' + m.baseCount + ' 行且用例名称对不上，已按第一行（' + firstName + '）处理，请人工核对章节归属——其余同标识测试项可能因此显示「未测试」',
+        rec.caseName)
     }
     agg.matched++
     const key = keyOf(row.itemItemId, row.chapter)
@@ -185,6 +196,12 @@ export function buildConfData(parsed: ParsedOutline, first: RecordCase[], reg: R
   const issues = new IssueCollector()
   const rows = convertToTemplateData(parsed, params).cases
   const itemByKey = new Map(parsed.items.map(it => [keyOf(it.itemId, it.chapter), it]))
+  // 记录覆盖率防线（2026-11-24 同事反馈排查出的盲区）：记录表被解析层漏识别时完全静默，
+  // 只有表数差能显性提示——对应项会显示「未测试」，请用户核对记录是否完整
+  if (first.length < rows.length) {
+    issues.info('REPORT_COVERAGE',
+      '大纲共 ' + rows.length + ' 个用例，记录只有 ' + first.length + ' 张用例表，可能有用例未执行、未记录或记录表未被识别——对应测试项将显示「未测试」，请核对记录是否完整')
+  }
   const f = aggregate(rows, first, itemByKey, issues)
   const g = reg.length > 0 ? aggregate(rows, reg, itemByKey, issues) : null
 

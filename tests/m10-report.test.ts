@@ -218,6 +218,59 @@ describe('M10 表38 + 统计（v2：用例=步骤行）', () => {
     expect(w !== undefined && w.message.includes('凭据检索') && w.message.includes('关键词检索')).toBe(true)
   })
 
+  test('零宽字符不阻断匹配：标识/用例名混入 U+200B 仍按等值命中（同事反馈排查）', () => {
+    const spec: DocSpec = {
+      content: [
+        { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+        { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项甲', 'XQ_A', '《某需求规格说明》3.1 甲', '甲描述。', '1.用例甲（XQ_A001）\n甲综述。', '1.用例甲（XQ_A001）\n1）执行操作甲；') }
+      ]
+    }
+    const outline = extractOutline(buildDocx(spec), new IssueCollector())
+    const ZW = String.fromCharCode(0x200b)
+    const first = extractRecordCases(buildDocx({
+      content: [
+        { kind: 'p', para: { text: '测试记录', heading: 1 } },
+        recordTable('YL' + ZW + '_A_001', '用例' + ZW + '甲', 'XQ_A', ['通过'], '期望文字甲')
+      ]
+    }), new IssueCollector())
+    const data = buildConfData(outline, first, [], PARAMS)
+    expect(data.rows.map(r => r.result)).toEqual(['期望文字甲'])
+    expect(data.stats.untested).toBe(0)
+  })
+
+  test('撞号且用例名对不上：回退首行 + REPORT_DUP_CASEID 点名（原静默错配盲区）', () => {
+    // 同事反馈「实际有测试却显示未测试」的可达形态：标识撞号、名称消歧落空 → 结果记到回退行、被挤掉的项凭空未测试
+    const spec: DocSpec = {
+      content: [
+        { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+        { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项甲', 'XQ_A', '《某需求规格说明》3.1 甲', '甲描述。', '1.用例名甲（XQ_A001）\n甲综述。', '1.用例名甲（XQ_A001）\n1）执行操作甲；') },
+        { kind: 'p', para: { text: '性能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项乙', 'XQ_A', '《某需求规格说明》3.2 乙', '乙描述。', '1.用例名乙（XQ_A001）\n乙综述。', '1.用例名乙（XQ_A001）\n1）执行操作乙；') }
+      ]
+    }
+    const outline = extractOutline(buildDocx(spec), new IssueCollector())
+    const first = extractRecordCases(buildDocx({
+      content: [
+        { kind: 'p', para: { text: '测试记录', heading: 1 } },
+        recordTable('YL_A_001', '与两行都不同的用例名', 'XQ_A', ['通过'], '期望文字X')
+      ]
+    }), new IssueCollector())
+    const data = buildConfData(outline, first, [], PARAMS)
+    expect(data.rows.map(r => r.result)).toEqual(['期望文字X', '未测试'])
+    const w = data.issues.find(i => i.code === 'REPORT_DUP_CASEID')
+    expect(w !== undefined && w.message.includes('2 行') && w.message.includes('项甲') && w.message.includes('未测试')).toBe(true)
+  })
+
+  test('记录表少于大纲用例：REPORT_COVERAGE 显性提示（解析漏表防线）', () => {
+    const { outline, first } = parseFixtures()
+    const data = buildConfData(outline, first.slice(0, 2), [], PARAMS)
+    const cov = data.issues.find(i => i.code === 'REPORT_COVERAGE')
+    expect(cov !== undefined && cov.message.includes('记录只有 2 张')).toBe(true)
+    expect(data.stats.untested).toBe(2)
+  })
+
   test('列3 超长精简：按段落边界截断并标记省略；短文原样', () => {
     const { outline, first, reg } = parseFixtures()
     const data = buildConfData(outline, first, reg, PARAMS)
