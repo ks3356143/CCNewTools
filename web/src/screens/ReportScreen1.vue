@@ -31,6 +31,20 @@ const recordProjects = computed(() => store.projects.filter(p => p.sourceType ==
 const regFileName = ref('')
 let regFileRef: File | null = null
 
+/** 需求描述较长时的处理（2026-11-24 用户需求）：生成后在告警区点名哪些项被精简，可换模式重新生成 */
+type DescModeOpt = 'smart' | 'clip' | 'full'
+const DESC_OPTS: Array<{ v: DescModeOpt; label: string; note: string }> = [
+  { v: 'smart', label: '智能精简', note: '保留功能概述，省略「处理流程」等后续内容' },
+  { v: 'clip', label: '400 字截断', note: '按段落边界截断并标记省略' },
+  { v: 'full', label: '全文保留', note: '不删任何内容，表38 篇幅会明显变大' }
+]
+const savedDescMode = localStorage.getItem('cn-report-desc-mode')
+const descMode = ref<DescModeOpt>(savedDescMode === 'clip' || savedDescMode === 'full' ? savedDescMode : 'smart')
+function pickDescMode(v: DescModeOpt): void {
+  descMode.value = v
+  localStorage.setItem('cn-report-desc-mode', v)
+}
+
 const generating = ref(false)
 const result = ref<ReportGenerateResponse | null>(null)
 const resultBox = useTemplateRef<HTMLElement>('resultBox')
@@ -104,7 +118,8 @@ async function generate(): Promise<void> {
     const r = await reportGenerate({
       outline: alignProject.value !== null ? { hash: alignProject.value.hash } : { file: outlineFileRef! },
       record: recordPick.value !== null ? { hash: recordPick.value.hash } : { file: recordFileRef! },
-      regFile: regFileRef
+      regFile: regFileRef,
+      descMode: descMode.value
     })
     if (!r.ok) {
       showToast(r.error ?? '生成失败')
@@ -143,9 +158,6 @@ onMounted(() => {
 
 <template>
   <div class="amb-wrap">
-    <div class="amb" aria-hidden="true">
-      <div class="amb-b1" /><div class="amb-b2" />
-    </div>
     <div class="wrap">
     <div class="hero">
       <h1 class="amb-title">报告统计与需求符合性</h1>
@@ -153,7 +165,7 @@ onMounted(() => {
     </div>
 
     <!-- 配对大纲 -->
-    <div class="block">
+    <div class="block req">
       <div class="b-head">
         <v-icon size="16" color="primary">mdi-file-document-outline</v-icon>
         <span>配对测试大纲<b class="req">*</b></span>
@@ -187,7 +199,7 @@ onMounted(() => {
     <input ref="outlineInput" id="rep-outline" type="file" accept=".docx" hidden @change="onOutlineFile" />
 
     <!-- 首轮测试记录 -->
-    <div class="block">
+    <div class="block req">
       <div class="b-head">
         <v-icon size="16" color="primary">mdi-file-table-outline</v-icon>
         <span>首轮测试记录<b class="req">*</b></span>
@@ -244,8 +256,27 @@ onMounted(() => {
     </div>
     <input ref="regInput" id="rep-reg" type="file" accept=".docx" hidden @change="onRegFile" />
 
+    <!-- 需求描述较长时（2026-11-24）：超长描述的取舍方式，生成后告警区会点名被精简的项 -->
+    <div class="block">
+      <div class="b-head">
+        <v-icon size="16" color="primary">mdi-text-short</v-icon>
+        <span>需求描述较长时</span>
+        <span class="b-note">大纲需求描述超 400 字时，表38「功能性能指标」列的取舍方式</span>
+      </div>
+      <div class="d-opts" role="radiogroup" aria-label="需求描述较长时的处理方式">
+        <button
+          v-for="o in DESC_OPTS" :key="o.v" type="button"
+          class="d-opt" :class="{ on: descMode === o.v }" role="radio" :aria-checked="descMode === o.v"
+          @click="pickDescMode(o.v)"
+        >
+          <span class="d-lbl">{{ o.label }}</span>
+          <span class="d-note">{{ o.note }}</span>
+        </button>
+      </div>
+    </div>
+
     <div class="cta">
-      <v-btn color="primary" rounded="pill" size="large" :loading="generating" @click="generate">
+      <v-btn color="primary" size="large" :loading="generating" @click="generate">
         生成报告<v-icon size="17" class="ml-2">mdi-clipboard-check-outline</v-icon>
       </v-btn>
     </div>
@@ -314,8 +345,14 @@ onMounted(() => {
 
 .block {
   margin-top: 12px; padding: 12px 14px;
-  border: 1px solid var(--cn-accent-line); border-radius: var(--cn-r-2);
-  background: var(--cn-accent-soft);
+  border: 1px solid var(--cn-border); border-radius: var(--cn-r-2);
+  background: var(--cn-surface);
+}
+/* 必选输入块：左侧 2px 满高集中色轨（直角集中色风语义色轨），可选/选项块不带 */
+.block.req {
+  border-color: var(--cn-accent-line);
+  box-shadow: inset 2px 0 0 var(--cn-accent);
+  padding-left: 16px;
 }
 .b-head { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--cn-fg); }
 .b-head .req { color: var(--cn-danger); margin-left: 1px; }
@@ -336,6 +373,26 @@ onMounted(() => {
 .chip.on { border-color: var(--cn-accent); color: var(--cn-accent); }
 .chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip-tag { flex: none; font-size: 10px; padding: 0 5px; border-radius: var(--cn-r-1); background: var(--cn-accent-soft); color: var(--cn-accent); }
+
+/* 需求描述较长时：三选项分段选择（选中 = 集中色轨 + 浅底） */
+.d-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+@media (max-width: 860px) { .d-opts { grid-template-columns: 1fr; } }
+.d-opt {
+  text-align: left; cursor: pointer;
+  padding: 10px 12px 10px 14px;
+  border: 1px solid var(--cn-border); border-radius: var(--cn-r-2);
+  background: var(--cn-surface-soft);
+  transition: border-color var(--cn-dur-2) var(--cn-ease-out), background-color var(--cn-dur-2) var(--cn-ease-out), box-shadow var(--cn-dur-2) var(--cn-ease-out);
+}
+.d-opt:hover { border-color: var(--cn-accent-line); background: var(--cn-surface); }
+.d-opt.on {
+  border-color: var(--cn-accent); background: var(--cn-accent-soft);
+  box-shadow: inset 2px 0 0 var(--cn-accent);
+}
+.d-lbl { display: block; font-size: 12.5px; font-weight: 650; color: var(--cn-fg); }
+.d-opt.on .d-lbl { color: var(--cn-accent-strong); }
+.d-note { display: block; margin-top: 3px; font-size: 11px; line-height: 1.6; color: var(--cn-muted); }
+.d-opt:focus-visible { outline: 2px solid var(--cn-accent); outline-offset: 2px; }
 
 .r-list { margin-top: 10px; border: 1px solid var(--cn-border); border-radius: var(--cn-r-3); background: var(--cn-surface); overflow: hidden; }
 .r-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; transition: background var(--cn-dur-1) var(--cn-ease-out); }

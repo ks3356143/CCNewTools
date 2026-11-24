@@ -271,6 +271,65 @@ describe('M10 表38 + 统计（v2：用例=步骤行）', () => {
     expect(data.stats.untested).toBe(2)
   })
 
+  test('需求描述超长：smart 省略流程段 + DESC_LONG 提示；clip/full 模式可选', () => {
+    // 项乙需求描述 = 概述 + 「处理流程如下：」 + 超长流程步骤（>400 字触发精简）
+    const spec: DocSpec = {
+      content: [
+        { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+        { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项甲', 'XQ_A', '《某需求规格说明》3.1 甲', '该功能用于核验甲能力。', '1.用例甲（XQ_A001）\n甲综述。', '1.用例甲（XQ_A001）\n1）执行操作甲；') },
+        { kind: 'p', para: { text: '性能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项乙', 'XQ_B', '《某需求规格说明》3.2 乙',
+          '乙功能概述如下。\n处理流程如下：\n1）用户输入乙数据；\n' + '2）系统执行乙处理并回显结果；\n'.repeat(60),
+          '1.用例乙（XQ_B001）\n乙综述。', '1.用例乙（XQ_B001）\n1）执行操作乙；') }
+      ]
+    }
+    const outline = extractOutline(buildDocx(spec), new IssueCollector())
+    const first = extractRecordCases(buildDocx({
+      content: [
+        { kind: 'p', para: { text: '测试记录', heading: 1 } },
+        recordTable('YL_A_001', '用例甲', 'XQ_A', ['通过'], '期望文字甲'),
+        recordTable('YL_B_001', '用例乙', 'XQ_B', ['通过'], '期望文字乙')
+      ]
+    }), new IssueCollector())
+    const smart = buildConfData(outline, first, [], PARAMS)
+    expect(smart.rows[0].metric).toBe('该功能用于核验甲能力。')
+    expect(smart.rows[1].metric).toBe('乙功能概述如下。\n……（处理流程等内容已省略，全文详见需求规格说明）')
+    expect(smart.issues.some(i => i.code === 'REPORT_DESC_LONG' && i.message.includes('智能精简'))).toBe(true)
+    // clip 模式（v1 原行为）：不认流程段头，按 400 字截断
+    const clip = buildConfData(outline, first, [], PARAMS, 'clip')
+    expect(clip.rows[1].metric.includes('处理流程如下')).toBe(true)
+    expect(clip.rows[1].metric.includes('（内容过长，已截断')).toBe(true)
+    // full 模式：全文照排不精简
+    const full = buildConfData(outline, first, [], PARAMS, 'full')
+    expect(full.rows[1].metric.includes('处理流程如下')).toBe(true)
+    expect(full.rows[1].metric.includes('已省略')).toBe(false)
+    expect(full.rows[1].metric.includes('（内容过长')).toBe(false)
+  })
+
+  test('图片引用提示：需求描述/记录期望结果含「如图/见图」分别点名（表38 无图）', () => {
+    const spec: DocSpec = {
+      content: [
+        { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+        { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项甲', 'XQ_A', '《某需求规格说明》3.1 甲', '系统界面如图3-1所示，支持甲功能。', '1.用例甲（XQ_A001）\n甲综述。', '1.用例甲（XQ_A001）\n1）执行操作甲；') }
+      ]
+    }
+    const outline = extractOutline(buildDocx(spec), new IssueCollector())
+    const first = extractRecordCases(buildDocx({
+      content: [
+        { kind: 'p', para: { text: '测试记录', heading: 1 } },
+        recordTable('YL_A_001', '用例甲', 'XQ_A', ['通过'], '实测界面见图5-2')
+      ]
+    }), new IssueCollector())
+    const data = buildConfData(outline, first, [], PARAMS)
+    expect(data.rows[0].metric).toBe('系统界面如图3-1所示，支持甲功能。')
+    expect(data.rows[0].result).toBe('实测界面见图5-2')
+    const figreq = data.issues.find(i => i.code === 'REPORT_FIG_REQ')
+    expect(figreq !== undefined && (figreq.context ?? '').includes('项甲')).toBe(true)
+    expect(data.issues.some(i => i.code === 'REPORT_FIG_RESULT' && i.message.includes('人工改写'))).toBe(true)
+  })
+
   test('列3 超长精简：按段落边界截断并标记省略；短文原样', () => {
     const { outline, first, reg } = parseFixtures()
     const data = buildConfData(outline, first, reg, PARAMS)

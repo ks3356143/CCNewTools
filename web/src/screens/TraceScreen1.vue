@@ -407,7 +407,7 @@ function issueCounts(): string {
   transition: transform var(--cn-dur-2) var(--cn-ease-out), border-color var(--cn-dur-2) var(--cn-ease-out), background var(--cn-dur-2) var(--cn-ease-out);
 }
 .v-theme--dark .drop { background: rgba(14, 29, 47, 0.55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03); }
-.drop:hover, .drop.over { transform: translateY(-2px); border-color: var(--cn-accent); background: var(--cn-accent-soft); }
+.drop:hover, .drop.over { border-color: var(--cn-accent); background: var(--cn-accent-soft); }
 .drop.parsing { cursor: default; transform: none; }
 .dt { margin-top: 4px; font-size: 14px; font-weight: 650; color: var(--cn-fg); }
 .dc { font-size: 11.5px; color: var(--cn-muted); line-height: 1.6; max-width: 620px; }

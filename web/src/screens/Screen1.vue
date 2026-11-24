@@ -367,7 +367,7 @@ function jumpTo(issue: Issue): void {
   transition: transform var(--cn-dur-2) var(--cn-ease-out), border-color var(--cn-dur-2) var(--cn-ease-out), background var(--cn-dur-2) var(--cn-ease-out);
 }
 .v-theme--dark .drop { background: rgba(14, 29, 47, 0.55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03); }
-.drop:hover, .drop.over { transform: translateY(-2px); border-color: var(--cn-accent); background: var(--cn-accent-soft); }
+.drop:hover, .drop.over { border-color: var(--cn-accent); background: var(--cn-accent-soft); }
 .drop.parsing { cursor: default; transform: none; }
 .drop.parsing:hover { border-color: var(--cn-accent-line); background: rgba(255, 255, 255, 0.62); }
 .v-theme--dark .drop.parsing:hover { background: rgba(14, 29, 47, 0.55); }

@@ -200,9 +200,10 @@ export interface ReportGenerateResponse {
   issues: Issue[]
 }
 
-/** 工具四生成：大纲 + 首轮记录 +（可选）回归记录 → 软件测评报告（表38 需求符合性对照） */
+/** 工具四生成：大纲 + 首轮记录 +（可选）回归记录 → 软件测评报告（表38 需求符合性对照）。
+ *  descMode：需求描述超长处理（smart=智能精简省略流程段（默认）/ clip=400字截断 / full=全文照排） */
 export async function reportGenerate(
-  input: { outline: { hash?: string; file?: File }; record: { hash?: string; file?: File }; regFile?: File | null }
+  input: { outline: { hash?: string; file?: File }; record: { hash?: string; file?: File }; regFile?: File | null; descMode?: string }
 ): Promise<ReportGenerateResponse> {
   const form = new FormData()
   if (input.outline.hash) form.append('outlineHash', input.outline.hash)
@@ -210,6 +211,7 @@ export async function reportGenerate(
   if (input.record.hash) form.append('recordHash', input.record.hash)
   if (input.record.file) form.append('recordFile', input.record.file)
   if (input.regFile) form.append('regFile', input.regFile)
+  form.append('descMode', input.descMode ?? 'smart')
   const res = await fetch('/api/report/generate', { method: 'POST', body: form })
   return (await res.json()) as ReportGenerateResponse
 }

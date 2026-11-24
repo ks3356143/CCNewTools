@@ -11,7 +11,7 @@ import { applyVmergeToDocx } from '../core/render/vmerge.ts'
 import { buildTraceTable, TYPE_VARS, TRACE_TEMPLATE_NAMES, OUTLINE_VARS, OUTLINE_TASK_VARS, OUTLINE_TEMPLATE, OUTLINE_TASK_TEMPLATE } from '../core/trace/build.ts'
 import { selectRegressCases, buildRegressData } from '../core/regress/build.ts'
 import { regressPost } from '../core/regress/post.ts'
-import { buildConfData } from '../core/report/build.ts'
+import { buildConfData, type DescMode } from '../core/report/build.ts'
 import { reportPost } from '../core/report/post.ts'
 import type { ParsedOutline } from '../core/domain.ts'
 import type { TraceRowVM, TraceTable } from '../core/trace/table.ts'
@@ -947,7 +947,10 @@ async function apiReportGenerate(req: Request): Promise<Response> {
     if (gb !== null && regRecords.length === 0) {
       return Response.json({ ok: false, error: '回归测试记录中没有用例记录表，请确认上传的文档正确' }, { status: 400 })
     }
-    const data = buildConfData(outline.parsed, records, regRecords, DEFAULT_PARAMS)
+    // 需求描述超长处理模式（2026-11-24）：smart=智能精简省略流程段（默认）/ clip=400字截断 / full=全文
+    const descModeRaw = String(form.get('descMode') ?? '')
+    const descMode: DescMode = descModeRaw === 'clip' || descModeRaw === 'full' ? descModeRaw : 'smart'
+    const data = buildConfData(outline.parsed, records, regRecords, DEFAULT_PARAMS, descMode)
     const t0 = Date.now()
     // v2（2026-11-22 用户七点反馈）：段落统计 + 表26/33/34 + 表38 全量渲染
     const docBuf = reportPost(renderTemplate(templateFile('报告模板.docx'), {

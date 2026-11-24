@@ -238,10 +238,10 @@ function stepClick(n: number): void {
 .back:hover { background: var(--cn-surface-soft); color: var(--cn-fg); border-color: var(--cn-border); }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-mark {
-  width: 30px; height: 30px; border-radius: 9px; margin-left: 8px;
-  background: linear-gradient(145deg, #5ebef3, #2b79d5 62%, #1955a1);
+  width: 30px; height: 30px; border-radius: var(--cn-r-2); margin-left: 8px;
+  background: var(--cn-accent-strong);
   color: #fff;
-  box-shadow: 0 6px 14px rgba(33, 108, 190, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  box-shadow: 0 2px 8px rgba(33, 108, 190, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.28);
   display: flex; align-items: center; justify-content: center;
 }
 .app-title {

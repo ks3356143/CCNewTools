@@ -167,8 +167,8 @@ function gen(): void {
   height: calc(100vh - 64px);
   background-color: var(--cn-bg);
   background-image:
-    radial-gradient(circle at 12% -8%, rgba(70, 151, 226, 0.12), transparent 38%),
-    radial-gradient(circle at 96% 18%, rgba(55, 126, 192, 0.07), transparent 32%);
+    radial-gradient(rgba(110, 153, 195, 0.16) 0.6px, transparent 0.8px);
+  background-size: 18px 18px;
 }
 
 /* ---- 头部状态带 ---- */

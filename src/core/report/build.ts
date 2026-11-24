@@ -20,6 +20,19 @@ import { FAIL_RE, matchRow } from '../regress/build.ts'
 /** 用户定义的静态测试类型（2026-11-22 拍板），其余全部按动态测试统计 */
 export const STATIC_TYPES = new Set(['文档审查', '静态分析', '代码审查', '代码走查'])
 
+/** 表38 列3「功能性能指标」（需求描述）超长处理模式（2026-11-24 用户需求）：
+ *  smart = 智能精简（默认）：超长时从首个「流程/过程」段落头截断，保留功能概述、省略处理流程等后续内容；
+ *  clip  = 按段落边界截断至约 400 字（v1~v2 原行为）；full = 全文照排 */
+export type DescMode = 'smart' | 'clip' | 'full'
+
+/** 「流程/过程」段落头：段首允许序号与空白，限定词可组合（如「业务处理流程如下：」「1、操作过程：」）；
+ *  只认段头，正文中途出现「流程」二字不算 */
+const PROCESS_HEAD_RE = /^[\s\d一二三四五六七八九十()（）、.．]*(?:主要|具体|业务|操作|处理|执行|实现|工作)*(?:流程|过程)(?:如下所示|如下|说明|描述)?\s*[：:]?/
+
+/** 图片引用识别（2026-11-24 用户反馈"大纲/记录常引用如图，报告无图导致文字不符合逻辑"）：
+ *  如图 / 见图 / 下图 / 示图 / 截图 / 图+编号（图3-1、（图2）） */
+const FIG_RE = /如图|见图|下图|示图|截图|图\s*[\d（(]/
+
 /** 表38 一行 */
 export interface ConfRow {
   no: number
@@ -189,10 +202,34 @@ function clipLong(text: string): string {
   return out.join('\n') + '\n……（内容过长，已截断，详见需求规格说明）'
 }
 
+/** 智能精简（smart 模式）：≤400 字原样；超长先找首个流程段头，从那里截断——
+ *  保留功能概述、砍掉处理流程等后续内容；概述本身仍超长再走 400 字截断兜底；
+ *  首段就是流程头（没有概述可保）或找不到段头 → 回退截断 */
+function smartTrim(text: string): string {
+  const paras = text.split('\n').map(p => p.trim()).filter(p => p !== '')
+  if (paras.length === 0) return ''
+  const joined = paras.join('\n')
+  if (joined.length <= 400) return joined
+  const cut = paras.findIndex(p => PROCESS_HEAD_RE.test(p))
+  if (cut > 0) {
+    const kept = paras.slice(0, cut).join('\n')
+    if (kept.length > 400) return clipLong(kept)
+    return kept + '\n……（处理流程等内容已省略，全文详见需求规格说明）'
+  }
+  return clipLong(joined)
+}
+
+/** 表38 列3 取文（按模式）：'--' 占位与空串一律置空 */
+function metricOf(raw: string, mode: DescMode): string {
+  const t = raw === '--' ? '' : raw
+  if (mode === 'full') return t.trim() === '' ? '' : t
+  return mode === 'smart' ? smartTrim(t) : clipLong(t)
+}
+
 /** 表34 的固定类型列（模板形状固定，其余类型只进总计并告警） */
 const T34_COLS = ['文档审查', '功能测试', '性能测试', '人机交互界面测试']
 
-export function buildConfData(parsed: ParsedOutline, first: RecordCase[], reg: RecordCase[], params: GlobalParams): ConfData {
+export function buildConfData(parsed: ParsedOutline, first: RecordCase[], reg: RecordCase[], params: GlobalParams, descMode: DescMode = 'smart'): ConfData {
   const issues = new IssueCollector()
   const rows = convertToTemplateData(parsed, params).cases
   const itemByKey = new Map(parsed.items.map(it => [keyOf(it.itemId, it.chapter), it]))
@@ -315,12 +352,18 @@ export function buildConfData(parsed: ParsedOutline, first: RecordCase[], reg: R
   const untestedNames: string[] = []
   const untestedItems: typeof parsed.items = []
   const noRecord: string[] = []
+  // 图片引用（表38 不含图）：需求描述/记录期望结果里带「如图/见图」等，文字会与图相关内容脱节
+  const figReqNames: string[] = []
+  const figResNames: string[] = []
+  // 需求描述超长（>400 字触发精简，生成后显性提示用户可换模式）
+  const longDescs = parsed.items.filter(it => it.reqDesc !== '--' && it.reqDesc.length > 400)
 
   for (const it of parsed.items) {
     const key = keyOf(it.itemId, it.chapter)
     const myRows = rowsOfKey.get(key) ?? []
     const failed = f.failedCases.get(key) ?? new Set<string>()
     const passed = f.passedCases.get(key) ?? new Set<string>()
+    if (FIG_RE.test(it.reqDesc)) figReqNames.push(it.name)
     let result: string
     if (failed.size > 0) {
       // 用户拍板（2026-11-22）：不写未通过——首轮有不通过的需求行写「经过测试符合要求」
@@ -343,14 +386,16 @@ export function buildConfData(parsed: ParsedOutline, first: RecordCase[], reg: R
     } else {
       // 首轮全通过：列4 = 该项各用例的记录文字（期望结果与评估标准拼接，截断同列3）
       const exps = f.caseExpects.get(key) ?? []
-      result = exps.length > 0 ? clipLong(exps.join('\n')) : '经过测试符合要求'
+      const joined = exps.join('\n')
+      if (joined !== '' && FIG_RE.test(joined)) figResNames.push(it.name)
+      result = exps.length > 0 ? clipLong(joined) : '经过测试符合要求'
       stats.firstPass++
       if (myRows.length > passed.size) noRecord.push(it.name + '（' + (myRows.length - passed.size) + ' 例未见记录）')
     }
     out.push({
       no: out.length + 1,
       source: it.traceRaw.trim(),
-      metric: clipLong(it.reqDesc === '--' ? '' : it.reqDesc),
+      metric: metricOf(it.reqDesc, descMode),
       result
     })
   }
@@ -367,6 +412,24 @@ export function buildConfData(parsed: ParsedOutline, first: RecordCase[], reg: R
   if (untestedNames.length > 0) {
     issues.warning('REPORT_ITEM_UNTESTED',
       untestedNames.length + ' 个测试项的用例在首轮记录中均未找到（' + joinNames(untestedNames) + '），对应行填「未测试」，请人工核对')
+  }
+  // 需求描述超长（2026-11-24）：显性告知精简动作，用户可在页面切换模式后重新生成
+  if (longDescs.length > 0) {
+    const maxLen = Math.max(...longDescs.map(it => it.reqDesc.length))
+    const modeText = descMode === 'smart'
+      ? '已按「智能精简」保留功能概述、省略处理流程等后续内容'
+      : descMode === 'clip' ? '已按约 400 字截断' : '已按选项全文保留，表38 篇幅将显著增大，请人工核对'
+    issues.info('REPORT_DESC_LONG',
+      longDescs.length + ' 个测试项的需求描述较长（最长 ' + maxLen + ' 字），表38「功能性能指标」列' + modeText + '；可在页面「需求描述较长时」选项切换后重新生成', joinNames(longDescs.map(it => it.name)))
+  }
+  // 图片引用（2026-11-24 用户反馈）：大纲/记录原文常写「如图X」，表38 无图时文字可能不连贯
+  if (figReqNames.length > 0) {
+    issues.info('REPORT_FIG_REQ',
+      figReqNames.length + ' 个测试项的需求描述引用了图片（如「如图」），表38 不含图片，对应「功能性能指标」文字可能与图相关内容不连贯，请人工核对', joinNames(figReqNames))
+  }
+  if (figResNames.length > 0) {
+    issues.warning('REPORT_FIG_RESULT',
+      figResNames.length + ' 个测试项的测评结果文字（取自记录「期望结果与评估标准」）引用了图片，表38 无图时表述可能不符合逻辑——请参照记录中的预期与需求描述，将对应行测评结果人工改写为文字描述', joinNames(figResNames))
   }
   // 改名嫌疑（2026-11-22 用户质疑"28 项肯定能找到"探针实证）：记录里存在同名用例但所属标识不同
   // → 大纲改版改名（如 关键词检索 XQ_SU_GCRT ↔ 记录旧标识 XQ_SU_PJRT），点名提示人工核对；不做自动改配（同名跨多项有歧义）
