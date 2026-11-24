@@ -345,6 +345,60 @@ describe('M10 表38 + 统计（v2：用例=步骤行）', () => {
     expect(data.rows[2].metric).toBe('Escalation 战术抽取能从恶意样本中围绕权限提升相关的代码模块，输出该战术相关的函数地址、摘要描述与对应的源码形态信息。\n……（已省略处理流程等内容，保留需求关键描述，全文详见需求规格说明）')
   })
 
+  test('智能精简异常形态：图题句/指针句是流程起点；「流程」开头的需求段不误切；短行精简也点名', () => {
+    const spec: DocSpec = {
+      content: [
+        { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+        { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项甲', 'XQ_A', '《某需求规格说明》3.1 甲',
+          '问答引擎子功能负责接收用户问题并生成精准答案。该功能主要流程如下图所示：\n1.接收用户问题。\n2.生成答案。',
+          '1.用例甲（XQ_A001）\n甲综述。', '1.用例甲（XQ_A001）\n1）执行操作甲；') },
+        { kind: 'p', para: { text: '性能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项乙', 'XQ_B', '《某需求规格说明》3.2 乙',
+          '支持生产任务的分配与检索。提交协同生产任务子功能的工作流程如图所示。\n首先用户提交任务，随后系统流转。',
+          '1.用例乙（XQ_B001）\n乙综述。', '1.用例乙（XQ_B001）\n1）执行操作乙；') },
+        { kind: 'p', para: { text: '文档审查', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项丙', 'XQ_C', '《某需求规格说明》3.3 丙',
+          '流程管理功能应支持配置导出与全流程追溯。系统应提供审批能力。',
+          '1.用例丙（XQ_C001）\n丙综述。', '1.用例丙（XQ_C001）\n1）执行操作丙；') },
+        { kind: 'p', para: { text: '静态分析', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项丁', 'XQ_D', '《某需求规格说明》3.4 丁',
+          '系统对文档内容进行解析与结构化整理。\n处理流程需求\n(1) 文档接入与识别。',
+          '1.用例丁（XQ_D001）\n丁综述。', '1.用例丁（XQ_D001）\n1）执行操作丁；') },
+        { kind: 'p', para: { text: '人机交互界面测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项戊', 'XQ_E', '《某需求规格说明》3.5 戊',
+          '用户发起请求后，系统根据请求判断是否进行记录查询操作，最终将分析结果返回给用户。该功能主要流程如下图所示：\n系统首先解析请求内容，随后执行任务。',
+          '1.用例戊（XQ_E001）\n戊综述。', '1.用例戊（XQ_E001）\n1）执行操作戊；') }
+      ]
+    }
+    const outline = extractOutline(buildDocx(spec), new IssueCollector())
+    const first = extractRecordCases(buildDocx({
+      content: [
+        { kind: 'p', para: { text: '测试记录', heading: 1 } },
+        recordTable('YL_A_001', '用例甲', 'XQ_A', ['通过'], '期望文字甲'),
+        recordTable('YL_B_001', '用例乙', 'XQ_B', ['通过'], '期望文字乙'),
+        recordTable('YL_C_001', '用例丙', 'XQ_C', ['通过'], '期望文字丙'),
+        recordTable('YL_D_001', '用例丁', 'XQ_D', ['通过'], '期望文字丁'),
+        recordTable('YL_E_001', '用例戊', 'XQ_E', ['通过'], '期望文字戊')
+      ]
+    }), new IssueCollector())
+    const data = buildConfData(outline, first, [], PARAMS)
+    // 项甲：图题句「主要流程如下图所示：」即流程起点——表38 无图，指图句不悬空留在正文
+    expect(data.rows[0].metric).toBe('问答引擎子功能负责接收用户问题并生成精准答案。\n……（已省略处理流程等内容，保留需求关键描述，全文详见需求规格说明）')
+    // 项乙：句号式指针句「…工作流程如图所示。」也是流程起点
+    expect(data.rows[1].metric).toBe('支持生产任务的分配与检索。\n……（已省略处理流程等内容，保留需求关键描述，全文详见需求规格说明）')
+    // 项丙：以「流程」开头的需求段不是段头（PROCESS 行尾锚定），短文原样保留
+    expect(data.rows[2].metric).toBe('流程管理功能应支持配置导出与全流程追溯。系统应提供审批能力。')
+    // 项丁：无标点裸行段头「处理流程需求」（真实形态）也是流程起点
+    expect(data.rows[3].metric).toBe('系统对文档内容进行解析与结构化整理。\n……（已省略处理流程等内容，保留需求关键描述，全文详见需求规格说明）')
+    // 项戊：句级判定一句不剩时保住流程截断后的主体原文（真实形态「交互管理功能测试」），不回退整段
+    expect(data.rows[4].metric).toBe('用户发起请求后，系统根据请求判断是否进行记录查询操作，最终将分析结果返回给用户。\n……（已省略处理流程等内容，保留需求关键描述，全文详见需求规格说明）')
+    // 实际被精简的行逐项点名（含 <400 字的短行），未动的项丙不点名
+    const dl = data.issues.find(i => i.code === 'REPORT_DESC_LONG')
+    const ctx = dl?.context ?? ''
+    expect(dl !== undefined && ctx.includes('项甲') && ctx.includes('项乙') && !ctx.includes('项丙')).toBe(true)
+  })
+
   test('图片引用提示：需求描述/记录期望结果含「如图/见图」分别点名（表38 无图）', () => {
     const spec: DocSpec = {
       content: [

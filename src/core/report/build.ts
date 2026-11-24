@@ -25,14 +25,20 @@ export const STATIC_TYPES = new Set(['文档审查', '静态分析', '代码审�
  *  smart = 智能精简（默认）：砍掉流程段（含其步骤），剩余部分句级提取需求关键句；clip = 400 字截断；full = 全文照排 */
 export type DescMode = 'smart' | 'clip' | 'full'
 
-/* —— 流程段识别（2026-11-24 真实大纲 128 个超长描述校准）——
- *  真实主流形态是「『项名』的处理流程：」（带项名前缀的短段+冒号结尾），其次「流程：」「处理流程如下：」，
- *  以及无段头直接开讲的「流程从…开始」；段内步骤混写也按段头截断。 */
-const PROCESS_HEAD_RE = /^[\s\d一二三四五六七八九十()（）、.．]*(?:主要|具体|业务|操作|处理|执行|实现|工作)*(?:流程|过程)(?:如下所示|如下|说明|描述)?\s*[：:]?/
-/** 「『项名』的处理流程：」「界面元素：」——前缀 ≤24 字、冒号收尾的短段头 */
-const SECTION_HEAD_RE = /^.{0,24}?(?:的)?(?:处理|操作|业务|执行|工作)?(?:流程|过程|界面元素)(?:如下所示|如下|说明|描述)?\s*[：:]\s*$/
+/* —— 流程段识别（2026-11-24 真实大纲 128 个超长描述校准 + 全量过度截断审计修正）——
+ *  真实主流形态是「『项名』的处理流程：」（带项名前缀的短段+冒号结尾），其次「流程：」「处理流程如下：」
+ *  「处理流程需求：」，以及无段头直接开讲的「流程从…开始」；图题句「主要流程如下图所示：」「工作流程如图所示。」
+ *  同为流程起点（表38 无图，指向图的句子悬空正是不符合逻辑的来源）；段内步骤混写由 MID 兜底。
+ *  PROCESS 必须**整段纯段头**（行尾锚定）——不锚定会把「流程管理功能应支持…」这类以流程开头的
+ *  需求段误判成段头；冒号可选以覆盖裸行段头（真实形态「处理流程需求」无任何标点）；
+ *  「段头+步骤同段」形态交给 MID 从段头字起点截。 */
+const PROCESS_HEAD_RE = /^[\s\d一二三四五六七八九十()（）、.．]*(?:主要|具体|业务|操作|处理|执行|实现|工作)*(?:流程|过程|界面元素)(?:需求|如下所示|如下图所示|如图所示|下图所示|如下|说明|描述)?\s*[：:]?\s*$/
+/** 「『项名』的处理流程：」「界面元素：」——前缀 ≤24 字（不含句读，避免吞掉整段混排句）、冒号收尾的短段头 */
+const SECTION_HEAD_RE = /^[^。！？；!?;]{0,24}?(?:的)?(?:处理|操作|业务|执行|工作)?(?:流程|过程|界面元素)(?:如下所示|如下图所示|如图所示|下图所示|如下|说明|描述)?\s*[：:]\s*$/
 /** 无段头的过程叙述段：「流程从…开始」「其流程为…」 */
 const FLOW_NARRATIVE_RE = /^其?(?:业务|操作|处理)?流程(?:从|为|是|分为|包括|开始|描述)/
+/** 图题/指针句（句号或冒号收尾）：「该功能主要流程如下图所示：」「…的工作流程如图所示。」「具体处理过程如图所示。」 */
+const FLOW_POINT_RE = /^(?:[^。！？；!?;]{0,20})(?:工作|业务|处理|操作)?(?:流程|过程)(?:如|如下图|如图|下图)所示[。：]\s*$/
 /** 需求情态句（关键部分）：能力/要求开头的句子必须保留，情态词兜底 */
 const REQ_SENT_START_RE = /^(?:能|可|支持|应|应当|须|必须|不得|包括|提供|对|给定|基于)/
 const REQ_SENT_HAS_RE = /不少于|至少|不得|必须|支持|用于|旨在/
@@ -234,11 +240,9 @@ function trimToKeySentences(text: string): { kept: string; dropped: boolean } {
   return { kept: out.join(''), dropped }
 }
 
-/** 段内段头句：「变量名恢复的处理流程：」这类段头可能混写在上一段段尾，句级扫描兜底 */
-const HEADER_SENT_RE = /^(?:[^。！？；!?;]{0,24})(?:的)?(?:处理|操作|业务|执行|工作)?(?:流程|过程|界面元素)(?:如下所示|如下|说明|描述)?[：:]\s*$/
 /** 段内任意位置段头（真实形态：英文前缀超长、与上文同句混排，如「…信息Privilege Escalation战术语义规范的处理流程：(1)…」）；
- *  前缀上限 40 且不含句读 → 不会跨句误配，命中即从段头起点截断 */
-const MID_HEADER_RE = /[^。！？；!?;]{0,40}(?:的)?(?:处理|操作|业务|执行|工作)?(?:流程|过程)(?:如下所示|如下|说明|描述)?[：:]/
+ *  前缀上限 40 且不含句读 → 不会跨句误配，命中即从段头起点截断；图题尾缀让「主要流程如下图所示：」也算段头 */
+const MID_HEADER_RE = /[^。！？；!?;]{0,40}(?:的)?(?:处理|操作|业务|执行|工作)?(?:流程|过程)(?:如下所示|如下图所示|如图所示|下图所示|如下|说明|描述)?[：:]/
 
 /** 智能精简（smart 模式，真实大纲 128 个超长描述校准的「只描述需求关键部分」）：
  *  ①定位流程起点——整段段头 / 段内段头句 / 「流程从…」开讲段，从起点起整块砍掉；
@@ -281,20 +285,29 @@ function smartTrim(text: string): string {
       break
     }
     for (const s of splitSentences(p)) {
-      if (FLOW_NARRATIVE_RE.test(s)) { cutPara = pi; cutOff = p.indexOf(s); break outer }
+      if (FLOW_NARRATIVE_RE.test(s) || FLOW_POINT_RE.test(s)) { cutPara = pi; cutOff = p.indexOf(s); break outer }
     }
   }
   const hasFlow = cutPara !== -1
   if (joined.length <= 400 && !hasFlow) return joined
   if (cutPara === 0 && cutOff === 0) return clipLong(joined)
   const body = hasFlow
-    ? (paras.slice(0, cutPara).join('\n') + '\n' + paras[cutPara].slice(0, cutOff)).trim().replace(/[，、]\s*$/, '。')
+    ? (paras.slice(0, cutPara).join('\n') + '\n' + paras[cutPara].slice(0, cutOff)).trim().replace(/[，、]\s*$/, '。').replace(/[：:]\s*$/, '。')
     : joined
   // 句读回退可能把句子截在词尾（如「…源码形态信息」）——补句号收口，表38 里不悬空
   const closedBody = /[一-龥A-Za-z0-9）)]$/.test(body) ? body + '。' : body
   if (closedBody === '') return clipLong(joined)
   const t = trimToKeySentences(closedBody)
-  if (t.kept === '') return clipLong(joined)
+  if (t.kept === '') {
+    // 句级判定一句不剩（需求句本身以「用户/系统」等叙述开头，真实形态「交互管理功能测试」）——
+    // 保住流程截断后的主体原文，绝不回退到含流程的整段
+    if (hasFlow) {
+      return closedBody.length > 400
+        ? clipLong(closedBody)
+        : closedBody + '\n……（已省略处理流程等内容，保留需求关键描述，全文详见需求规格说明）'
+    }
+    return clipLong(joined)
+  }
   let out = t.kept
   if (out.length > 400) return clipLong(out)
   if (hasFlow || t.dropped) {
@@ -439,8 +452,15 @@ export function buildConfData(parsed: ParsedOutline, first: RecordCase[], reg: R
   // 图片引用（表38 不含图）：需求描述/记录期望结果里带「如图/见图」等，文字会与图相关内容脱节
   const figReqNames: string[] = []
   const figResNames: string[] = []
-  // 需求描述超长（>400 字触发精简，生成后显性提示用户可换模式）
+  // 需求描述实际被精简的行（含短描述：有流程段即砍——不能只按 >400 提示，生成后逐项点名）
+  const changedDescs: Array<{ name: string; len: number }> = []
+  // 需求描述超长（>400 字）：full 模式下的篇幅提示
   const longDescs = parsed.items.filter(it => it.reqDesc !== '--' && it.reqDesc.length > 400)
+  /** 与 smart/clip 同口径归一的原文（空白差异不算「被精简」） */
+  const normDesc = (raw: string): string => {
+    const t = raw === '--' ? '' : raw
+    return t.split('\n').map(p => p.trim()).filter(p => p !== '').join('\n')
+  }
 
   for (const it of parsed.items) {
     const key = keyOf(it.itemId, it.chapter)
@@ -476,10 +496,14 @@ export function buildConfData(parsed: ParsedOutline, first: RecordCase[], reg: R
       stats.firstPass++
       if (myRows.length > passed.size) noRecord.push(it.name + '（' + (myRows.length - passed.size) + ' 例未见记录）')
     }
+    const metric = metricOf(it.reqDesc, descMode)
+    if (descMode !== 'full' && metric !== normDesc(it.reqDesc)) {
+      changedDescs.push({ name: it.name, len: it.reqDesc.length })
+    }
     out.push({
       no: out.length + 1,
       source: it.traceRaw.trim(),
-      metric: metricOf(it.reqDesc, descMode),
+      metric,
       result
     })
   }
@@ -497,14 +521,19 @@ export function buildConfData(parsed: ParsedOutline, first: RecordCase[], reg: R
     issues.warning('REPORT_ITEM_UNTESTED',
       untestedNames.length + ' 个测试项的用例在首轮记录中均未找到（' + joinNames(untestedNames) + '），对应行填「未测试」，请人工核对')
   }
-  // 需求描述超长（2026-11-24）：显性告知精简动作，用户可在页面切换模式后重新生成
-  if (longDescs.length > 0) {
-    const maxLen = Math.max(...longDescs.map(it => it.reqDesc.length))
-    const modeText = descMode === 'smart'
-      ? '已按「智能精简」提取需求关键描述、省略处理流程等内容'
-      : descMode === 'clip' ? '已按约 400 字截断' : '已按选项全文保留，表38 篇幅将显著增大，请人工核对'
-    issues.info('REPORT_DESC_LONG',
-      longDescs.length + ' 个测试项的需求描述较长（最长 ' + maxLen + ' 字），表38「功能性能指标」列' + modeText + '；可在页面「需求描述较长时」选项切换后重新生成', joinNames(longDescs.map(it => it.name)))
+  // 需求描述精简提示（2026-11-24 二轮口径）：按「实际被精简的行」点名（含短描述），full 模式只提示篇幅
+  if (descMode === 'full') {
+    if (longDescs.length > 0) {
+      const maxLen = Math.max(...longDescs.map(it => it.reqDesc.length))
+      issues.info('REPORT_DESC_LONG',
+        longDescs.length + ' 个测试项的需求描述较长（最长 ' + maxLen + ' 字），已按选项全文保留，表38 篇幅将显著增大，请人工核对', joinNames(longDescs.map(it => it.name)))
+    }
+  } else if (changedDescs.length > 0) {
+    const maxLen = Math.max(...changedDescs.map(d => d.len))
+    const text = descMode === 'smart'
+      ? changedDescs.length + ' 个测试项的需求描述已按「智能精简」提取关键内容、省略处理流程等部分（原文最长 ' + maxLen + ' 字），表38 对应行已附省略标记；如需全文可在页面「需求描述较长时」切换后重新生成'
+      : changedDescs.length + ' 个测试项的需求描述较长，已按约 400 字截断（原文最长 ' + maxLen + ' 字）；可切换「智能精简」或「全文保留」后重新生成'
+    issues.info('REPORT_DESC_LONG', text, joinNames(changedDescs.map(d => d.name)))
   }
   // 图片引用（2026-11-24 用户反馈）：大纲/记录原文常写「如图X」，表38 无图时文字可能不连贯
   if (figReqNames.length > 0) {
