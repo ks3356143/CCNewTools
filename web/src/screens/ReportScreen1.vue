@@ -34,7 +34,7 @@ let regFileRef: File | null = null
 /** 需求描述较长时的处理（2026-11-24 用户需求）：生成后在告警区点名哪些项被精简，可换模式重新生成 */
 type DescModeOpt = 'smart' | 'clip' | 'full'
 const DESC_OPTS: Array<{ v: DescModeOpt; label: string; note: string }> = [
-  { v: 'smart', label: '智能精简', note: '保留功能概述，省略「处理流程」等后续内容' },
+  { v: 'smart', label: '智能精简', note: '只保留需求关键描述，处理流程等过程内容省略' },
   { v: 'clip', label: '400 字截断', note: '按段落边界截断并标记省略' },
   { v: 'full', label: '全文保留', note: '不删任何内容，表38 篇幅会明显变大' }
 ]

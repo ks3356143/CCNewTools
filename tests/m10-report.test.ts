@@ -294,7 +294,7 @@ describe('M10 表38 + 统计（v2：用例=步骤行）', () => {
     }), new IssueCollector())
     const smart = buildConfData(outline, first, [], PARAMS)
     expect(smart.rows[0].metric).toBe('该功能用于核验甲能力。')
-    expect(smart.rows[1].metric).toBe('乙功能概述如下。\n……（处理流程等内容已省略，全文详见需求规格说明）')
+    expect(smart.rows[1].metric).toBe('乙功能概述如下。\n……（已省略处理流程等内容，保留需求关键描述，全文详见需求规格说明）')
     expect(smart.issues.some(i => i.code === 'REPORT_DESC_LONG' && i.message.includes('智能精简'))).toBe(true)
     // clip 模式（v1 原行为）：不认流程段头，按 400 字截断
     const clip = buildConfData(outline, first, [], PARAMS, 'clip')
@@ -305,6 +305,44 @@ describe('M10 表38 + 统计（v2：用例=步骤行）', () => {
     expect(full.rows[1].metric.includes('处理流程如下')).toBe(true)
     expect(full.rows[1].metric.includes('已省略')).toBe(false)
     expect(full.rows[1].metric.includes('（内容过长')).toBe(false)
+  })
+
+  test('智能精简真实形态：『项名』的处理流程：段头 + 段内嵌过程句；无段头「流程从…开讲」', () => {
+    // 真实大纲主流形态（128 个超长描述校准）：段头带项名前缀「变量名恢复的处理流程：」，
+    // 且首段需求句里混写过程叙述（该功能首先校验…若文件非法…）——只留需求关键句
+    const spec: DocSpec = {
+      content: [
+        { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+        { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项甲', 'XQ_A', '《某需求规格说明》3.1 甲',
+          '能将给定二进制函数中的变量恢复为有明确含义的名称。该功能首先校验文件是否为合法二进制格式。若文件非法，系统直接输出错误提示并结束流程。变量名恢复的处理流程：\n1.获取伪代码及变量上下文。\n2.输出推断依据。',
+          '1.用例甲（XQ_A001）\n甲综述。', '1.用例甲（XQ_A001）\n1）执行操作甲；') },
+        { kind: 'p', para: { text: '性能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项乙', 'XQ_B', '《某需求规格说明》3.2 乙',
+          'XX组件推荐功能用于将需求描述解析为结构化表示并生成推荐结果。流程从需求文本接收开始，首先进行初步解析，直至生成推荐结果或流程结束。用户需求进入子系统后被转交至推荐模块。',
+          '1.用例乙（XQ_B001）\n乙综述。', '1.用例乙（XQ_B001）\n1）执行操作乙；') },
+        { kind: 'p', para: { text: '文档审查', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('项丙', 'XQ_C', '《某需求规格说明》3.3 丙',
+          'Escalation 战术抽取能从恶意样本中围绕权限提升相关的代码模块，输出该战术相关的函数地址、摘要描述与对应的源码形态信息Privilege Escalation战术语义规范的处理流程：(1)通过深度学习分析提取技术语义。',
+          '1.用例丙（XQ_C001）\n丙综述。', '1.用例丙（XQ_C001）\n1）执行操作丙；') }
+      ]
+    }
+    const outline = extractOutline(buildDocx(spec), new IssueCollector())
+    const first = extractRecordCases(buildDocx({
+      content: [
+        { kind: 'p', para: { text: '测试记录', heading: 1 } },
+        recordTable('YL_A_001', '用例甲', 'XQ_A', ['通过'], '期望文字甲'),
+        recordTable('YL_B_001', '用例乙', 'XQ_B', ['通过'], '期望文字乙'),
+        recordTable('YL_C_001', '用例丙', 'XQ_C', ['通过'], '期望文字丙')
+      ]
+    }), new IssueCollector())
+    const data = buildConfData(outline, first, [], PARAMS)
+    // 项甲：段头截断 + 过程句剔除，只剩能力句
+    expect(data.rows[0].metric).toBe('能将给定二进制函数中的变量恢复为有明确含义的名称。\n……（已省略处理流程等内容，保留需求关键描述，全文详见需求规格说明）')
+    // 项乙：无段头「流程从…开讲」也算流程段，只留需求句
+    expect(data.rows[1].metric).toBe('XX组件推荐功能用于将需求描述解析为结构化表示并生成推荐结果。\n……（已省略处理流程等内容，保留需求关键描述，全文详见需求规格说明）')
+    // 项丙：英文前缀超长混排段头（真实残留形态）——截到段头名起点，需求枚举完整保留
+    expect(data.rows[2].metric).toBe('Escalation 战术抽取能从恶意样本中围绕权限提升相关的代码模块，输出该战术相关的函数地址、摘要描述与对应的源码形态信息。\n……（已省略处理流程等内容，保留需求关键描述，全文详见需求规格说明）')
   })
 
   test('图片引用提示：需求描述/记录期望结果含「如图/见图」分别点名（表38 无图）', () => {
