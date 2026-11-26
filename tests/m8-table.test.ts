@@ -1,8 +1,8 @@
 import { describe, test, expect } from 'bun:test'
-import { applyVmerge, headRowsOf, caseIdWithStepRange, traceColumnCount } from '../src/core/trace/table.ts'
+import { applyVmerge, headRowsOf, traceColumnCount } from '../src/core/trace/table.ts'
 import type { TraceHeadGroup, TraceRowVM } from '../src/core/trace/table.ts'
 
-/** 追踪表模型单元测试（M8 补充：vmerge 键规则 / 双层表头 / 步骤范围标识） */
+/** 追踪表模型单元测试（M8 补充：vmerge 键规则 / 双层表头） */
 
 const row = (cells: string[]): TraceRowVM => ({ cells, span: cells.map(() => 1) })
 
@@ -28,13 +28,6 @@ describe('M8 trace/table 模型', () => {
       { text: '章节号', colspan: 1, rowspan: 1 },
       { text: '名称', colspan: 1, rowspan: 1 }
     ])
-  })
-
-  test('caseIdWithStepRange：0 步不加后缀，1 步 -001，多步范围', () => {
-    expect(caseIdWithStepRange('YL_X_001', 0)).toBe('YL_X_001')
-    expect(caseIdWithStepRange('YL_X_001', 1)).toBe('YL_X_001-001')
-    expect(caseIdWithStepRange('YL_X_001', 5)).toBe('YL_X_001-001~005')
-    expect(caseIdWithStepRange('YL_X_001', 12)).toBe('YL_X_001-001~012')
   })
 
   test('applyVmerge：连续相同键整块合并，其余列不动', () => {

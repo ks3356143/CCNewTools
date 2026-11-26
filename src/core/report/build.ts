@@ -169,11 +169,22 @@ function aggregate(
     // 撞号消歧回退（2026-11-24 同事反馈排查出的静默盲区）：名称对不上且未重定位 → 结果记到回退行头上，
     // 被挤掉的那个项会凭空「未测试」，必须点名请人工核对（工具三 REGRESS_DUP_CASEID 的对等口径）
     if (!relocated && m.baseCount > 1 && !m.byName) {
-      // CaseRow.itemName 是挂载标题而非表内项名（真实大纲恰好同名，合成夹具才见分野）——取解析层项名最准
-      const firstName = itemByKey.get(keyOf(m.row.itemItemId, m.row.chapter))?.name ?? m.row.itemName
-      issues.warning('REPORT_DUP_CASEID',
-        '记录表 ' + rec.caseId + '（' + rec.caseName + '）的标识在大纲中有 ' + m.baseCount + ' 行且用例名称对不上，已按第一行（' + firstName + '）处理，请人工核对章节归属——其余同标识测试项可能因此显示「未测试」',
-        rec.caseName)
+      if (m.kind === 'segdrop') {
+        // 段级对齐的猜测性落位（子项号序数或回退首个）点名请核对
+        issues.warning(
+          'REPORT_SEG_MATCH',
+          '记录表 ' + rec.caseId + '（' + rec.caseName + '）比大纲用例标识多一段子项号「' + (m.segNote ?? '') + '」且用例名称对不上，已按' +
+            (m.segOrdinal !== undefined ? '子项号序数对应到该测试项第 ' + m.segOrdinal + ' 个用例' : '第一个匹配') +
+            '（' + row.caseId + '）处理，请人工核对',
+          rec.caseName
+        )
+      } else {
+        // CaseRow.itemName 是挂载标题而非表内项名（真实大纲恰好同名，合成夹具才见分野）——取解析层项名最准
+        const firstName = itemByKey.get(keyOf(m.row.itemItemId, m.row.chapter))?.name ?? m.row.itemName
+        issues.warning('REPORT_DUP_CASEID',
+          '记录表 ' + rec.caseId + '（' + rec.caseName + '）的标识在大纲中有 ' + m.baseCount + ' 行且用例名称对不上，已按第一行（' + firstName + '）处理，请人工核对章节归属——其余同标识测试项可能因此显示「未测试」',
+          rec.caseName)
+      }
     }
     agg.matched++
     const key = keyOf(row.itemItemId, row.chapter)

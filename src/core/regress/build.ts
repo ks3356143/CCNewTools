@@ -55,17 +55,18 @@ const normText = (s: string): string => s.replace(ZW_RE, '').replace(/\s+/g, '')
 const normId = (s: string): string => s.replace(ZW_RE, '').trim()
 
 /** 匹配结果：kind 标命中路径（无尾号/单用例兜底是猜测性匹配，歧义时必须提示）；
- *  byName = 撞号消歧时用例名是否硬命中（false 且 baseCount>1 → 回退首个，调用方应告警请人工核对） */
-export interface MatchResult { row: CaseRow; byName: boolean; kind: 'exact' | 'base' | 'segdrop' | 'single'; baseCount: number }
+ *  byName = 撞号消歧时用例名是否硬命中（false 且 baseCount>1 → 回退首个，调用方应告警请人工核对）；
+ *  segOrdinal/segNote = 段级对齐按子项号序数落位时被删的段与序数（猜测性，调用方点名） */
+export interface MatchResult { row: CaseRow; byName: boolean; kind: 'exact' | 'base' | 'segdrop' | 'single'; baseCount: number; segOrdinal?: number; segNote?: string }
 
 /** base 的段级变体（2026-11-27 同事揭晓的未匹配根因）：记录用例标识常比大纲多一段子项号
  *  （YL_SU_STJS_SU01_001 ↔ 大纲 YL_SU_STJS_001），精确/去尾号都够不着——删任一段后相等才认。
  *  工具二追踪对齐同款（导出共用）。 */
-export function segDropVariants(base: string): string[] {
+export function segDropVariants(base: string): Array<{ variant: string; dropped: string }> {
   const segs = base.split('_')
   if (segs.length < 3) return []
-  const out: string[] = []
-  for (let i = 0; i < segs.length; i++) out.push(segs.filter((_, k) => k !== i).join('_'))
+  const out: Array<{ variant: string; dropped: string }> = []
+  for (let i = 0; i < segs.length; i++) out.push({ variant: segs.filter((_, k) => k !== i).join('_'), dropped: segs[i] })
   return out
 }
 
@@ -90,13 +91,32 @@ export function matchRow(rows: CaseRow[], rec: RecordCase): MatchResult | null {
   if (b !== '') {
     const same = rows.filter(r => baseId(normId(r.caseId)) === b)
     if (same.length > 0) { const p = pickByName(same, rec); return { ...p, kind: 'base', baseCount: same.length } }
-    // 段级对齐：记录标识多一段子项号。删段候选必须全落同一个大纲形态（多个不同形态 = 歧义不猜），
-    // 之后交给 pickByName 按用例名消歧——歧义语义与既有 kind !== 'exact' 告警口径一致
-    const cands = segDropVariants(b).flatMap(v => rows.filter(r => baseId(normId(r.caseId)) === v))
-    const uniq = [...new Map(cands.map(r => [r.caseId + '\0' + r.chapter, r] as const)).values()]
-    if (uniq.length > 0 && new Set(uniq.map(r => baseId(normId(r.caseId)))).size === 1) {
-      const p = pickByName(uniq, rec)
-      return { ...p, kind: 'segdrop', baseCount: uniq.length }
+    // 段级对齐：记录标识多一段子项号（YL_IO_RWGL_IO01_001 ↔ 大纲 YL_IO_RWGL_001）。
+    // 删段候选必须全落同一个大纲基形（跨多个基形 = 歧义不猜）。落位优先级：
+    // 用例级子项标识硬键（大纲标题（XQ_IO_RWGL_IO01）派生）→ 用例名 → 子项号序数（IO01=该测试项第1个用例，
+    // 用户口径：一个测试项有 N 个子项就是 N 张用例表，序数即大纲用例序）→ 回退首行。
+    const cands: CaseRow[] = []
+    let droppedSeg = ''
+    for (const { variant, dropped } of segDropVariants(b)) {
+      const es = rows.filter(r => baseId(normId(r.caseId)) === variant)
+      if (es.length === 0) continue
+      if (droppedSeg === '') droppedSeg = dropped
+      for (const e of es) if (!cands.includes(e)) cands.push(e)
+    }
+    if (cands.length > 0 && new Set(cands.map(r => baseId(normId(r.caseId)))).size === 1) {
+      const hard = cands.filter(r => 'YL_' + normId(r.itemId).replace(/^XQ_/, '') === b)
+      if (hard.length === 1) return { row: hard[0], byName: true, kind: 'segdrop', baseCount: 1, segNote: droppedSeg }
+      const p = pickByName(cands, rec)
+      if (p.byName || cands.length === 1) return { ...p, kind: 'segdrop', baseCount: cands.length, segNote: droppedSeg }
+      // 用例名对不上 → 子项号序数兜底：序数段须有尾号数字、记录尾号须为 001（每子项一张表的同事口径）、
+      // 候选全落同一测试项同章节，序数在候选范围内才认（猜测性落位，调用方点名告警）
+      const ordN = parseInt(/(\d{1,3})$/.exec(droppedSeg)?.[1] ?? '0', 10)
+      const tailN = parseInt(/_(\d{1,4})$/.exec(normId(rec.caseId))?.[1] ?? '0', 10)
+      const itemKeys = new Set(cands.map(r => r.itemItemId + '\0' + r.chapter))
+      if (ordN >= 1 && ordN <= cands.length && tailN === 1 && itemKeys.size === 1) {
+        return { row: cands[ordN - 1], byName: false, kind: 'segdrop', baseCount: cands.length, segOrdinal: ordN, segNote: droppedSeg }
+      }
+      return { row: cands[0], byName: false, kind: 'segdrop', baseCount: cands.length, segNote: droppedSeg }
     }
   }
   if (rec.traceItemId !== '') {
@@ -196,7 +216,16 @@ export function selectRegressCases(parsed: ParsedOutline, records: RecordCase[],
     if (m.kind === 'exact' && m.baseCount > 1) {
       issues.warning('REGRESS_DUP_CASEID', '大纲中 ' + m.baseCount + ' 个用例共用标识 ' + rec.caseId + '（跨测试项重名），已按第一个匹配，请人工核对章节归属', rec.caseName)
     }
-    if (m.kind !== 'exact' && m.baseCount > 1) {
+    if (m.kind === 'segdrop' && m.baseCount > 1 && !m.byName) {
+      // 段级对齐的猜测性落位（序数或回退首个）必须点名，别让人猜程序怎么对的
+      issues.warning(
+        'REGRESS_SEG_MATCH',
+        '记录标识 ' + rec.caseId + ' 比大纲用例标识多一段子项号「' + (m.segNote ?? '') + '」且用例名称对不上，已按' +
+          (m.segOrdinal !== undefined ? '子项号序数对应到该测试项第 ' + m.segOrdinal + ' 个用例' : '第一个匹配') +
+          '（' + row.caseId + '）处理，请人工核对',
+        rec.caseName
+      )
+    } else if (m.kind !== 'exact' && m.kind !== 'segdrop' && m.baseCount > 1) {
       issues.warning('REGRESS_ID_AMBIG', '记录标识 ' + rec.caseId + ' 无用例尾号，对应测试项下有 ' + m.baseCount + ' 个用例，已按第一个（' + row.caseId + '）处理，请人工核对', rec.caseName)
     }
     if (rec.traceItemId !== '' && row.itemItemId !== '') {

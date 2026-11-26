@@ -287,6 +287,57 @@ describe('M10 表38 + 统计（v2：用例=步骤行）', () => {
     expect(data.stats.firstPass).toBe(1)
   })
 
+  test('两子项两张表（IO01/IO02 同用例名）：子项号序数落位 + REPORT_SEG_MATCH 点名', () => {
+    // 同事口径（2026-11-27）：一个测试项 2 个子项 = 2 张用例表（YL_IO_RWGL_IO01_001 / IO02_001），
+    // 子项号 = 大纲该测试项用例序；用例名对不上时按序数落位并点名请核对
+    const spec: DocSpec = {
+      content: [
+        { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+        { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('读写管理测试', 'XQ_IO_RWGL', '《某需求规格说明》3.1 读写', '读写需求描述原文。', '1.读写管理（XQ_IO_RWGL01）\n综述。\n2.读写管理（XQ_IO_RWGL02）\n综述。', '1.读写管理（XQ_IO_RWGL01）\n1）执行操作，查看结果是否正确；\n2.读写管理（XQ_IO_RWGL02）\n1）执行操作，查看结果是否正确；') }
+      ]
+    }
+    const outline = extractOutline(buildDocx(spec), new IssueCollector())
+    const first = extractRecordCases(buildDocx({
+      content: [
+        { kind: 'p', para: { text: '测试记录', heading: 1 } },
+        recordTable('YL_IO_RWGL_IO01_001', '同事随手写的名', 'XQ_IO_RWGL', ['通过'], '期望文字读', '读写管理测试'),
+        recordTable('YL_IO_RWGL_IO02_001', '同事随手写的名', 'XQ_IO_RWGL', ['通过'], '期望文字写', '读写管理测试')
+      ]
+    }), new IssueCollector())
+    const data = buildConfData(outline, first, [], PARAMS)
+    expect(data.stats.untested).toBe(0)
+    expect(data.stats.firstPass).toBe(1)
+    const warns = data.issues.filter(i => i.code === 'REPORT_SEG_MATCH')
+    expect(warns.length).toBe(2)
+    expect(warns.some(w => w.message.includes('第 1 个用例（YL_IO_RWGL_001）'))).toBe(true)
+    expect(warns.some(w => w.message.includes('第 2 个用例（YL_IO_RWGL_002）'))).toBe(true)
+  })
+
+  test('大纲用例标题带子项标识（XQ_IO_RWGL_IO01）：硬键落位，用例名对不上也不再猜', () => {
+    // 大纲标题的用例级标识派生硬键：XQ_IO_RWGL_IO01 → YL_IO_RWGL_IO01，与记录标识严丝合缝
+    const spec: DocSpec = {
+      content: [
+        { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+        { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('读写管理测试', 'XQ_IO_RWGL', '《某需求规格说明》3.1 读写', '读写需求描述原文。', '1.读写管理（XQ_IO_RWGL_IO01）\n综述。\n2.读写管理（XQ_IO_RWGL_IO02）\n综述。', '1.读写管理（XQ_IO_RWGL_IO01）\n1）执行操作，查看结果是否正确；\n2.读写管理（XQ_IO_RWGL_IO02）\n1）执行操作，查看结果是否正确；') }
+      ]
+    }
+    const outline = extractOutline(buildDocx(spec), new IssueCollector())
+    const first = extractRecordCases(buildDocx({
+      content: [
+        { kind: 'p', para: { text: '测试记录', heading: 1 } },
+        recordTable('YL_IO_RWGL_IO01_001', '同事随手写的名', 'XQ_IO_RWGL', ['通过'], '期望文字读', '读写管理测试'),
+        recordTable('YL_IO_RWGL_IO02_001', '同事随手写的名', 'XQ_IO_RWGL', ['未通过'], '期望文字写', '读写管理测试')
+      ]
+    }), new IssueCollector())
+    const data = buildConfData(outline, first, [], PARAMS)
+    // 硬键严丝合缝 → 静默落位，无猜测性告警；第二表未通过 → 首轮未通过
+    expect(data.stats.untested).toBe(0)
+    expect(data.stats.firstFail).toBe(1)
+    expect(data.issues.some(i => i.code === 'REPORT_SEG_MATCH')).toBe(false)
+  })
+
   test('记录表少于大纲用例：REPORT_COVERAGE 显性提示（解析漏表防线）', () => {
     const { outline, first } = parseFixtures()
     const data = buildConfData(outline, first.slice(0, 2), [], PARAMS)

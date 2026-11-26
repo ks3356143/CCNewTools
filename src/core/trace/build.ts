@@ -8,7 +8,7 @@
 import type { CaseRow } from '../convert/rows.ts'
 import type { RecordCase } from '../parse/record.ts'
 import type { ReturnSpecData } from '../parse/returnspec.ts'
-import { applyVmerge, caseIdWithStepRange, type TraceTable, type TraceRowVM, type TraceHeadGroup } from './table.ts'
+import { applyVmerge, type TraceTable, type TraceRowVM, type TraceHeadGroup } from './table.ts'
 import { segDropVariants } from '../regress/build.ts'
 import type { IssueCollector } from '../domain.ts'
 
@@ -180,6 +180,8 @@ interface AlignEntry {
   typeName: string
   /** 用例名（删段对齐多候选时按它消歧） */
   caseName: string
+  /** 用例级标识（大纲用例标题（XQ_IO_RWGL_IO01）派生硬键用；说明源没有 → ''） */
+  itemId: string
 }
 
 /** 标识键归一：剥零宽字符与首尾空白（matchRow 的 normId 同口径，工具二自己的防线） */
@@ -200,7 +202,8 @@ function alignIndexOfSpec(rs: ReturnSpecData): AlignIdx {
       itemName: c.traceItemName,
       itemItemId: c.traceItemId,
       typeName: c.typeName,
-      caseName: c.caseName
+      caseName: c.caseName,
+      itemId: ''
     }
     const id = normKey(c.caseId)
     ;(exact.get(id) ?? exact.set(id, []).get(id)!).push(entry)
@@ -227,7 +230,8 @@ function rowsToAlign(cases: CaseRow[]): AlignIdx {
       itemName: c.itemName,
       itemItemId: c.itemItemId,
       typeName: c.typeName,
-      caseName: c.mingcheng
+      caseName: c.mingcheng,
+      itemId: c.itemId
     }
     const id = normKey(c.caseId)
     ;(exact.get(id) ?? exact.set(id, []).get(id)!).push(entry)
@@ -237,24 +241,38 @@ function rowsToAlign(cases: CaseRow[]): AlignIdx {
   return { exact: exact, base: base }
 }
 
-/** 对齐取值：精确 → 去尾号 → 删一段子项号（2026-11-27 同事形态 YL_SU_STJS_SU01_001 ↔ YL_SU_STJS_001）。
- *  删段候选必须全落同一个大纲基形（跨多个基形 = 歧义不猜）；同基形多行按用例名消歧，对不上不猜。
+/** 对齐取值：精确 → 去尾号 → 删一段子项号（2026-11-27 同事形态 YL_IO_RWGL_IO01_001 ↔ 大纲 YL_IO_RWGL_001）。
+ *  删段候选必须全落同一个大纲基形（跨多个基形 = 歧义不猜）；落位优先级与 matchRow 同款：
+ *  用例级子项标识硬键（XQ_IO_RWGL_IO01 派生）→ 用例名 → 子项号序数（IO01=该测试项第1个用例，
+ *  一个测试项 N 个子项 = N 张用例表的同事口径；序数段带尾号数字、记录尾号为 001、候选同项同章才认）。
  *  viaSeg = 靠删段对上，调用方聚合提示。 */
 function alignGetEx(idx: AlignIdx, rec: { caseId: string; caseName: string }): { entry: AlignEntry; viaSeg: boolean } | undefined {
   const direct = idx.exact.get(normKey(rec.caseId)) ?? idx.base.get(baseOf(normKey(rec.caseId)))
   if (direct !== undefined && direct.length > 0) return { entry: direct[0], viaSeg: false }
+  const b = baseOf(normKey(rec.caseId))
   const cands: AlignEntry[] = []
   let bases = 0
-  for (const v of segDropVariants(baseOf(normKey(rec.caseId)))) {
-    const es = idx.base.get(v)
+  let droppedSeg = ''
+  for (const { variant, dropped } of segDropVariants(b)) {
+    const es = idx.base.get(variant)
     if (es === undefined || es.length === 0) continue
     bases++
+    if (droppedSeg === '') droppedSeg = dropped
     for (const e of es) if (!cands.includes(e)) cands.push(e)
   }
   if (cands.length === 0 || bases !== 1) return undefined
   if (cands.length === 1) return { entry: cands[0], viaSeg: true }
+  const hard = cands.filter(e => 'YL_' + e.itemId.replace(/^XQ_/, '') === b)
+  if (hard.length === 1) return { entry: hard[0], viaSeg: true }
   const byName = cands.filter(e => e.caseName.replace(/\s+/g, '') === rec.caseName.replace(/\s+/g, ''))
   if (byName.length === 1) return { entry: byName[0], viaSeg: true }
+  // 子项号序数兜底（猜测性落位；预览列值可见，聚合提示里已点名数量）
+  const ordN = parseInt(/(\d{1,3})$/.exec(droppedSeg)?.[1] ?? '0', 10)
+  const tailN = parseInt(/_(\d{1,4})$/.exec(normKey(rec.caseId))?.[1] ?? '0', 10)
+  const itemKeys = new Set(cands.map(e => e.itemItemId + '\0' + e.chapter))
+  if (ordN >= 1 && ordN <= cands.length && tailN === 1 && itemKeys.size === 1) {
+    return { entry: cands[ordN - 1], viaSeg: true }
+  }
   return undefined
 }
 
@@ -300,7 +318,7 @@ function buildReportTable(records: RecordCase[], align: AlignIdx, issues: IssueC
       c ? c.entry.itemName : '',
       c ? c.entry.itemItemId : '',
       c ? c.entry.typeName : '',
-      caseIdWithStepRange(rec.caseId, rec.stepCount),
+      rec.caseId,
       rec.caseName,
       deriveResult(rec),
       deriveRemark(rec)

@@ -71,20 +71,6 @@ export function applyVmerge(rows: TraceRowVM[], mergeCols: number[]): void {
   }
 }
 
-/** 拼接数字为三位序号（步骤范围写法用，样例：-001~005） */
-function pad3(n: number): string {
-  return String(n).padStart(3, '0')
-}
-
-/**
- * 用例标识 → 报告追踪表的带步骤范围写法（样例：YL_SU_ZLPA_001-001~005）。
- * n = 用例的步骤数；1 步写 -001，多步写 -001~00N。
- */
-export function caseIdWithStepRange(caseId: string, steps: number): string {
-  if (steps <= 0) return caseId
-  return steps === 1 ? `${caseId}-001` : `${caseId}-001~${pad3(steps)}`
-}
-
 /**
  * 双层表头的第一行：分组行（每个组一个 th，colspan=cols.length；独立组 rowspan=2）。
  * 供前端与剪贴板 HTML 复用。

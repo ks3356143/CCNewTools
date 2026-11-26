@@ -221,7 +221,7 @@ describe('M8 /api/trace/parse（四 tab 第 1 步）', () => {
     // 该大纲没写追踪关系 → 系统/需求规格说明四列都是 '/'
     expect(spec.rows[0].cells[1]).toBe('/')
     expect(spec.rows[0].cells[3]).toBe('/')
-    expect(spec.rows[0].cells[9]).toBe('YL_A_B_001-001~002')
+    expect(spec.rows[0].cells[9]).toBe('YL_A_B_001')
     expect(spec.rows[0].cells[11]).toBe('通过')
     expect(spec.rows[0].cells[12]).toBe('--')
     expect(spec.rows[0].cells[8]).toBe('功能测试')
@@ -499,6 +499,41 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     expect(iss3.issues.some(i => i.code === 'TRACE_ALIGN_MISS')).toBe(true)
   })
 
+  test('buildTraceTable report：一个测试项两个子项两张表（IO01/IO02，用例名相同）→ 子项号序数落位', () => {
+    // 同事口径（2026-11-27）：YL_IO_RWGL_IO01_001 / IO02_001，子项号 = 大纲该测试项用例序
+    const cases = [
+      mkCase({ caseId: 'YL_IO_RWGL_001', mingcheng: '读写管理', itemItemId: 'XQ_IO_RWGL', itemName: '读写管理测试', srsChapter: '3.1', srsDesc: '读' }),
+      mkCase({ caseId: 'YL_IO_RWGL_002', mingcheng: '读写管理', itemItemId: 'XQ_IO_RWGL', itemName: '读写管理测试', srsChapter: '3.3', srsDesc: '写' })
+    ]
+    const mk = (id: string): RecordCase => ({
+      caseName: '读写管理', caseId: id, traceChapter: '', traceItemName: '', traceItemId: 'XQ_IO_RWGL',
+      stepCount: 1, stepResults: ['通过'], executed: '已执行', problemId: '/', typeName: ''
+    } as RecordCase)
+    const iss = new IssueCollector()
+    const t = buildTraceTable({ type: 'report', outlineCases: cases, records: [mk('YL_IO_RWGL_IO01_001'), mk('YL_IO_RWGL_IO02_001')] }, iss)
+    // IO01 → 第 1 个用例（SRS 3.1），IO02 → 第 2 个用例（SRS 3.3），同名也分得开
+    expect(t.rows[0].cells[3]).toBe('3.1')
+    expect(t.rows[1].cells[3]).toBe('3.3')
+    expect(iss.issues.some(i => i.code === 'TRACE_ALIGN_MISS')).toBe(false)
+    expect(iss.issues.some(i => i.code === 'TRACE_MATCH_BY_SEG')).toBe(true)
+  })
+
+  test('buildTraceTable report：大纲用例标题带子项标识（XQ_IO_RWGL_IO01）→ 硬键优先，用例名对不上也对得准', () => {
+    const cases = [
+      mkCase({ caseId: 'YL_IO_RWGL_001', itemId: 'XQ_IO_RWGL_IO01', mingcheng: '读写管理', itemItemId: 'XQ_IO_RWGL', itemName: '读写管理测试', srsChapter: '3.1', srsDesc: '读' }),
+      mkCase({ caseId: 'YL_IO_RWGL_002', itemId: 'XQ_IO_RWGL_IO02', mingcheng: '读写管理', itemItemId: 'XQ_IO_RWGL', itemName: '读写管理测试', srsChapter: '3.3', srsDesc: '写' })
+    ]
+    const mk = (id: string): RecordCase => ({
+      caseName: '同事随手写的用例名', caseId: id, traceChapter: '', traceItemName: '', traceItemId: 'XQ_IO_RWGL',
+      stepCount: 1, stepResults: ['通过'], executed: '已执行', problemId: '/', typeName: ''
+    } as RecordCase)
+    const iss = new IssueCollector()
+    const t = buildTraceTable({ type: 'report', outlineCases: cases, records: [mk('YL_IO_RWGL_IO01_001'), mk('YL_IO_RWGL_IO02_001')] }, iss)
+    expect(t.rows[0].cells[3]).toBe('3.1')
+    expect(t.rows[1].cells[3]).toBe('3.3')
+    expect(iss.issues.some(i => i.code === 'TRACE_ALIGN_MISS')).toBe(false)
+  })
+
   test('applyVmergeToDocx：无合并需求时零改动', () => {
     const rows: TraceRowVM[] = [{ cells: ['1', 'a'], span: [1, 1] }]
     const buf = Buffer.from('not-a-zip')
@@ -532,7 +567,7 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     expect(t2.rows[0].cells[5]).toBe('6.2.1.1')
     expect(t2.rows[0].cells[6]).toBe('项A')
     expect(t2.rows[0].cells[8]).toBe('功能测试')
-    expect(t2.rows[0].cells[9]).toBe('YL_A_001-001')
+    expect(t2.rows[0].cells[9]).toBe('YL_A_001')
   })
 })
 
