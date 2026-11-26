@@ -128,6 +128,8 @@ export interface TestItem {
   criteriaOrphans?: string[]
   /** 追踪关系格解析出的需求规格说明信息（追踪表用） */
   traceSrs: { chapter: string; desc: string }
+  /** 追踪关系格解析出的系统规格说明信息（报告追踪表用；解析层总会给出，老夹具省略 → 消费侧按 '/' 兜底） */
+  traceSys?: { chapter: string; desc: string }
   /** 追踪关系格解析出的研制任务书信息（大纲追踪表用；老文档通常没有 → undefined） */
   traceTask?: { chapter: string; desc: string }
   /** 追踪关系格原文（F11 回归测试说明 4.1 表原文照抄用） */

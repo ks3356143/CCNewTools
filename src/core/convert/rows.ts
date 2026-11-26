@@ -37,6 +37,9 @@ export interface CaseRow {
   /** 需求规格说明章节号/描述（追踪表用，来自大纲追踪关系行） */
   srsChapter: string
   srsDesc: string
+  /** 系统规格说明章节号/名称（报告追踪表用；大纲没有 → '/'） */
+  sysChapter: string
+  sysName: string
   /** 研制任务书章节号/名称（大纲追踪表用；老文档没有 → '/'） */
   taskBookChapter: string
   taskBookName: string
@@ -210,6 +213,8 @@ export function buildRow(item: TestItem, c: RawCase, params: GlobalParams, issue
     itemItemId: item.itemId,
     srsChapter: item.traceSrs.chapter,
     srsDesc: item.traceSrs.desc,
+    sysChapter: item.traceSys?.chapter ?? '/',
+    sysName: item.traceSys?.desc ?? '/',
     taskBookChapter: item.traceTask?.chapter ?? '/',
     taskBookName: item.traceTask?.desc ?? '/',
     expectSource: expectSource,

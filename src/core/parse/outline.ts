@@ -1,4 +1,4 @@
-import { textOf, numPrOf, localName, bodyElements, type OfficeFile } from './docx.ts'
+import { textOf, numPrOf, localName, bodyElements, INVISIBLE_RE, type OfficeFile } from './docx.ts'
 import { parseNumbering, createChapterCounter } from './numbering.ts'
 import { parseStyles, headingLevel, styleNumPr } from './styles.ts'
 import { extractItemTable } from './table.ts'
@@ -54,7 +54,7 @@ export function extractOutline(office: OfficeFile, issues: IssueCollector): Pars
       // 标题内的软换行（br）视为同一标题的排版断行，直接删除——层名参与类型匹配，
       // "功能\n测试" 不能因断行而识别失败；零宽字符一并剥离（WPS 编辑常残留
       // U+200B/U+FEFF 等不可见字符，会让"同名"容器在前缀去重里判异）
-      const text = textOf(node).replace(/\n/g, '').replace(/[​‌‍﻿]/g, '').trim()
+      const text = textOf(node).replace(/\n/g, '').replace(INVISIBLE_RE, '').trim()
       // 空标题（只挂编号没写文字）不进栈：进栈会以空名参与类型/组判定
       if (text === '') continue
       // 编号可能在段落直接格式或标题样式定义里（真实大纲：heading1-9 样式各带 numId+ilvl）
@@ -166,6 +166,7 @@ function assembleItem(
   const cases = parseMethod(expandSoftBreaks(t.method), issues, ctx)
   const desc = parseDescription(expandSoftBreaks(t.description), issues, ctx)
   const critCell = parseCriteriaCell(expandSoftBreaks(t.criteria), issues, ctx)
+  const traceRel = parseTraceRel(t.traceText)
   const item: TestItem = {
     name: t.name,
     itemId: t.itemId,
@@ -178,8 +179,9 @@ function assembleItem(
     cases: cases,
     criteriaCases: critCell.entries,
     criteriaOrphans: critCell.orphanItems,
-    traceSrs: parseTraceRel(t.traceText).srs,
-    traceTask: parseTraceRel(t.traceText).task,
+    traceSrs: traceRel.srs,
+    traceSys: traceRel.sys,
+    traceTask: traceRel.task,
     traceRaw: t.traceText,
     priority: t.priority,
     reqDesc: t.reqDesc,
@@ -193,6 +195,15 @@ function assembleItem(
 
   if (item.itemId === '') {
     issues.error('ITEM_ID_MISSING', '测试项「' + item.name + '」缺少测试项标识', ctx)
+  }
+
+  // 追踪关系有字但三类文档章节号一个都没认出来 → 点名告警（此前静默 '--'，同事反馈才发现）
+  if (traceRel.task.chapter === '/' && traceRel.sys.chapter === '/' && traceRel.srs.chapter === '/') {
+    const raw = t.traceText.trim()
+    if (raw !== '' && raw !== '/' && raw !== '／') {
+      const brief = raw.length > 40 ? raw.slice(0, 40) + '…' : raw
+      issues.warning('TRACE_REL_UNPARSED', '测试项「' + item.name + '」的追踪关系「' + brief + '」未能识别出文档章节号，追踪表对应列将为空，请人工核查该格写法', ctx)
+    }
   }
 
   // 标识一致性（02 第八节）：测试项标识 vs 用例需求标识前缀
@@ -210,41 +221,50 @@ function assembleItem(
 }
 
 /**
- * 追踪关系格 → 研制任务书 + 需求规格说明两块（大纲追踪表 2026-10-10 改版）。
- * 格内多行常是软换行（w:br 被拼成一行），按文档标签切分而非按行：
- * 识别"（软件）研制任务书 3.2节 名称"与"（软件）需求规格说明 4.4节 名称"；
- * 无标签裸文本兜底老写法"4.3.1.2 章节名称"（整段当 SRS，与旧版逐字节一致）；"/"或空 → 双斜杠。
+ * 追踪关系格 → 研制任务书 + 系统规格说明 + 需求规格说明三块（2026-11-27 报告追踪两列需求）。
+ * 格内多行常是软换行（w:br 被拼成一行），按文档标签切分而非按行。
+ * 现实格式容错（同事反馈"某些行没有内容"）：先剥不可见字符、全角数字归半角；
+ * 标签到章节号之间容忍书名号/空格/标点/「第」「的」/括号等噪声；无标签裸文本兜底老写法
+ * "4.3.1.2 章节名称"（整段当 SRS，与旧版一致）；"/"或空 → 三块双斜杠。
  */
-export function parseTraceRel(text: string): { task: { chapter: string; desc: string }; srs: { chapter: string; desc: string } } {
-  const t = text.trim()
-  const empty = { chapter: '/', desc: '/' }
-  if (t === '' || t === '/' || t === '／') return { task: empty, srs: empty }
-  const task = { chapter: '/', desc: '/' }
-  const srs = { chapter: '/', desc: '/' }
-  // 标签段截断：描述到下一个文档标签（或字符串尾）为止，防单行混排时吞掉后续标签
-  const cutDesc = (s: string): string => {
-    const m = /(?:软件)?(?:研制)?任务书\s*》?\s*[0-9]|(?:软件)?需求规格说明\s*》?\s*[0-9]/.exec(s)
-    return (m !== null ? s.slice(0, m.index) : s).trim()
-  }
-  const mt = /(?:研制)?任务书\s*》?\s*([0-9][0-9.]*)\s*节?\s*/.exec(t)
-  if (mt !== null) {
-    task.chapter = mt[1]
-    task.desc = cutDesc(t.slice(mt.index + mt[0].length)) || '/'
-  }
-  const ms = /需求规格说明\s*》?\s*([0-9][0-9.]*)\s*节?\s*/.exec(t)
-  if (ms !== null) {
-    srs.chapter = ms[1]
-    srs.desc = cutDesc(t.slice(ms.index + ms[0].length)) || '/'
-  }
+export interface TraceDocRef { chapter: string; desc: string }
+
+/** 从标签落点解析「章节号 + 描述」；标签在但章节号不跟在后面（如纯引用无编号）→ null */
+function traceDocOf(t: string, labelRe: RegExp): TraceDocRef | null {
+  const lm = labelRe.exec(t)
+  if (lm === null) return null
+  const after = t.slice(lm.index + lm[0].length)
+  const nm = /^[\s》〉）)】〕\]:：、，,；;第的]*[（(【\[]?\s*([0-9][0-9.]*)/.exec(after)
+  if (nm === null) return null
+  const rest = after.slice(nm[0].length).replace(/^\s*[）)】\]]?\s*节?\s*/, '')
+  // 截到下一个文档标签为止；锚点带上标签前的《书名》前缀（"…功能；《XX需求规格说明》"不留残尾）
+  const next = /(?:《[^《》]*)?(?:研制)?任务书|(?:《[^《》]*)?系统规格说明|(?:《[^《》]*)?(?:软件)?需求规格说明/.exec(rest)
+  let desc = (next !== null ? rest.slice(0, next.index) : rest).trim()
+  desc = desc.replace(/[；;，,、。\s]+$/, '')
+  return { chapter: nm[1], desc: desc !== '' ? desc : '/' }
+}
+
+export function parseTraceRel(text: string): { task: TraceDocRef; sys: TraceDocRef; srs: TraceDocRef } {
+  const dash = (): TraceDocRef => ({ chapter: '/', desc: '/' })
+  // 零宽字符会卡断「需求规格说明」与章节号之间的匹配；全角数字进不了 [0-9] —— 都先归一
+  const t = text
+    .replace(INVISIBLE_RE, '')
+    .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/．/g, '.')
+    .trim()
+  if (t === '' || t === '/' || t === '／') return { task: dash(), sys: dash(), srs: dash() }
+  const task = traceDocOf(t, /(?:研制)?任务书/) ?? dash()
+  const sys = traceDocOf(t, /系统规格说明/) ?? dash()
+  const srs = traceDocOf(t, /(?:软件)?需求规格说明/) ?? dash()
   // 无标签裸文本兜底：老写法"4.3.1.2 章节名称"整段当 SRS（与旧版逐字节一致）
-  if (srs.chapter === '/' && task.chapter === '/') {
+  if (srs.chapter === '/' && sys.chapter === '/' && task.chapter === '/') {
     const m = /》\s*([0-9][0-9.]*)\s*(.*)/.exec(t) ?? /^([0-9][0-9.]*)\s+(.*)$/.exec(t)
     if (m !== null) {
       srs.chapter = m[1]
-      srs.desc = (m[2] ?? '').trim() !== '' ? m[2].trim() : '/'
+      srs.desc = (m[2] ?? '').trim() !== '' ? (m[2] ?? '').trim() : '/'
     }
   }
-  return { task: task, srs: srs }
+  return { task, sys, srs }
 }
 
 /** 追踪关系格 → 需求规格说明的章节号与描述（说明/回归表的追踪行解析沿用）。"/"或空 → 两条斜杠。 */

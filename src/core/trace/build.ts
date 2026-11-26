@@ -1,7 +1,7 @@
 /**
  * 四类追踪表构建（12-追踪文档工具 v2）。
  * 大纲 → 大纲追踪表（6 列）/ 说明追踪表（8 列）；
- * 测试记录 + 大纲 → 报告追踪表（11 列，标识对齐补需求列）；
+ * 测试记录 + 大纲 → 报告追踪表（13 列，标识对齐补需求列）；
  * 回归说明 + 大纲 → 回归说明追踪表（9 列）。
  * 全部走统一 TraceTable 模型（双层表头 + vmerge）。
  */
@@ -51,9 +51,11 @@ export const HEADS_SPEC: TraceHeadGroup[] = [
   { group: '测试用例', cols: ['测试用例名称', '测试用例标识'] }
 ]
 
-/** 报告追踪表表头（报告附件2「软件满足软件需求规格说明对照表」，11 列） */
+/** 报告追踪表表头（报告附件2「软件满足软件需求规格说明对照表」，13 列：
+ *  2026-11-27 同事反馈加系统规格说明块，文档链 = 系统规格说明 → 需求规格说明 → 测评大纲 → 用例） */
 export const HEADS_REPORT: TraceHeadGroup[] = [
   { group: '', cols: ['序号'] },
+  { group: '系统规格说明', cols: ['章节号', '章节名称'] },
   { group: '软件需求规格说明', cols: ['章节号', '章节描述'] },
   { group: '测评大纲', cols: ['章节号', '测试项名称', '测试项标识', '测试类型'] },
   { group: '测试用例', cols: ['测试用例标识', '名称', '执行结果'] },
@@ -72,7 +74,7 @@ export const HEADS_RETURNSPEC: TraceHeadGroup[] = [
 const MERGE_COLS: Record<TraceTable['type'], number[]> = {
   outline: [],
   spec: [1, 2, 3, 4, 5],
-  report: [1, 2, 3, 4, 5, 6],
+  report: [1, 2, 3, 4, 5, 6, 7, 8],
   returnSpec: [1, 2, 3, 4, 5]
 }
 
@@ -80,7 +82,7 @@ const MERGE_COLS: Record<TraceTable['type'], number[]> = {
  * 大纲表按形态二选一（7 列无任务书 / 9 列含任务书，服务端按行列数分派） */
 export const TYPE_VARS: Record<Exclude<TraceTable['type'], 'outline'>, string[]> = {
   spec: ['no', 'srsChapter', 'srsDesc', 'outlineChapter', 'itemName', 'itemItemId', 'caseName', 'caseId'],
-  report: ['no', 'srsChapter', 'srsDesc', 'outlineChapter', 'itemName', 'itemItemId', 'typeName', 'caseId', 'caseName', 'result', 'remark'],
+  report: ['no', 'sysChapter', 'sysName', 'srsChapter', 'srsDesc', 'outlineChapter', 'itemName', 'itemItemId', 'typeName', 'caseId', 'caseName', 'result', 'remark'],
   returnSpec: ['no', 'srsChapter', 'srsDesc', 'outlineChapter', 'itemName', 'itemItemId', 'caseChapter', 'caseName', 'caseId']
 }
 
@@ -165,8 +167,10 @@ function baseOf(caseId: string): string {
   return caseId.replace(/_\d+$/, '')
 }
 
-/** 对齐源条目：按用例标识取"对齐文档侧"的信息（大纲源全有、说明源 SRS 空） */
+/** 对齐源条目：按用例标识取"对齐文档侧"的信息（大纲源全有、说明源 SRS/系统规格说明空） */
 interface AlignEntry {
+  sysChapter: string
+  sysName: string
   srsChapter: string
   srsDesc: string
   chapter: string
@@ -175,13 +179,15 @@ interface AlignEntry {
   typeName: string
 }
 
-/** 说明（ReturnSpecData）→ 对齐索引：大纲侧信息取用例表追踪关系行，SRS 说明里没有 → 留空 */
+/** 说明（ReturnSpecData）→ 对齐索引：大纲侧信息取用例表追踪关系行，SRS/系统规格说明里没有 → 留空 */
 function alignIndexOfSpec(rs: ReturnSpecData): { exact: Map<string, AlignEntry>; base: Map<string, AlignEntry> } {
   const exact = new Map<string, AlignEntry>()
   const base = new Map<string, AlignEntry>()
   for (const c of rs.cases) {
     if (c.caseId === '') continue
     const entry: AlignEntry = {
+      sysChapter: '',
+      sysName: '',
       srsChapter: '',
       srsDesc: '',
       chapter: c.traceChapter,
@@ -199,12 +205,14 @@ function alignIndexOfSpec(rs: ReturnSpecData): { exact: Map<string, AlignEntry>;
 /** 对齐索引统一形态（大纲源与说明源共用） */
 type AlignIdx = { exact: Map<string, AlignEntry>; base: Map<string, AlignEntry> }
 
-/** 大纲 cases → 对齐索引（SRS/大纲章节号/项名/项标识/类型全有） */
+/** 大纲 cases → 对齐索引（系统规格说明/SRS/大纲章节号/项名/项标识/类型全有） */
 function rowsToAlign(cases: CaseRow[]): AlignIdx {
   const exact = new Map<string, AlignEntry>()
   const base = new Map<string, AlignEntry>()
   for (const c of cases) {
     const entry: AlignEntry = {
+      sysChapter: c.sysChapter,
+      sysName: c.sysName,
       srsChapter: c.srsChapter,
       srsDesc: c.srsDesc,
       chapter: c.chapter,
@@ -238,10 +246,10 @@ function deriveRemark(rec: RecordCase): string {
 }
 
 /**
- * 报告追踪表（11 列）：记录解析结果 + 对齐源（大纲 cases 或说明文档解析，自动识别后二选一）按用例标识对齐。
- * SRS/大纲章节号/项名/项标识/测试类型来自对齐源（记录里没有）；
+ * 报告追踪表（13 列）：记录解析结果 + 对齐源（大纲 cases 或说明文档解析，自动识别后二选一）按用例标识对齐。
+ * 系统规格说明/SRS/大纲章节号/项名/项标识/测试类型来自对齐源（记录里没有）；
  * 用例名/步骤范围/执行结果/备注来自记录。对不上的行需求列留空 + 告警，不拦截。
- * SRS 两列仅在配对大纲时有值——说明作源时说明文档里没有 SRS，留空人工补。
+ * 系统规格说明与 SRS 两块仅在配对大纲时有值——说明作源时说明文档里没有，留空人工补。
  */
 function buildReportTable(records: RecordCase[], align: AlignIdx, issues: IssueCollector): TraceTable {
   const cellsList: string[][] = []
@@ -256,6 +264,8 @@ function buildReportTable(records: RecordCase[], align: AlignIdx, issues: IssueC
     }
     cellsList.push([
       String(cellsList.length + 1),
+      c ? c.sysChapter : '',
+      c ? c.sysName : '',
       c ? c.srsChapter : '',
       c ? c.srsDesc : '',
       c ? c.chapter : '',
@@ -270,7 +280,7 @@ function buildReportTable(records: RecordCase[], align: AlignIdx, issues: IssueC
   }
   const rows: TraceRowVM[] = cellsList.map(cells => ({ cells: cells, span: cells.map(() => 1) }))
   applyVmerge(rows, MERGE_COLS.report)
-  return { type: 'report', heads: HEADS_REPORT, rows: rows, editableCol: 9 }
+  return { type: 'report', heads: HEADS_REPORT, rows: rows, editableCol: 11 }
 }
 
 /**

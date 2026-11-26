@@ -313,6 +313,9 @@ export function attr(el: Element, name: string, ns: string = W): string | null {
  * 用例标题行/步骤行全部粘连，切分整段失准（一个步骤粘下一千多字符）。
  * w:tab 维持既有行为（丢弃），消费方按需展开（见 cases.ts expandSoftBreaks）。
  */
+/** Word/WPS 粘贴常残留的不可见字符（零宽连接符等），标签/标识匹配前一律剥离 */
+export const INVISIBLE_RE = /[​‌‍﻿⁠]/g
+
 export function textOf(p: Node): string {
   let out = ''
   const walk = (node: Node): void => {

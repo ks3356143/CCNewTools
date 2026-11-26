@@ -1,4 +1,4 @@
-import { children, textOf, numPrOf, W, type ParaInfo } from './docx.ts'
+import { children, textOf, numPrOf, INVISIBLE_RE, W, type ParaInfo } from './docx.ts'
 
 export type CellParas = ParaInfo[]
 
@@ -67,7 +67,8 @@ export function extractItemTable(tbl: Element): ItemTable | null {
   for (let i = 1; i < rows.length; i++) {
     const cells = children(rows[i], W, 'tc')
     if (!cells.length) continue
-    const label = textOf(cells[0]).trim()
+    // 标签里的零宽字符先剥离：标题层已这么做，「追踪​关系」这类残留会让整行取值静默落空
+    const label = textOf(cells[0]).replace(INVISIBLE_RE, '').trim()
     let best: CellParas = []
     for (let j = cells.length - 1; j >= 1; j--) {
       const ps = cellParas(cells[j])

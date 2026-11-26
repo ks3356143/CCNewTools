@@ -9,6 +9,7 @@ import { handle } from '../src/server/app.ts'
 import { renderTemplate, stripAnchorMarks } from '../src/core/render/docx.ts'
 import { applyVmergeToDocx } from '../src/core/render/vmerge.ts'
 import { buildTraceTable } from '../src/core/trace/build.ts'
+import { parseTraceRel } from '../src/core/parse/outline.ts'
 import { DEFAULT_PARAMS, IssueCollector } from '../src/core/domain.ts'
 import type { TraceRowVM, TraceTable } from '../src/core/trace/table.ts'
 import type { CaseRow } from '../src/core/convert/rows.ts'
@@ -116,10 +117,13 @@ describe('M8 四套追踪模板', () => {
     }
   })
 
-  test('报告模板表头：11 列（含测试类型/执行结果/备注）', () => {
+  test('报告模板表头：13 列（系统规格说明块在需求规格说明前 + 测试类型/执行结果/备注）', () => {
     const text = textOf(readFileSync(join(import.meta.dir, '../模板/追踪-报告模板.docx')))
-    for (const h of ['测评大纲', '测试类型', '测试用例标识', '名称', '执行结果', '备注']) {
+    for (const h of ['系统规格说明', '章节名称', '软件需求规格说明', '测评大纲', '测试类型', '测试用例标识', '名称', '执行结果', '备注']) {
       expect(text).toContain(h)
+    }
+    for (const v of ['{sysChapter}', '{sysName}', '{srsChapter}', '{remark}']) {
+      expect(text).toContain(v)
     }
   })
 
@@ -156,14 +160,16 @@ describe('M8 四套追踪模板', () => {
   test('渲染：占位符变量与模板循环行一致，数据全落位无残留', () => {
     const buf = readFileSync(join(import.meta.dir, '../模板/追踪-报告模板.docx'))
     const rows = [
-      { no: '1', srsChapter: '3.1', srsDesc: '参数管理', outlineChapter: '6.2.1.4.1', itemName: '参数管理测试', itemItemId: 'XQ_A_B', typeName: '功能测试', caseId: 'YL_A_B_001-001~002', caseName: '用例一', result: '通过', remark: '--' }
+      { no: '1', sysChapter: '4.1.2', sysName: '系统级功能', srsChapter: '3.1', srsDesc: '参数管理', outlineChapter: '6.2.1.4.1', itemName: '参数管理测试', itemItemId: 'XQ_A_B', typeName: '功能测试', caseId: 'YL_A_B_001-001~002', caseName: '用例一', result: '通过', remark: '--' }
     ]
     const out = stripAnchorMarks(renderTemplate(buf, { traceRows: rows, configName: 'C' }))
     expect(out.subarray(0, 2).toString()).toBe('PK')
     const text = textOf(out)
     expect(text).toContain('YL_A_B_001-001~002')
+    expect(text).toContain('4.1.2')
+    expect(text).toContain('系统级功能')
     expect(text).toContain('通过')
-    for (const bad of ['{traceRows}', '{no}', '{caseId}', '{result}', '{configName}', '_TR_BEGIN_', '_TR_END_']) {
+    for (const bad of ['{traceRows}', '{no}', '{sysChapter}', '{sysName}', '{caseId}', '{result}', '{configName}', '_TR_BEGIN_', '_TR_END_']) {
       expect(text.includes(bad)).toBe(false)
     }
     assertWellFormed(xmlOf(out))
@@ -197,7 +203,7 @@ describe('M8 /api/trace/parse（四 tab 第 1 步）', () => {
     expect(spec.rows[1].span[6]).toBe(1)
   })
 
-  test('report：记录 + 项目库大纲 → 11 列对齐（步骤范围/执行结果/备注自动推导）', async () => {
+  test('report：记录 + 项目库大纲 → 13 列对齐（步骤范围/执行结果/备注自动推导）', async () => {
     // 先上传大纲建档（拿 outlineHash）
     const f0 = new FormData()
     f0.append('file', new File([new Uint8Array(sampleOutline())], '大纲T.docx'))
@@ -210,13 +216,16 @@ describe('M8 /api/trace/parse（四 tab 第 1 步）', () => {
     const r = await postForm('/api/trace/parse', form)
     expect(r.status).toBe(200)
     const spec = r.body.spec as TraceTable
-    expect(spec.heads.reduce((a: number, g: any) => a + g.cols.length, 0)).toBe(11)
+    expect(spec.heads.reduce((a: number, g: any) => a + g.cols.length, 0)).toBe(13)
     expect(spec.rows.length).toBe(1)
-    expect(spec.rows[0].cells[7]).toBe('YL_A_B_001-001~002')
-    expect(spec.rows[0].cells[9]).toBe('通过')
-    expect(spec.rows[0].cells[10]).toBe('--')
-    expect(spec.rows[0].cells[6]).toBe('功能测试')
-    expect(spec.editableCol).toBe(9)
+    // 该大纲没写追踪关系 → 系统/需求规格说明四列都是 '/'
+    expect(spec.rows[0].cells[1]).toBe('/')
+    expect(spec.rows[0].cells[3]).toBe('/')
+    expect(spec.rows[0].cells[9]).toBe('YL_A_B_001-001~002')
+    expect(spec.rows[0].cells[11]).toBe('通过')
+    expect(spec.rows[0].cells[12]).toBe('--')
+    expect(spec.rows[0].cells[8]).toBe('功能测试')
+    expect(spec.editableCol).toBe(11)
   })
 
   test('report：缺大纲 → 400 明确报错', async () => {
@@ -320,7 +329,7 @@ describe('M8 /api/trace/generate（rows 渲染 + vMerge 后处理）', () => {
 
   test('执行结果编辑值随 rows 进入产物', async () => {
     const rows: TraceRowVM[] = [
-      { cells: ['1', '', '', '', '', '', '手工用例', 'YL_X_001', '手工用例', '未通过', 'PT_T_1'], span: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] }
+      { cells: ['1', '', '', '', '', '', '', '', '', 'YL_X_001', '手工用例', '未通过', 'PT_T_1'], span: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] }
     ]
     const res = await fetch(URL0 + '/api/trace/generate', {
       method: 'POST',
@@ -367,7 +376,7 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     path: [], typeName: '功能测试', groupName: null, itemName: '项A', chapter: '6.2.1.1',
     itemId: 'XQ_A', caseId: 'YL_A_001', mingcheng: '用例', summary: '', init: '', constraint: '',
     steps: [], designer: '', testTime: '', tester: '', monitor: '', trace: '', itemItemId: 'XQ_A',
-    srsChapter: '/', srsDesc: '/', taskBookChapter: '/', taskBookName: '/', expectSource: '方法切分', suspectCount: 0,
+    srsChapter: '/', srsDesc: '/', sysChapter: '/', sysName: '/', taskBookChapter: '/', taskBookName: '/', expectSource: '方法切分', suspectCount: 0,
     reviewed: false, excluded: false, dismissedSuspects: [],
     ...over
   } as CaseRow)
@@ -436,7 +445,7 @@ describe('M8 vmerge 后处理与表构建单元', () => {
   })
 
   test('buildTraceTable report：标识去序号兜底 + miss 告警 + 执行结果推导', () => {
-    
+
     const cases = [mkCase({ caseId: 'YL_A_001', srsChapter: '3.1', srsDesc: '参数' })]
     const rec = (over: Partial<RecordCase>): RecordCase => ({
       caseName: '用例', caseId: 'YL_A_001', traceChapter: '', traceItemName: '', traceItemId: '',
@@ -444,18 +453,18 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     } as RecordCase)
     const iss1 = new IssueCollector()
     const t1 = buildTraceTable({ type: 'report', outlineCases: cases, records: [rec({ caseId: 'YL_A' })] }, iss1)
-    expect(t1.rows[0].cells[3]).toBe('6.2.1.1') // base 兜底命中
+    expect(t1.rows[0].cells[5]).toBe('6.2.1.1') // base 兜底命中
     expect(iss1.issues.length).toBe(0)
     const iss2 = new IssueCollector()
     const t2 = buildTraceTable({ type: 'report', outlineCases: cases, records: [rec({ caseId: 'YL_NOPE_009' })] }, iss2)
-    expect(t2.rows[0].cells[3]).toBe('')
+    expect(t2.rows[0].cells[5]).toBe('')
     expect(iss2.issues.filter(i => i.code === 'TRACE_ALIGN_MISS').length).toBe(1)
     // 执行结果：有未通过步骤 → 留空；有问题单 → 留空+备注=问题单
     const t3 = buildTraceTable({ type: 'report', outlineCases: cases, records: [rec({ stepResults: ['通过', '未通过'] })] }, new IssueCollector())
-    expect(t3.rows[0].cells[9]).toBe('')
+    expect(t3.rows[0].cells[11]).toBe('')
     const t4 = buildTraceTable({ type: 'report', outlineCases: cases, records: [rec({ problemId: 'PT_1' })] }, new IssueCollector())
-    expect(t4.rows[0].cells[9]).toBe('')
-    expect(t4.rows[0].cells[10]).toBe('PT_1')
+    expect(t4.rows[0].cells[11]).toBe('')
+    expect(t4.rows[0].cells[12]).toBe('PT_1')
   })
 
   test('applyVmergeToDocx：无合并需求时零改动', () => {
@@ -479,7 +488,7 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     expect(t1.rows[0].cells[3]).toBe('6.2.1.1')
     expect(t1.rows[0].span[1]).toBe(2)
     expect(t1.rows[1].span[1]).toBe(0)
-    // 报告表说明源：SRS 空 + 大纲章节号/项名/项标识/类型从说明用例表追踪关系行提取
+    // 报告表说明源：系统规格说明/SRS 空 + 大纲章节号/项名/项标识/类型从说明用例表追踪关系行提取
     const rec: RecordCase = {
       caseName: '用例1', caseId: 'YL_A_001', traceChapter: '', traceItemName: '', traceItemId: '',
       stepCount: 1, stepResults: ['通过'], stepExpects: [''], stepActuals: [''],
@@ -487,9 +496,97 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     }
     const t2 = buildTraceTable({ type: 'report', specAlign: rsData, records: [rec] }, new IssueCollector())
     expect(t2.rows[0].cells[1]).toBe('')
-    expect(t2.rows[0].cells[3]).toBe('6.2.1.1')
-    expect(t2.rows[0].cells[4]).toBe('项A')
-    expect(t2.rows[0].cells[6]).toBe('功能测试')
-    expect(t2.rows[0].cells[7]).toBe('YL_A_001-001')
+    expect(t2.rows[0].cells[3]).toBe('')
+    expect(t2.rows[0].cells[5]).toBe('6.2.1.1')
+    expect(t2.rows[0].cells[6]).toBe('项A')
+    expect(t2.rows[0].cells[8]).toBe('功能测试')
+    expect(t2.rows[0].cells[9]).toBe('YL_A_001-001')
+  })
+})
+
+describe('M8 追踪关系解析容错（2026-11-27 同事反馈：报告追踪某些行没有内容）', () => {
+  test('parseTraceRel：系统+需求双引用各就各位；章节号前后空格不致失败（回归保护）', () => {
+    const rel = parseTraceRel('《XX系统规格说明》4.1.2 系统级功能；《XX需求规格说明》3.2.8.1.1 函数调用构建')
+    expect(rel.sys).toEqual({ chapter: '4.1.2', desc: '系统级功能' })
+    expect(rel.srs).toEqual({ chapter: '3.2.8.1.1', desc: '函数调用构建' })
+    // 同事怀疑的形态：章节号前后有空格——正则本就容错，锁死不回退
+    const sp = parseTraceRel('《XXX需求规格说明》 3.2.8.1.1 函数调用构建')
+    expect(sp.srs.chapter).toBe('3.2.8.1.1')
+    expect(sp.srs.desc).toBe('函数调用构建')
+  })
+
+  test('parseTraceRel：第X节/冒号/括号/零宽字符/全角数字——旧版全部静默落空的形态', () => {
+    expect(parseTraceRel('《X需求规格说明》第3.2.8.1.1节 函数调用构建').srs.chapter).toBe('3.2.8.1.1')
+    expect(parseTraceRel('《X需求规格说明》：3.2.8.1.1 函数调用构建').srs.chapter).toBe('3.2.8.1.1')
+    expect(parseTraceRel('《X需求规格说明》（3.2.8.1.1）函数调用构建').srs.chapter).toBe('3.2.8.1.1')
+    expect(parseTraceRel('《X需求规格说明》​3.2.8.1.1函数调用构建').srs.chapter).toBe('3.2.8.1.1')
+    expect(parseTraceRel('《X需求规格说明》３.２.８.１.１函数调用构建').srs.chapter).toBe('3.2.8.1.1')
+  })
+
+  test('parseTraceRel：只有系统规格说明 → SRS 保持 /（旧版会误吞进 SRS 列）；老写法兜底不变', () => {
+    const onlySys = parseTraceRel('《XX系统规格说明》4.1.2 系统级功能')
+    expect(onlySys.sys.chapter).toBe('4.1.2')
+    expect(onlySys.srs.chapter).toBe('/')
+    expect(parseTraceRel('4.3.1.2 A星指令参数管理').srs).toEqual({ chapter: '4.3.1.2', desc: 'A星指令参数管理' })
+    const tb = parseTraceRel('软件研制任务书 3.2节 研制总则；软件需求规格说明 4.4节 运行状态')
+    expect(tb.task).toEqual({ chapter: '3.2', desc: '研制总则' })
+    expect(tb.srs.chapter).toBe('4.4')
+  })
+
+  test('report：追踪关系双引用落两块列；认不出的文本 → TRACE_REL_UNPARSED 点名告警', async () => {
+    const doc = buildDocxBuffer({
+      content: [
+        { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+        { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+        {
+          kind: 'tbl',
+          rows: itemTable('某测试项', 'XQ_A_B', [
+            [{ text: '追踪关系' }, { text: '《XX系统规格说明》（4.1.2）系统级功能；《XX需求规格说明》​ 3.2.8.1.1 函数调用构建' }],
+            [DESC, '1.用例一（XQ_A_B001）\n用例一综述。'],
+            [METHOD, '1.用例一（XQ_A_B001）\n1）执行操作，查看结果是否正确；']
+          ])
+        },
+        { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+        {
+          kind: 'tbl',
+          rows: itemTable('另一测试项', 'XQ_A_C', [
+            [{ text: '追踪关系' }, { text: '详见设计文件相关章节' }],
+            [DESC, '1.用例丙（XQ_A_C001）\n用例丙综述。'],
+            [METHOD, '1.用例丙（XQ_A_C001）\n1）执行操作，查看结果是否正确；']
+          ])
+        }
+      ]
+    })
+    // 大纲解析（拿 hash 建档）
+    const f0 = new FormData()
+    f0.append('file', new File([new Uint8Array(doc)], '大纲Sys.docx'))
+    const pr = await (await fetch(URL0 + '/api/parse', { method: 'POST', body: f0 })).json()
+    expect(pr.ok).toBe(true)
+    expect(pr.issues.some((i: any) => i.code === 'TRACE_REL_UNPARSED' && i.message.includes('另一测试项') && i.message.includes('详见设计文件'))).toBe(true)
+    // 记录：两用例（YL_A_B_001 + YL_A_C_001）
+    const recDoc = buildDocxBuffer({
+      content: [
+        { kind: 'p', para: { text: '测试记录', heading: 1 } },
+        { kind: 'p', para: { text: '功能测试', heading: 2 } },
+        sampleRecordTable('YL_A_B_001', '用例一', ['通过', '通过'], '/'),
+        sampleRecordTable('YL_A_C_001', '用例丙', ['通过'], '/')
+      ]
+    })
+    const form = new FormData()
+    form.append('mode', 'report')
+    form.append('file', new File([new Uint8Array(recDoc)], '记录Sys.docx'))
+    form.append('outlineHash', pr.outline.hash)
+    const r = await postForm('/api/trace/parse', form)
+    expect(r.status).toBe(200)
+    const spec = r.body.spec as TraceTable
+    expect(spec.rows.length).toBe(2)
+    // 第一行：系统/需求两块各就各位（含括号与零宽字符噪声）
+    expect(spec.rows[0].cells[1]).toBe('4.1.2')
+    expect(spec.rows[0].cells[2]).toBe('系统级功能')
+    expect(spec.rows[0].cells[3]).toBe('3.2.8.1.1')
+    expect(spec.rows[0].cells[4]).toBe('函数调用构建')
+    // 第二行：认不出的追踪关系 → 两块 '/'，不再静默空
+    expect(spec.rows[1].cells[1]).toBe('/')
+    expect(spec.rows[1].cells[3]).toBe('/')
   })
 })

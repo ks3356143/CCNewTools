@@ -38,7 +38,8 @@ onMounted(() => {
 /** 报告追踪的执行结果列编辑（直接改 store.rows，生成随请求发送） */
 function onEditResult(i: number, e: Event): void {
   const v = (e.target as HTMLInputElement).value
-  if (store.traceSpec !== null) store.traceSpec.rows[i].cells[9] = v
+  const col = editableCol.value
+  if (col !== undefined && store.traceSpec !== null) store.traceSpec.rows[i].cells[col] = v
 }
 
 /** 复制表格：text/html（含 colspan/rowspan，Word 直贴成合并单元格）+ text/plain TSV 兜底 */
