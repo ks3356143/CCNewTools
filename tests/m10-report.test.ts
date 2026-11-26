@@ -263,6 +263,30 @@ describe('M10 表38 + 统计（v2：用例=步骤行）', () => {
     expect(w !== undefined && w.message.includes('2 行') && w.message.includes('项甲') && w.message.includes('未测试')).toBe(true)
   })
 
+  test('标识多子项段（同事习惯 YL_SU_STJS_SU01_001）：删段按用例名对齐到同项用例', () => {
+    // 2026-11-27 同事揭晓根因：记录用例标识比大纲多一段子项号（SU01），精确/去尾号都够不着
+    // → matchRow 段级对齐（删段候选须同落一个大纲基形）+ 用例名消歧，工具三同享
+    const spec: DocSpec = {
+      content: [
+        { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+        { kind: 'p', para: { text: '功能测试', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('检索测试', 'XQ_SU_STJS', '《某需求规格说明》3.1 检索', '检索需求描述原文。', '1.检索正常（XQ_SU_STJS_SU01）\n检索正常综述。\n2.检索异常（XQ_SU_STJS_SU02）\n检索异常综述。', '1.检索正常（XQ_SU_STJS_SU01）\n1）执行操作，查看结果是否正确；\n2.检索异常（XQ_SU_STJS_SU02）\n1）执行异常操作，查看结果是否正确；') }
+      ]
+    }
+    const outline = extractOutline(buildDocx(spec), new IssueCollector())
+    const first = extractRecordCases(buildDocx({
+      content: [
+        { kind: 'p', para: { text: '测试记录', heading: 1 } },
+        recordTable('YL_SU_STJS_SU01_001', '检索正常', 'XQ_SU_STJS', ['通过'], '期望文字检索', '检索测试')
+      ]
+    }), new IssueCollector())
+    const data = buildConfData(outline, first, [], PARAMS)
+    // 段级对齐前 matchRow 落空 → 该项凭空「未测试」；现在按用例名落到检索正常这例，项级结果取记录期望文字
+    expect(data.rows.map(r => r.result)).toEqual(['期望文字检索'])
+    expect(data.stats.untested).toBe(0)
+    expect(data.stats.firstPass).toBe(1)
+  })
+
   test('记录表少于大纲用例：REPORT_COVERAGE 显性提示（解析漏表防线）', () => {
     const { outline, first } = parseFixtures()
     const data = buildConfData(outline, first.slice(0, 2), [], PARAMS)

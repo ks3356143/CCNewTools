@@ -9,6 +9,7 @@ import type { CaseRow } from '../convert/rows.ts'
 import type { RecordCase } from '../parse/record.ts'
 import type { ReturnSpecData } from '../parse/returnspec.ts'
 import { applyVmerge, caseIdWithStepRange, type TraceTable, type TraceRowVM, type TraceHeadGroup } from './table.ts'
+import { segDropVariants } from '../regress/build.ts'
 import type { IssueCollector } from '../domain.ts'
 
 export interface TraceBuildInput {
@@ -177,12 +178,17 @@ interface AlignEntry {
   itemName: string
   itemItemId: string
   typeName: string
+  /** 用例名（删段对齐多候选时按它消歧） */
+  caseName: string
 }
 
+/** 标识键归一：剥零宽字符与首尾空白（matchRow 的 normId 同口径，工具二自己的防线） */
+const normKey = (s: string): string => s.replace(/[\u200b-\u200d\u2060]/g, '').trim()
+
 /** 说明（ReturnSpecData）→ 对齐索引：大纲侧信息取用例表追踪关系行，SRS/系统规格说明里没有 → 留空 */
-function alignIndexOfSpec(rs: ReturnSpecData): { exact: Map<string, AlignEntry>; base: Map<string, AlignEntry> } {
-  const exact = new Map<string, AlignEntry>()
-  const base = new Map<string, AlignEntry>()
+function alignIndexOfSpec(rs: ReturnSpecData): AlignIdx {
+  const exact = new Map<string, AlignEntry[]>()
+  const base = new Map<string, AlignEntry[]>()
   for (const c of rs.cases) {
     if (c.caseId === '') continue
     const entry: AlignEntry = {
@@ -193,22 +199,24 @@ function alignIndexOfSpec(rs: ReturnSpecData): { exact: Map<string, AlignEntry>;
       chapter: c.traceChapter,
       itemName: c.traceItemName,
       itemItemId: c.traceItemId,
-      typeName: c.typeName
+      typeName: c.typeName,
+      caseName: c.caseName
     }
-    if (!exact.has(c.caseId)) exact.set(c.caseId, entry)
-    const b = baseOf(c.caseId)
-    if (!base.has(b)) base.set(b, entry)
+    const id = normKey(c.caseId)
+    ;(exact.get(id) ?? exact.set(id, []).get(id)!).push(entry)
+    const b = baseOf(id)
+    ;(base.get(b) ?? base.set(b, []).get(b)!).push(entry)
   }
   return { exact: exact, base: base }
 }
 
-/** 对齐索引统一形态（大纲源与说明源共用） */
-type AlignIdx = { exact: Map<string, AlignEntry>; base: Map<string, AlignEntry> }
+/** 对齐索引统一形态（大纲源与说明源共用；多值保留同标识/同基形的全行，供按用例名消歧） */
+type AlignIdx = { exact: Map<string, AlignEntry[]>; base: Map<string, AlignEntry[]> }
 
 /** 大纲 cases → 对齐索引（系统规格说明/SRS/大纲章节号/项名/项标识/类型全有） */
 function rowsToAlign(cases: CaseRow[]): AlignIdx {
-  const exact = new Map<string, AlignEntry>()
-  const base = new Map<string, AlignEntry>()
+  const exact = new Map<string, AlignEntry[]>()
+  const base = new Map<string, AlignEntry[]>()
   for (const c of cases) {
     const entry: AlignEntry = {
       sysChapter: c.sysChapter,
@@ -218,18 +226,36 @@ function rowsToAlign(cases: CaseRow[]): AlignIdx {
       chapter: c.chapter,
       itemName: c.itemName,
       itemItemId: c.itemItemId,
-      typeName: c.typeName
+      typeName: c.typeName,
+      caseName: c.mingcheng
     }
-    if (!exact.has(c.caseId)) exact.set(c.caseId, entry)
-    const b = baseOf(c.caseId)
-    if (!base.has(b)) base.set(b, entry)
+    const id = normKey(c.caseId)
+    ;(exact.get(id) ?? exact.set(id, []).get(id)!).push(entry)
+    const b = baseOf(id)
+    ;(base.get(b) ?? base.set(b, []).get(b)!).push(entry)
   }
   return { exact: exact, base: base }
 }
 
-/** 对齐取值：先精确，再去尾序号兜底 */
-function alignGet(idx: AlignIdx, caseId: string): AlignEntry | undefined {
-  return idx.exact.get(caseId) ?? idx.base.get(baseOf(caseId))
+/** 对齐取值：精确 → 去尾号 → 删一段子项号（2026-11-27 同事形态 YL_SU_STJS_SU01_001 ↔ YL_SU_STJS_001）。
+ *  删段候选必须全落同一个大纲基形（跨多个基形 = 歧义不猜）；同基形多行按用例名消歧，对不上不猜。
+ *  viaSeg = 靠删段对上，调用方聚合提示。 */
+function alignGetEx(idx: AlignIdx, rec: { caseId: string; caseName: string }): { entry: AlignEntry; viaSeg: boolean } | undefined {
+  const direct = idx.exact.get(normKey(rec.caseId)) ?? idx.base.get(baseOf(normKey(rec.caseId)))
+  if (direct !== undefined && direct.length > 0) return { entry: direct[0], viaSeg: false }
+  const cands: AlignEntry[] = []
+  let bases = 0
+  for (const v of segDropVariants(baseOf(normKey(rec.caseId)))) {
+    const es = idx.base.get(v)
+    if (es === undefined || es.length === 0) continue
+    bases++
+    for (const e of es) if (!cands.includes(e)) cands.push(e)
+  }
+  if (cands.length === 0 || bases !== 1) return undefined
+  if (cands.length === 1) return { entry: cands[0], viaSeg: true }
+  const byName = cands.filter(e => e.caseName.replace(/\s+/g, '') === rec.caseName.replace(/\s+/g, ''))
+  if (byName.length === 1) return { entry: byName[0], viaSeg: true }
+  return undefined
 }
 
 /** 报告追踪表的执行结果自动推导：全步骤通过、已执行、无问题单 → "通过"，否则留空人工判断 */
@@ -253,8 +279,9 @@ function deriveRemark(rec: RecordCase): string {
  */
 function buildReportTable(records: RecordCase[], align: AlignIdx, issues: IssueCollector): TraceTable {
   const cellsList: string[][] = []
+  const segMatches: Array<{ caseId: string; itemName: string }> = []
   for (const rec of records) {
-    const c = rec.caseId === '' ? undefined : alignGet(align, rec.caseId)
+    const c = rec.caseId === '' ? undefined : alignGetEx(align, rec)
     if (rec.caseId !== '' && c === undefined) {
       issues.warning(
         'TRACE_ALIGN_MISS',
@@ -262,21 +289,30 @@ function buildReportTable(records: RecordCase[], align: AlignIdx, issues: IssueC
         rec.caseName
       )
     }
+    if (c !== undefined && c.viaSeg) segMatches.push({ caseId: rec.caseId, itemName: c.entry.itemName })
     cellsList.push([
       String(cellsList.length + 1),
-      c ? c.sysChapter : '',
-      c ? c.sysName : '',
-      c ? c.srsChapter : '',
-      c ? c.srsDesc : '',
-      c ? c.chapter : '',
-      c ? c.itemName : '',
-      c ? c.itemItemId : '',
-      c ? c.typeName : '',
+      c ? c.entry.sysChapter : '',
+      c ? c.entry.sysName : '',
+      c ? c.entry.srsChapter : '',
+      c ? c.entry.srsDesc : '',
+      c ? c.entry.chapter : '',
+      c ? c.entry.itemName : '',
+      c ? c.entry.itemItemId : '',
+      c ? c.entry.typeName : '',
       caseIdWithStepRange(rec.caseId, rec.stepCount),
       rec.caseName,
       deriveResult(rec),
       deriveRemark(rec)
     ])
+  }
+  if (segMatches.length > 0) {
+    const s = segMatches[0]
+    issues.info(
+      'TRACE_MATCH_BY_SEG',
+      segMatches.length + ' 个用例标识比配对文档多一段子项号（如「' + s.caseId + '」→ 已对齐到测试项「' + s.itemName + '」），已自动对应',
+      '用例标识'
+    )
   }
   const rows: TraceRowVM[] = cellsList.map(cells => ({ cells: cells, span: cells.map(() => 1) }))
   applyVmerge(rows, MERGE_COLS.report)
@@ -300,7 +336,7 @@ function buildReturnSpecTable(rs: ReturnSpecData, outlineCases: CaseRow[], issue
   }
   const cellsList: string[][] = []
   for (const rc of rs.cases) {
-    const c = rc.caseId === '' ? undefined : alignGet(idx, rc.caseId)
+    const c = rc.caseId === '' ? undefined : alignGetEx(idx, rc)?.entry
     if (rc.caseId !== '' && c === undefined) {
       issues.warning(
         'TRACE_ALIGN_MISS',

@@ -56,7 +56,18 @@ const normId = (s: string): string => s.replace(ZW_RE, '').trim()
 
 /** 匹配结果：kind 标命中路径（无尾号/单用例兜底是猜测性匹配，歧义时必须提示）；
  *  byName = 撞号消歧时用例名是否硬命中（false 且 baseCount>1 → 回退首个，调用方应告警请人工核对） */
-export interface MatchResult { row: CaseRow; byName: boolean; kind: 'exact' | 'base' | 'single'; baseCount: number }
+export interface MatchResult { row: CaseRow; byName: boolean; kind: 'exact' | 'base' | 'segdrop' | 'single'; baseCount: number }
+
+/** base 的段级变体（2026-11-27 同事揭晓的未匹配根因）：记录用例标识常比大纲多一段子项号
+ *  （YL_SU_STJS_SU01_001 ↔ 大纲 YL_SU_STJS_001），精确/去尾号都够不着——删任一段后相等才认。
+ *  工具二追踪对齐同款（导出共用）。 */
+export function segDropVariants(base: string): string[] {
+  const segs = base.split('_')
+  if (segs.length < 3) return []
+  const out: string[] = []
+  for (let i = 0; i < segs.length; i++) out.push(segs.filter((_, k) => k !== i).join('_'))
+  return out
+}
 
 /** 同标识多命中时按用例名消歧（2026-11-22 报告工具全流程检查实证的撞号真 bug）：
  *  真实大纲存在同一 itemId 撞号在两个章节、各有一行同名 caseId 的形态
@@ -79,6 +90,14 @@ export function matchRow(rows: CaseRow[], rec: RecordCase): MatchResult | null {
   if (b !== '') {
     const same = rows.filter(r => baseId(normId(r.caseId)) === b)
     if (same.length > 0) { const p = pickByName(same, rec); return { ...p, kind: 'base', baseCount: same.length } }
+    // 段级对齐：记录标识多一段子项号。删段候选必须全落同一个大纲形态（多个不同形态 = 歧义不猜），
+    // 之后交给 pickByName 按用例名消歧——歧义语义与既有 kind !== 'exact' 告警口径一致
+    const cands = segDropVariants(b).flatMap(v => rows.filter(r => baseId(normId(r.caseId)) === v))
+    const uniq = [...new Map(cands.map(r => [r.caseId + '\0' + r.chapter, r] as const)).values()]
+    if (uniq.length > 0 && new Set(uniq.map(r => baseId(normId(r.caseId)))).size === 1) {
+      const p = pickByName(uniq, rec)
+      return { ...p, kind: 'segdrop', baseCount: uniq.length }
+    }
   }
   if (rec.traceItemId !== '') {
     const inItem = rows.filter(r => normId(r.itemItemId) === normId(rec.traceItemId))

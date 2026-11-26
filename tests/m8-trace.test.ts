@@ -467,6 +467,38 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     expect(t4.rows[0].cells[12]).toBe('PT_1')
   })
 
+  test('buildTraceTable report：记录标识多一段子项号（YL_SU_STJS_SU01_001）→ 删段对齐 + 聚合提示；消歧不上不猜', () => {
+    const cases = [
+      mkCase({ caseId: 'YL_SU_STJS_001', mingcheng: '检索正常', itemItemId: 'XQ_SU_STJS', itemName: '检索测试', srsChapter: '3.1', srsDesc: '检索' }),
+      mkCase({ caseId: 'YL_SU_STJS_002', mingcheng: '检索异常', itemItemId: 'XQ_SU_STJS', itemName: '检索测试', chapter: '6.2.1.2' })
+    ]
+    const recSeg = (over: Partial<RecordCase>): RecordCase => ({
+      caseName: '检索正常', caseId: 'YL_SU_STJS_SU01_001', traceChapter: '', traceItemName: '', traceItemId: '',
+      stepCount: 1, stepResults: ['通过'], executed: '已执行', problemId: '/', typeName: '', ...over
+    } as RecordCase)
+    // SU01 子项段 + 用例名命中 → 对齐成功，聚合 info，不再报「未在配对文档中找到对应项」
+    const iss1 = new IssueCollector()
+    const t1 = buildTraceTable({ type: 'report', outlineCases: cases, records: [recSeg({})] }, iss1)
+    expect(t1.rows[0].cells[6]).toBe('检索测试')
+    expect(t1.rows[0].cells[3]).toBe('3.1')
+    expect(iss1.issues.some(i => i.code === 'TRACE_MATCH_BY_SEG')).toBe(true)
+    expect(iss1.issues.some(i => i.code === 'TRACE_ALIGN_MISS')).toBe(false)
+    // 同项两例、用例名对不上 → 不猜 → 回到 miss 告警
+    const iss2 = new IssueCollector()
+    const t2 = buildTraceTable({ type: 'report', outlineCases: cases, records: [recSeg({ caseName: '完全不同的名字' })] }, iss2)
+    expect(t2.rows[0].cells[6]).toBe('')
+    expect(iss2.issues.some(i => i.code === 'TRACE_ALIGN_MISS')).toBe(true)
+    // 删段会命中两个不同大纲基形 → 歧义不猜（防误配防线）
+    const amb = [
+      mkCase({ caseId: 'YL_A_001', itemItemId: 'XQ_A', itemName: '项A' }),
+      mkCase({ caseId: 'YL_B_001', itemItemId: 'XQ_B', itemName: '项B', chapter: '6.2.1.2' })
+    ]
+    const iss3 = new IssueCollector()
+    const t3 = buildTraceTable({ type: 'report', outlineCases: amb, records: [recSeg({ caseId: 'YL_A_B_001', caseName: '项A' })] }, iss3)
+    expect(t3.rows[0].cells[6]).toBe('')
+    expect(iss3.issues.some(i => i.code === 'TRACE_ALIGN_MISS')).toBe(true)
+  })
+
   test('applyVmergeToDocx：无合并需求时零改动', () => {
     const rows: TraceRowVM[] = [{ cells: ['1', 'a'], span: [1, 1] }]
     const buf = Buffer.from('not-a-zip')
