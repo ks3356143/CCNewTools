@@ -5,7 +5,7 @@ import { extractItemTable } from './table.ts'
 import { parseMethod, expandSoftBreaks } from './cases.ts'
 import { parseDescription, resolveSummaries } from './describe.ts'
 import { parseCriteriaCell, resolveCriteria } from './criteria.ts'
-import { IssueCollector, KNOWN_TYPE_NAMES, type ParsedOutline, type TestItem, type PathEntry } from '../domain.ts'
+import { IssueCollector, KNOWN_TYPE_NAMES, STATIC_TYPE_NAMES, type ParsedOutline, type TestItem, type PathEntry } from '../domain.ts'
 
 export interface HeadingRef {
   level: number
@@ -193,12 +193,21 @@ function assembleItem(
   resolveCriteria(item, issues)
   resolveSummaries(item, issues)
 
+  // 静态类测试项（文档审查/静态分析/代码审查/代码走查）的追踪关系常无外部文档引用：
+  // 章节号填 / 名称填「隐含需求」（用户口径 2026-11-28）；格里写了真引用则按解析结果，不动
+  if ((STATIC_TYPE_NAMES.includes(typeName) || typeName === '代码走查') &&
+      traceRel.task.chapter === '/' && traceRel.sys.chapter === '/' && traceRel.srs.chapter === '/' &&
+      (t.traceText.trim() === '' || t.traceText.trim() === '/' || t.traceText.trim() === '／')) {
+    item.traceSrs = { chapter: '/', desc: '隐含需求' }
+  }
+
   if (item.itemId === '') {
     issues.error('ITEM_ID_MISSING', '测试项「' + item.name + '」缺少测试项标识', ctx)
   }
 
-  // 追踪关系有字但三类文档章节号一个都没认出来 → 点名告警（此前静默 '--'，同事反馈才发现）
-  if (traceRel.task.chapter === '/' && traceRel.sys.chapter === '/' && traceRel.srs.chapter === '/') {
+  // 追踪关系有字但三类文档章节号一个都没认出来 → 点名告警（此前静默 '--'，同事反馈才发现）；
+  // 「隐含需求」是合法的无引用形态（描述列已如实写），不在此列
+  if (traceRel.task.chapter === '/' && traceRel.sys.chapter === '/' && traceRel.srs.chapter === '/' && traceRel.srs.desc !== '隐含需求') {
     const raw = t.traceText.trim()
     if (raw !== '' && raw !== '/' && raw !== '／') {
       const brief = raw.length > 40 ? raw.slice(0, 40) + '…' : raw
@@ -253,6 +262,8 @@ export function parseTraceRel(text: string): { task: TraceDocRef; sys: TraceDocR
     .replace(/．/g, '.')
     .trim()
   if (t === '' || t === '/' || t === '／') return { task: dash(), sys: dash(), srs: dash() }
+  // 「隐含需求」= 无外部文档引用的合法形态（2026-11-28 同事大纲实证 15 处全为此写法）：描述如实保留，不算解析失败
+  if (t === '隐含需求') return { task: dash(), sys: dash(), srs: { chapter: '/', desc: '隐含需求' } }
   const task = traceDocOf(t, /(?:研制)?任务书/) ?? dash()
   const sys = traceDocOf(t, /系统规格说明/) ?? dash()
   const srs = traceDocOf(t, /(?:软件)?需求规格说明/) ?? dash()

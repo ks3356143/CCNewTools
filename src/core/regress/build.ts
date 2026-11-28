@@ -56,8 +56,18 @@ const normId = (s: string): string => s.replace(ZW_RE, '').trim()
 
 /** 匹配结果：kind 标命中路径（无尾号/单用例兜底是猜测性匹配，歧义时必须提示）；
  *  byName = 撞号消歧时用例名是否硬命中（false 且 baseCount>1 → 回退首个，调用方应告警请人工核对）；
- *  segOrdinal/segNote = 段级对齐按子项号序数落位时被删的段与序数（猜测性，调用方点名） */
-export interface MatchResult { row: CaseRow; byName: boolean; kind: 'exact' | 'base' | 'segdrop' | 'single'; baseCount: number; segOrdinal?: number; segNote?: string }
+ *  segOrdinal/segNote = 段级对齐按子项号序数落位时被删的段与序数（猜测性，调用方点名）；
+ *  itemRoute/itemOrdinal = 测试项名称兜底的落位子路由与序数（ord 为猜测性，调用方点名） */
+export interface MatchResult {
+  row: CaseRow
+  byName: boolean
+  kind: 'exact' | 'base' | 'segdrop' | 'single' | 'item'
+  baseCount: number
+  segOrdinal?: number
+  segNote?: string
+  itemRoute?: 'single' | 'name' | 'strip' | 'ord'
+  itemOrdinal?: number
+}
 
 /** base 的段级变体（2026-11-27 同事揭晓的未匹配根因）：记录用例标识常比大纲多一段子项号
  *  （YL_SU_STJS_SU01_001 ↔ 大纲 YL_SU_STJS_001），精确/去尾号都够不着——删任一段后相等才认。
@@ -81,6 +91,14 @@ function pickByName(cands: CaseRow[], rec: RecordCase): { row: CaseRow; byName: 
   return hit !== undefined ? { row: hit, byName: true } : { row: cands[0], byName: false }
 }
 
+/** 记录用例名剥尾部序号（同事口径：一个子项可写多张用例表，「…功能测试1」～「…测试14」同指一个大纲用例）。
+ *  前一字符须是汉字，防误剥 IPv6/MD5 之类以数字结尾的专名。 */
+const stripTailNum = (n: string): string => {
+  const s = n.replace(/\s+/g, '')
+  const m = /^(.*[一-鿿])\d{1,3}$/.exec(s)
+  return m !== null ? m[1] : s
+}
+
 /** 记录用例 → 大纲转换行：精确 → 去尾号前缀 → 记录追踪行标识定位单用例测试项兜底。
  *  精确命中多个（同标识跨项重名）按用例名消歧，名称对不上回退首个 + baseCount，由调用方出告警。
  *  （工具四报告统计复用同一匹配口径，2026-11-22 起导出） */
@@ -93,8 +111,9 @@ export function matchRow(rows: CaseRow[], rec: RecordCase): MatchResult | null {
     if (same.length > 0) { const p = pickByName(same, rec); return { ...p, kind: 'base', baseCount: same.length } }
     // 段级对齐：记录标识多一段子项号（YL_IO_RWGL_IO01_001 ↔ 大纲 YL_IO_RWGL_001）。
     // 删段候选必须全落同一个大纲基形（跨多个基形 = 歧义不猜）。落位优先级：
-    // 用例级子项标识硬键（大纲标题（XQ_IO_RWGL_IO01）派生）→ 用例名 → 子项号序数（IO01=该测试项第1个用例，
-    // 用户口径：一个测试项有 N 个子项就是 N 张用例表，序数即大纲用例序）→ 回退首行。
+    // 用例级子项标识硬键（大纲标题（XQ_IO_RWGL_IO01）派生）→ 用例名 → 剥尾部序号用例名 → 子项号序数
+    // （IO01=该测试项第1个用例，同一子项多张用例表尾号不限 001）→ 回退首行。候选跨测试项撞码时按
+    // 记录追踪行的测试项名称收窄到唯一项。
     const cands: CaseRow[] = []
     let droppedSeg = ''
     for (const { variant, dropped } of segDropVariants(b)) {
@@ -104,24 +123,48 @@ export function matchRow(rows: CaseRow[], rec: RecordCase): MatchResult | null {
       for (const e of es) if (!cands.includes(e)) cands.push(e)
     }
     if (cands.length > 0 && new Set(cands.map(r => baseId(normId(r.caseId)))).size === 1) {
-      const hard = cands.filter(r => 'YL_' + normId(r.itemId).replace(/^XQ_/, '') === b)
-      if (hard.length === 1) return { row: hard[0], byName: true, kind: 'segdrop', baseCount: 1, segNote: droppedSeg }
-      const p = pickByName(cands, rec)
-      if (p.byName || cands.length === 1) return { ...p, kind: 'segdrop', baseCount: cands.length, segNote: droppedSeg }
-      // 用例名对不上 → 子项号序数兜底：序数段须有尾号数字、记录尾号须为 001（每子项一张表的同事口径）、
-      // 候选全落同一测试项同章节，序数在候选范围内才认（猜测性落位，调用方点名告警）
-      const ordN = parseInt(/(\d{1,3})$/.exec(droppedSeg)?.[1] ?? '0', 10)
-      const tailN = parseInt(/_(\d{1,4})$/.exec(normId(rec.caseId))?.[1] ?? '0', 10)
-      const itemKeys = new Set(cands.map(r => r.itemItemId + '\0' + r.chapter))
-      if (ordN >= 1 && ordN <= cands.length && tailN === 1 && itemKeys.size === 1) {
-        return { row: cands[ordN - 1], byName: false, kind: 'segdrop', baseCount: cands.length, segOrdinal: ordN, segNote: droppedSeg }
+      let pool = cands
+      if (rec.traceItemName !== '' && new Set(cands.map(r => r.itemItemId + '\0' + r.chapter)).size > 1) {
+        const scoped = cands.filter(r => r.itemName === rec.traceItemName)
+        if (scoped.length > 0 && new Set(scoped.map(r => r.itemItemId + '\0' + r.chapter)).size === 1) pool = scoped
       }
-      return { row: cands[0], byName: false, kind: 'segdrop', baseCount: cands.length, segNote: droppedSeg }
+      const hard = pool.filter(r => 'YL_' + normId(r.itemId).replace(/^XQ_/, '') === b)
+      if (hard.length === 1) return { row: hard[0], byName: true, kind: 'segdrop', baseCount: 1, segNote: droppedSeg }
+      const p = pickByName(pool, rec)
+      if (p.byName || pool.length === 1) return { ...p, kind: 'segdrop', baseCount: pool.length, segNote: droppedSeg }
+      const st = pool.filter(r => normText(r.mingcheng) === stripTailNum(rec.caseName))
+      if (st.length === 1) return { row: st[0], byName: true, kind: 'segdrop', baseCount: pool.length, segNote: droppedSeg }
+      // 用例名对不上 → 子项号序数兜底：序数段须有尾号数字、候选全落同一测试项同章节，
+      // 序数在范围内才认（猜测性落位，调用方点名告警）
+      const ordN = parseInt(/(\d{1,3})$/.exec(droppedSeg)?.[1] ?? '0', 10)
+      const itemKeys = new Set(pool.map(r => r.itemItemId + '\0' + r.chapter))
+      if (ordN >= 1 && ordN <= pool.length && itemKeys.size === 1) {
+        return { row: pool[ordN - 1], byName: false, kind: 'segdrop', baseCount: pool.length, segOrdinal: ordN, segNote: droppedSeg }
+      }
+      return { row: pool[0], byName: false, kind: 'segdrop', baseCount: pool.length, segNote: droppedSeg }
     }
   }
   if (rec.traceItemId !== '') {
     const inItem = rows.filter(r => normId(r.itemItemId) === normId(rec.traceItemId))
     if (inItem.length === 1) return { row: inItem[0], byName: false, kind: 'single', baseCount: 1 }
+  }
+  // 测试项名称兜底（caseId 路线全断的同事形态：类型码不同 YL_DC3_001 ↔ 大纲 YL_DC_001、
+  // YL_SU_PZCTZ ↔ YL_SU_PBTZ，记录测试需求标识是子项级对不上大纲项级）——同名须唯一落在一个
+  // 大纲测试项，项内按 单例 → 名称 → 剥序号名 → 子项号序数 落位（ord 猜测性，调用方点名）
+  if (rec.traceItemName !== '') {
+    const inName = rows.filter(r => r.itemName === rec.traceItemName)
+    if (inName.length > 0 && new Set(inName.map(r => r.itemItemId + '\0' + r.chapter)).size === 1) {
+      if (inName.length === 1) return { row: inName[0], byName: false, kind: 'item', baseCount: 1, itemRoute: 'single' }
+      const p = pickByName(inName, rec)
+      if (p.byName) return { ...p, kind: 'item', baseCount: inName.length, itemRoute: 'name' }
+      const st = inName.filter(r => normText(r.mingcheng) === stripTailNum(rec.caseName))
+      if (st.length === 1) return { row: st[0], byName: true, kind: 'item', baseCount: inName.length, itemRoute: 'strip' }
+      const subSeg = /([A-Za-z]+)(\d{1,3})$/.exec(b.split('_').slice(-1)[0] ?? '')
+      const ordN = parseInt(subSeg?.[2] ?? '0', 10)
+      if (ordN >= 1 && ordN <= inName.length) {
+        return { row: inName[ordN - 1], byName: false, kind: 'item', baseCount: inName.length, itemRoute: 'ord', itemOrdinal: ordN }
+      }
+    }
   }
   return null
 }
@@ -225,12 +268,21 @@ export function selectRegressCases(parsed: ParsedOutline, records: RecordCase[],
           '（' + row.caseId + '）处理，请人工核对',
         rec.caseName
       )
-    } else if (m.kind !== 'exact' && m.kind !== 'segdrop' && m.baseCount > 1) {
+    } else if (m.kind === 'item' && m.itemRoute === 'ord') {
+      // 测试项名称兜底的序数落位是猜测性，必须点名；名称/剥序号名命中是强证据不点名
+      issues.warning(
+        'REGRESS_ITEM_MATCH',
+        '记录标识 ' + rec.caseId + ' 的类型码与大纲不同，已按追踪行测试项「' + rec.traceItemName + '」的子项号序数对应到第 ' +
+          m.itemOrdinal + ' 个用例（' + row.caseId + '），请人工核对',
+        rec.caseName
+      )
+    } else if (m.kind !== 'exact' && m.kind !== 'segdrop' && m.kind !== 'item' && m.baseCount > 1) {
       issues.warning('REGRESS_ID_AMBIG', '记录标识 ' + rec.caseId + ' 无用例尾号，对应测试项下有 ' + m.baseCount + ' 个用例，已按第一个（' + row.caseId + '）处理，请人工核对', rec.caseName)
     }
-    if (rec.traceItemId !== '' && row.itemItemId !== '') {
+    if (rec.traceItemId !== '' && row.itemItemId !== '' && m.kind !== 'item') {
       // 记录「测试需求标识」可写测试项级（XQ_SU_MCPM）也可写用例级（XQ_SU_MCPM_SU03，WQ 记录习惯）——
-      // 用例级派生（测试项标识_尾号 / 恰等于本用例需求标识）是合法形态，不算不一致（2026-11-21 误报修正）
+      // 用例级派生（测试项标识_尾号 / 恰等于本用例需求标识）是合法形态，不算不一致（2026-11-21 误报修正）；
+      // item 路由（按测试项名称兜底）本就是标识对不上才走的，不再报不一致
       const legal = rec.traceItemId === row.itemItemId ||
         rec.traceItemId.startsWith(row.itemItemId + '_') ||
         rec.traceItemId === row.itemId
@@ -241,7 +293,9 @@ export function selectRegressCases(parsed: ParsedOutline, records: RecordCase[],
     if (rec.traceChapter !== '' && row.chapter !== '' && rec.traceChapter !== row.chapter) {
       issues.warning('REGRESS_CHAPTER_MISMATCH', '记录追踪关系中的大纲章节号 ' + rec.traceChapter + ' 与大纲实际章节号 ' + row.chapter + ' 不一致，大纲可能改版', rec.caseName)
     }
-    if (rec.caseName !== '' && row.mingcheng !== '' && normText(rec.caseName) !== normText(row.mingcheng)) {
+    // 名称差异核对只对精确/去尾号/单用例三类强匹配有效——segdrop/item 路由的名称差异已在落位告警里点名
+    if (rec.caseName !== '' && row.mingcheng !== '' && normText(rec.caseName) !== normText(row.mingcheng) &&
+        (m.kind === 'exact' || m.kind === 'base' || m.kind === 'single')) {
       issues.warning('REGRESS_NAME_MISMATCH', '用例名称不一致：记录「' + rec.caseName + '」 vs 大纲「' + row.mingcheng + '」，大纲可能改版', rec.caseName)
     }
     if (rec.stepResults.length > 0 && row.steps.length > 0 && rec.stepResults.length !== row.steps.length) {

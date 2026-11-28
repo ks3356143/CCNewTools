@@ -178,6 +178,14 @@ function aggregate(
             '（' + row.caseId + '）处理，请人工核对',
           rec.caseName
         )
+      } else if (m.kind === 'item' && m.itemRoute === 'ord') {
+        // 测试项名称兜底的序数落位是猜测性，点名请核对；名称/剥序号名命中是强证据不点名
+        issues.warning(
+          'REPORT_ITEM_MATCH',
+          '记录表 ' + rec.caseId + '（' + rec.caseName + '）的标识类型码与大纲不同，已按追踪行测试项「' + rec.traceItemName +
+            '」的子项号序数对应到该测试项第 ' + m.itemOrdinal + ' 个用例（' + row.caseId + '），请人工核对',
+          rec.caseName
+        )
       } else {
         // CaseRow.itemName 是挂载标题而非表内项名（真实大纲恰好同名，合成夹具才见分野）——取解析层项名最准
         const firstName = itemByKey.get(keyOf(m.row.itemItemId, m.row.chapter))?.name ?? m.row.itemName

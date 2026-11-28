@@ -170,6 +170,8 @@ function baseOf(caseId: string): string {
 
 /** 对齐源条目：按用例标识取"对齐文档侧"的信息（大纲源全有、说明源 SRS/系统规格说明空） */
 interface AlignEntry {
+  /** 源用例标识（落位提示消息用） */
+  caseId: string
   sysChapter: string
   sysName: string
   srsChapter: string
@@ -191,9 +193,12 @@ const normKey = (s: string): string => s.replace(/[\u200b-\u200d\u2060]/g, '').t
 function alignIndexOfSpec(rs: ReturnSpecData): AlignIdx {
   const exact = new Map<string, AlignEntry[]>()
   const base = new Map<string, AlignEntry[]>()
+  const byItemId = new Map<string, AlignEntry[]>()
+  const byItemName = new Map<string, AlignEntry[]>()
   for (const c of rs.cases) {
     if (c.caseId === '') continue
     const entry: AlignEntry = {
+      caseId: c.caseId,
       sysChapter: '',
       sysName: '',
       srsChapter: '',
@@ -209,19 +214,26 @@ function alignIndexOfSpec(rs: ReturnSpecData): AlignIdx {
     ;(exact.get(id) ?? exact.set(id, []).get(id)!).push(entry)
     const b = baseOf(id)
     ;(base.get(b) ?? base.set(b, []).get(b)!).push(entry)
+    const iid = normKey(c.traceItemId)
+    if (iid !== '') (byItemId.get(iid) ?? byItemId.set(iid, []).get(iid)!).push(entry)
+    if (c.traceItemName !== '') (byItemName.get(c.traceItemName) ?? byItemName.set(c.traceItemName, []).get(c.traceItemName)!).push(entry)
   }
-  return { exact: exact, base: base }
+  return { exact: exact, base: base, byItemId: byItemId, byItemName: byItemName }
 }
 
-/** 对齐索引统一形态（大纲源与说明源共用；多值保留同标识/同基形的全行，供按用例名消歧） */
-type AlignIdx = { exact: Map<string, AlignEntry[]>; base: Map<string, AlignEntry[]> }
+/** 对齐索引统一形态（大纲源与说明源共用；多值保留同标识/同基形的全行，供按用例名消歧）；
+ *  byItemId/byItemName = 测试项级索引（记录追踪行的测试需求标识/名称兜底用） */
+type AlignIdx = { exact: Map<string, AlignEntry[]>; base: Map<string, AlignEntry[]>; byItemId: Map<string, AlignEntry[]>; byItemName: Map<string, AlignEntry[]> }
 
 /** 大纲 cases → 对齐索引（系统规格说明/SRS/大纲章节号/项名/项标识/类型全有） */
 function rowsToAlign(cases: CaseRow[]): AlignIdx {
   const exact = new Map<string, AlignEntry[]>()
   const base = new Map<string, AlignEntry[]>()
+  const byItemId = new Map<string, AlignEntry[]>()
+  const byItemName = new Map<string, AlignEntry[]>()
   for (const c of cases) {
     const entry: AlignEntry = {
+      caseId: c.caseId,
       sysChapter: c.sysChapter,
       sysName: c.sysName,
       srsChapter: c.srsChapter,
@@ -237,19 +249,36 @@ function rowsToAlign(cases: CaseRow[]): AlignIdx {
     ;(exact.get(id) ?? exact.set(id, []).get(id)!).push(entry)
     const b = baseOf(id)
     ;(base.get(b) ?? base.set(b, []).get(b)!).push(entry)
+    const iid = normKey(c.itemItemId)
+    if (iid !== '') (byItemId.get(iid) ?? byItemId.set(iid, []).get(iid)!).push(entry)
+    if (c.itemName !== '') (byItemName.get(c.itemName) ?? byItemName.set(c.itemName, []).get(c.itemName)!).push(entry)
   }
-  return { exact: exact, base: base }
+  return { exact: exact, base: base, byItemId: byItemId, byItemName: byItemName }
 }
+
+/** 记录用例名剥尾部序号（同事口径：一个子项可写多张用例表，「…功能测试1」～「…测试14」同指一个大纲用例）。
+ *  前一字符须是汉字，防误剥 IPv6/MD5 之类以数字结尾的专名。 */
+const stripTailNum = (n: string): string => {
+  const s = n.replace(/\s+/g, '')
+  const m = /^(.*[一-鿿])\d{1,3}$/.exec(s)
+  return m !== null ? m[1] : s
+}
+
+/** 对齐取值路由：direct/seg = 精确与删段强证据（硬键/单候选/用例名/同段码收窄）；segName = 剥尾部序号的用例名；
+ *  segOrd = 子项号序数（猜测性）；item* = 记录追踪行测试项兜底（类型码不同等形态）。调用方按路由聚合提示。 */
+export type AlignRoute = 'direct' | 'seg' | 'segName' | 'segOrd' | 'itemSingle' | 'itemName' | 'itemStrip' | 'itemOrd'
 
 /** 对齐取值：精确 → 去尾号 → 删一段子项号（2026-11-27 同事形态 YL_IO_RWGL_IO01_001 ↔ 大纲 YL_IO_RWGL_001）。
  *  删段候选必须全落同一个大纲基形（跨多个基形 = 歧义不猜）；落位优先级与 matchRow 同款：
- *  用例级子项标识硬键（XQ_IO_RWGL_IO01 派生）→ 用例名 → 子项号序数（IO01=该测试项第1个用例，
- *  一个测试项 N 个子项 = N 张用例表的同事口径；序数段带尾号数字、记录尾号为 001、候选同项同章才认）。
- *  viaSeg = 靠删段对上，调用方聚合提示。 */
-function alignGetEx(idx: AlignIdx, rec: { caseId: string; caseName: string }): { entry: AlignEntry; viaSeg: boolean } | undefined {
-  const direct = idx.exact.get(normKey(rec.caseId)) ?? idx.base.get(baseOf(normKey(rec.caseId)))
-  if (direct !== undefined && direct.length > 0) return { entry: direct[0], viaSeg: false }
-  const b = baseOf(normKey(rec.caseId))
+ *  用例级子项标识硬键（XQ_IO_RWGL_IO01 派生）→ 用例名 → 剥尾部序号用例名 → 子项号序数（IO01=该测试项第1个用例，
+ *  同一子项多张用例表尾号不限 001）。seg 候选跨测试项撞码时按记录追踪行的测试项名称收窄到唯一项。
+ *  caseId 路线全断（记录类型码与大纲不同：YL_DC3_001 ↔ YL_DC_001）→ 测试项级兜底：记录追踪行的测试项标识
+ *  或名称定位唯一大纲测试项，项内按 单例 → 名称 → 剥序号名 → 子项号序数 落位。 */
+function alignGetEx(idx: AlignIdx, rec: { caseId: string; caseName: string; traceItemId?: string; traceItemName?: string }): { entry: AlignEntry; via: AlignRoute } | undefined {
+  const id = normKey(rec.caseId)
+  const direct = idx.exact.get(id) ?? idx.base.get(baseOf(id))
+  if (direct !== undefined && direct.length > 0) return { entry: direct[0], via: 'direct' }
+  const b = baseOf(id)
   const cands: AlignEntry[] = []
   let bases = 0
   let droppedSeg = ''
@@ -260,19 +289,42 @@ function alignGetEx(idx: AlignIdx, rec: { caseId: string; caseName: string }): {
     if (droppedSeg === '') droppedSeg = dropped
     for (const e of es) if (!cands.includes(e)) cands.push(e)
   }
-  if (cands.length === 0 || bases !== 1) return undefined
-  if (cands.length === 1) return { entry: cands[0], viaSeg: true }
-  const hard = cands.filter(e => 'YL_' + e.itemId.replace(/^XQ_/, '') === b)
-  if (hard.length === 1) return { entry: hard[0], viaSeg: true }
-  const byName = cands.filter(e => e.caseName.replace(/\s+/g, '') === rec.caseName.replace(/\s+/g, ''))
-  if (byName.length === 1) return { entry: byName[0], viaSeg: true }
-  // 子项号序数兜底（猜测性落位；预览列值可见，聚合提示里已点名数量）
-  const ordN = parseInt(/(\d{1,3})$/.exec(droppedSeg)?.[1] ?? '0', 10)
-  const tailN = parseInt(/_(\d{1,4})$/.exec(normKey(rec.caseId))?.[1] ?? '0', 10)
-  const itemKeys = new Set(cands.map(e => e.itemItemId + '\0' + e.chapter))
-  if (ordN >= 1 && ordN <= cands.length && tailN === 1 && itemKeys.size === 1) {
-    return { entry: cands[ordN - 1], viaSeg: true }
+  if (cands.length > 0 && bases === 1) {
+    // 大纲两项共用同段码（撞号跨项）→ 记录追踪行的测试项名称收窄到唯一项再落位
+    let pool = cands
+    if (rec.traceItemName !== undefined && rec.traceItemName !== '' && new Set(cands.map(e => e.itemItemId + '\0' + e.chapter)).size > 1) {
+      const scoped = cands.filter(e => e.itemName === rec.traceItemName)
+      if (scoped.length > 0 && new Set(scoped.map(e => e.itemItemId + '\0' + e.chapter)).size === 1) pool = scoped
+    }
+    if (pool.length === 1) return { entry: pool[0], via: 'seg' }
+    const hard = pool.filter(e => 'YL_' + e.itemId.replace(/^XQ_/, '') === b)
+    if (hard.length === 1) return { entry: hard[0], via: 'seg' }
+    const byName = pool.filter(e => e.caseName.replace(/\s+/g, '') === rec.caseName.replace(/\s+/g, ''))
+    if (byName.length === 1) return { entry: byName[0], via: 'seg' }
+    const st = pool.filter(e => e.caseName.replace(/\s+/g, '') === stripTailNum(rec.caseName))
+    if (st.length === 1) return { entry: st[0], via: 'segName' }
+    // 子项号序数兜底（猜测性落位）：候选须同项同章、序数在范围内；同一子项多张表 → 尾号不限 001
+    const ordN = parseInt(/(\d{1,3})$/.exec(droppedSeg)?.[1] ?? '0', 10)
+    if (ordN >= 1 && ordN <= pool.length && new Set(pool.map(e => e.itemItemId + '\0' + e.chapter)).size === 1) {
+      return { entry: pool[ordN - 1], via: 'segOrd' }
+    }
+    return undefined
   }
+  // 测试项级兜底（caseId 路线全断）：追踪行测试项标识精确 → 测试项名称唯一，项内四层落位
+  let use: AlignEntry[] | undefined
+  if (rec.traceItemId !== undefined && rec.traceItemId !== '') use = idx.byItemId.get(normKey(rec.traceItemId))
+  if (use === undefined && rec.traceItemName !== undefined && rec.traceItemName !== '') {
+    const es = idx.byItemName.get(rec.traceItemName)
+    if (es !== undefined && new Set(es.map(e => e.itemItemId + '\0' + e.chapter)).size === 1) use = es
+  }
+  if (use === undefined || use.length === 0) return undefined
+  if (use.length === 1) return { entry: use[0], via: 'itemSingle' }
+  const byName = use.filter(e => e.caseName.replace(/\s+/g, '') === rec.caseName.replace(/\s+/g, ''))
+  if (byName.length === 1) return { entry: byName[0], via: 'itemName' }
+  const st = use.filter(e => e.caseName.replace(/\s+/g, '') === stripTailNum(rec.caseName))
+  if (st.length === 1) return { entry: st[0], via: 'itemStrip' }
+  const ordN = parseInt(/([A-Za-z]+)(\d{1,3})$/.exec(b.split('_').slice(-1)[0] ?? '')?.[2] ?? '0', 10)
+  if (ordN >= 1 && ordN <= use.length) return { entry: use[ordN - 1], via: 'itemOrd' }
   return undefined
 }
 
@@ -297,7 +349,10 @@ function deriveRemark(rec: RecordCase): string {
  */
 function buildReportTable(records: RecordCase[], align: AlignIdx, issues: IssueCollector): TraceTable {
   const cellsList: string[][] = []
-  const segMatches: Array<{ caseId: string; itemName: string }> = []
+  const segN: string[] = []
+  const segNameN: string[] = []
+  const segOrdN: string[] = []
+  const itemN: string[] = []
   for (const rec of records) {
     const c = rec.caseId === '' ? undefined : alignGetEx(align, rec)
     if (rec.caseId !== '' && c === undefined) {
@@ -307,7 +362,12 @@ function buildReportTable(records: RecordCase[], align: AlignIdx, issues: IssueC
         rec.caseName
       )
     }
-    if (c !== undefined && c.viaSeg) segMatches.push({ caseId: rec.caseId, itemName: c.entry.itemName })
+    if (c !== undefined) {
+      if (c.via === 'seg') segN.push('「' + rec.caseId + '」→ 测试项「' + c.entry.itemName + '」')
+      else if (c.via === 'segName') segNameN.push('「' + rec.caseName + '」（' + rec.caseId + '）')
+      else if (c.via === 'segOrd') segOrdN.push('「' + rec.caseId + '」→ ' + c.entry.caseId + '（测试项「' + c.entry.itemName + '」）')
+      else if (c.via !== 'direct') itemN.push('「' + rec.caseId + '」→ 测试项「' + c.entry.itemName + '」（' + c.entry.caseId + '）')
+    }
     cellsList.push([
       String(cellsList.length + 1),
       c ? c.entry.sysChapter : '',
@@ -324,13 +384,17 @@ function buildReportTable(records: RecordCase[], align: AlignIdx, issues: IssueC
       deriveRemark(rec)
     ])
   }
-  if (segMatches.length > 0) {
-    const s = segMatches[0]
-    issues.info(
-      'TRACE_MATCH_BY_SEG',
-      segMatches.length + ' 个用例标识比配对文档多一段子项号（如「' + s.caseId + '」→ 已对齐到测试项「' + s.itemName + '」），已自动对应',
-      '用例标识'
-    )
+  if (segN.length > 0) {
+    issues.info('TRACE_MATCH_BY_SEG', segN.length + ' 个用例标识比配对文档多一段子项号（如「' + segN[0] + '），已自动对应', '用例标识')
+  }
+  if (segNameN.length > 0) {
+    issues.info('TRACE_MATCH_BY_SEGNAME', segNameN.length + ' 个用例名带尾部序号（如' + segNameN[0] + '），已按去序号后的用例名自动对应，请抽查', '用例标识')
+  }
+  if (segOrdN.length > 0) {
+    issues.info('TRACE_MATCH_BY_SEGORD', segOrdN.length + ' 个用例按子项号序数对应（如「' + segOrdN[0] + '），猜测性落位请人工核对', '用例标识')
+  }
+  if (itemN.length > 0) {
+    issues.info('TRACE_MATCH_BY_ITEM', itemN.length + ' 个用例标识的类型码与配对文档不同（如「' + itemN[0] + '），已按记录追踪行的测试项名称自动对应，请抽查', '用例标识')
   }
   const rows: TraceRowVM[] = cellsList.map(cells => ({ cells: cells, span: cells.map(() => 1) }))
   applyVmerge(rows, MERGE_COLS.report)

@@ -511,11 +511,11 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     } as RecordCase)
     const iss = new IssueCollector()
     const t = buildTraceTable({ type: 'report', outlineCases: cases, records: [mk('YL_IO_RWGL_IO01_001'), mk('YL_IO_RWGL_IO02_001')] }, iss)
-    // IO01 → 第 1 个用例（SRS 3.1），IO02 → 第 2 个用例（SRS 3.3），同名也分得开
+    // IO01 → 第 1 个用例（SRS 3.1），IO02 → 第 2 个用例（SRS 3.3），同名也分得开（序数路由点名）
     expect(t.rows[0].cells[3]).toBe('3.1')
     expect(t.rows[1].cells[3]).toBe('3.3')
     expect(iss.issues.some(i => i.code === 'TRACE_ALIGN_MISS')).toBe(false)
-    expect(iss.issues.some(i => i.code === 'TRACE_MATCH_BY_SEG')).toBe(true)
+    expect(iss.issues.some(i => i.code === 'TRACE_MATCH_BY_SEGORD')).toBe(true)
   })
 
   test('buildTraceTable report：大纲用例标题带子项标识（XQ_IO_RWGL_IO01）→ 硬键优先，用例名对不上也对得准', () => {
@@ -531,6 +531,66 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     const t = buildTraceTable({ type: 'report', outlineCases: cases, records: [mk('YL_IO_RWGL_IO01_001'), mk('YL_IO_RWGL_IO02_001')] }, iss)
     expect(t.rows[0].cells[3]).toBe('3.1')
     expect(t.rows[1].cells[3]).toBe('3.3')
+    expect(iss.issues.some(i => i.code === 'TRACE_ALIGN_MISS')).toBe(false)
+  })
+
+  test('buildTraceTable report：同一子项多张用例表（…测试1～2）→ 剥序号名落位；名对不上 → 序数不限尾号 001', () => {
+    // 同事形态（2026-11-28 实测大纲）：一个子项可写多张用例表（尾号 001～014），
+    // 「异常组件知识治理功能测试1/2」都指大纲同一用例；用例名对不上时序数落位不限尾号
+    const cases = [
+      mkCase({ caseId: 'YL_SU_ZSZL_001', mingcheng: '组件知识治理人机界面元素测试', itemItemId: 'XQ_SU_ZSZL', itemName: '组件知识治理', srsChapter: '3.1', srsDesc: '界面' }),
+      mkCase({ caseId: 'YL_SU_ZSZL_002', mingcheng: '正常组件知识治理功能测试', itemItemId: 'XQ_SU_ZSZL', itemName: '组件知识治理', srsChapter: '3.3', srsDesc: '正常' }),
+      mkCase({ caseId: 'YL_SU_ZSZL_003', mingcheng: '异常组件知识治理功能测试', itemItemId: 'XQ_SU_ZSZL', itemName: '组件知识治理', srsChapter: '3.5', srsDesc: '异常' })
+    ]
+    const mk = (id: string, nm: string): RecordCase => ({
+      caseName: nm, caseId: id, traceChapter: '', traceItemName: '组件知识治理', traceItemId: 'XQ_SU_ZSZL_SU03',
+      stepCount: 1, stepResults: ['通过'], executed: '已执行', problemId: '/', typeName: ''
+    } as RecordCase)
+    const iss1 = new IssueCollector()
+    const t1 = buildTraceTable({ type: 'report', outlineCases: cases, records: [mk('YL_SU_ZSZL_SU03_001', '异常组件知识治理功能测试1'), mk('YL_SU_ZSZL_SU03_002', '异常组件知识治理功能测试2')] }, iss1)
+    expect(t1.rows[0].cells[3]).toBe('3.5')
+    expect(t1.rows[1].cells[3]).toBe('3.5')
+    expect(iss1.issues.some(i => i.code === 'TRACE_MATCH_BY_SEGNAME')).toBe(true)
+    expect(iss1.issues.some(i => i.code === 'TRACE_ALIGN_MISS')).toBe(false)
+    const iss2 = new IssueCollector()
+    const t2 = buildTraceTable({ type: 'report', outlineCases: cases, records: [mk('YL_SU_ZSZL_SU03_002', '随手写的名字')] }, iss2)
+    expect(t2.rows[0].cells[3]).toBe('3.5')
+    expect(iss2.issues.some(i => i.code === 'TRACE_MATCH_BY_SEGORD')).toBe(true)
+    expect(iss2.issues.some(i => i.code === 'TRACE_ALIGN_MISS')).toBe(false)
+  })
+
+  test('buildTraceTable report：记录类型码与大纲不同（YL_DC3_001 ↔ YL_DC_001）→ 追踪行测试项名称兜底', () => {
+    // 同事形态：记录标识的类型码与大纲不同（DC3 vs DC），追踪行的测试项名称指得准 → 按名称定位到唯一测试项
+    const cases = [mkCase({ caseId: 'YL_DC_001', mingcheng: '文档审查', itemItemId: 'XQ_DC', itemName: '文档审查', srsChapter: '3.1', srsDesc: '文档' })]
+    const rec: RecordCase = {
+      caseName: '文档审查', caseId: 'YL_DC3_001', traceChapter: '', traceItemName: '文档审查', traceItemId: 'XQ_DC3',
+      stepCount: 1, stepResults: ['通过'], executed: '已执行', problemId: '/', typeName: ''
+    } as RecordCase
+    const iss = new IssueCollector()
+    const t = buildTraceTable({ type: 'report', outlineCases: cases, records: [rec] }, iss)
+    expect(t.rows[0].cells[6]).toBe('文档审查')
+    expect(t.rows[0].cells[3]).toBe('3.1')
+    expect(iss.issues.some(i => i.code === 'TRACE_MATCH_BY_ITEM')).toBe(true)
+    expect(iss.issues.some(i => i.code === 'TRACE_ALIGN_MISS')).toBe(false)
+  })
+
+  test('buildTraceTable report：大纲两项共用同段码（撞号跨项）→ 记录追踪行测试项名称收窄', () => {
+    // 同事形态：大纲两个测试项的用例标识共用同一段码（都是 YL_SU_PBTZ_001/002），删段候选跨两项 →
+    // 按记录追踪行的测试项名称收窄到唯一项，再剥序号名落位
+    const cases = [
+      mkCase({ caseId: 'YL_SU_PBTZ_001', mingcheng: '正常Python检查', itemItemId: 'XQ_PY', itemName: 'Python注册表检查', srsChapter: '3.1', srsDesc: '正常' }),
+      mkCase({ caseId: 'YL_SU_PBTZ_002', mingcheng: '异常Python检查', itemItemId: 'XQ_PY', itemName: 'Python注册表检查', srsChapter: '3.3', srsDesc: '异常' }),
+      mkCase({ caseId: 'YL_SU_PBTZ_001', mingcheng: '正常C检查', itemItemId: 'XQ_CC', itemName: 'C注册表检查', chapter: '6.2.1.2', srsChapter: '3.5', srsDesc: 'C正常' }),
+      mkCase({ caseId: 'YL_SU_PBTZ_002', mingcheng: '异常C检查', itemItemId: 'XQ_CC', itemName: 'C注册表检查', chapter: '6.2.1.2', srsChapter: '3.7', srsDesc: 'C异常' })
+    ]
+    const rec: RecordCase = {
+      caseName: '异常Python检查2', caseId: 'YL_SU_PBTZ_SU02_001', traceChapter: '', traceItemName: 'Python注册表检查', traceItemId: 'XQ_SU_PBTZ_SU02',
+      stepCount: 1, stepResults: ['通过'], executed: '已执行', problemId: '/', typeName: ''
+    } as RecordCase
+    const iss = new IssueCollector()
+    const t = buildTraceTable({ type: 'report', outlineCases: cases, records: [rec] }, iss)
+    expect(t.rows[0].cells[6]).toBe('Python注册表检查')
+    expect(t.rows[0].cells[3]).toBe('3.3')
     expect(iss.issues.some(i => i.code === 'TRACE_ALIGN_MISS')).toBe(false)
   })
 
@@ -598,6 +658,18 @@ describe('M8 追踪关系解析容错（2026-11-27 同事反馈：报告追踪�
     const tb = parseTraceRel('软件研制任务书 3.2节 研制总则；软件需求规格说明 4.4节 运行状态')
     expect(tb.task).toEqual({ chapter: '3.2', desc: '研制总则' })
     expect(tb.srs.chapter).toBe('4.4')
+  })
+
+  test('parseTraceRel：隐含需求 = 无外部引用的合法形态（章节 / 名称 隐含需求，不再算解析失败）', () => {
+    // 用户口径（2026-11-28）：文档审查/静态分析/代码审查/代码走查这类静态项常写「隐含需求」——
+    // 章节号填 /、名称填隐含需求；实测大纲 15 处全为此写法
+    const r = parseTraceRel('隐含需求')
+    expect(r.srs).toEqual({ chapter: '/', desc: '隐含需求' })
+    expect(r.sys.chapter).toBe('/')
+    expect(r.task.chapter).toBe('/')
+    // 带噪声变体同样认（零宽/空白）
+    const n = parseTraceRel(' 隐含需求 ')
+    expect(n.srs.desc).toBe('隐含需求')
   })
 
   test('report：追踪关系双引用落两块列；认不出的文本 → TRACE_REL_UNPARSED 点名告警', async () => {

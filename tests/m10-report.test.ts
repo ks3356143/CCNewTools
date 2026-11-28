@@ -338,6 +338,34 @@ describe('M10 表38 + 统计（v2：用例=步骤行）', () => {
     expect(data.issues.some(i => i.code === 'REPORT_SEG_MATCH')).toBe(false)
   })
 
+  test('记录类型码与大纲不同（YL_DC3_001 ↔ YL_DC_001）：追踪行测试项名称兜底计数，隐含需求格不再点名', () => {
+    // 同事形态（2026-11-28 实测大纲）：记录标识类型码与大纲不一致，caseId 路线全断；
+    // 追踪行的测试项名称定位到唯一测试项 → 单用例直接落位，不再凭空「未测试」。
+    // 静态类追踪关系写「隐含需求」是合法形态 → 不再出 TRACE_REL_UNPARSED
+    const spec: DocSpec = {
+      content: [
+        { kind: 'p', para: { text: '测试项及方法', heading: 2, numId: 1, ilvl: 1 } },
+        { kind: 'p', para: { text: '文档审查', heading: 4, numId: 1, ilvl: 3 } },
+        { kind: 'tbl', rows: fullItemTable('文档审查', 'XQ_DC', '隐含需求', '--', '1.用例丁（XQ_DC001）\n用例丁综述。', '1.用例丁（XQ_DC001）\n1）执行操作丁，查看结果是否正确；') }
+      ]
+    }
+    const issO = new IssueCollector()
+    const outline = extractOutline(buildDocx(spec), issO)
+    expect(issO.issues.some(i => i.code === 'TRACE_REL_UNPARSED')).toBe(false)
+    expect(outline.items[0].traceSrs).toEqual({ chapter: '/', desc: '隐含需求' })
+    const first = extractRecordCases(buildDocx({
+      content: [
+        { kind: 'p', para: { text: '测试记录', heading: 1 } },
+        recordTable('YL_DC3_001', '用例丁', 'XQ_DC3', ['通过'], '期望文字丁', '文档审查')
+      ]
+    }), new IssueCollector())
+    const data = buildConfData(outline, first, [], PARAMS)
+    expect(data.stats.untested).toBe(0)
+    expect(data.stats.firstPass).toBe(1)
+    // 单用例测试项 + 名称唯一 = 强证据 → 静默落位；名称/剥序号名/序数落位的点名口径见 REGRESS/REPORT_ITEM_MATCH
+    expect(data.issues.some(i => i.code === 'REPORT_DUP_CASEID')).toBe(false)
+  })
+
   test('记录表少于大纲用例：REPORT_COVERAGE 显性提示（解析漏表防线）', () => {
     const { outline, first } = parseFixtures()
     const data = buildConfData(outline, first.slice(0, 2), [], PARAMS)
