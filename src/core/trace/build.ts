@@ -307,32 +307,56 @@ function alignGetEx(idx: AlignIdx, rec: { caseId: string; caseName: string; trac
     for (const e of es) if (!cands.includes(e)) cands.push(e)
   }
   if (cands.length > 0 && bases === 1) {
-    // 大纲两项共用同段码（撞号跨项）→ 记录追踪行的测试项名称收窄到唯一项再落位
+    // 大纲两项共用同段码（撞号跨项）→ 记录追踪行的测试项名称收窄；收不窄（同名项不存在/仍跨项）
+    // → seg 放弃但继续 item 兜底（回退首行会把记录记到撞码项头上，2026-11-28 高速检索实证）
     let pool = cands
-    if (rec.traceItemName !== undefined && rec.traceItemName !== '' && new Set(cands.map(e => e.itemItemId + '\0' + e.chapter)).size > 1) {
+    let segAbort = false
+    if (rec.traceItemName !== undefined && rec.traceItemName !== '' && new Set(cands.map(e => e.itemItemId + '\u0000' + e.chapter)).size > 1) {
       const scoped = cands.filter(e => e.itemName === rec.traceItemName)
-      if (scoped.length > 0 && new Set(scoped.map(e => e.itemItemId + '\0' + e.chapter)).size === 1) pool = scoped
+      if (scoped.length === 0 || new Set(scoped.map(e => e.itemItemId + '\u0000' + e.chapter)).size !== 1) segAbort = true
+      else pool = scoped
     }
-    if (pool.length === 1) return { entry: pool[0], via: 'seg' }
-    const hard = pool.filter(e => 'YL_' + e.itemId.replace(/^XQ_/, '') === b)
-    if (hard.length === 1) return { entry: hard[0], via: 'seg' }
-    const byName = pool.filter(e => e.caseName.replace(/\s+/g, '') === rec.caseName.replace(/\s+/g, ''))
-    if (byName.length === 1) return { entry: byName[0], via: 'seg' }
-    const st = pool.filter(e => e.caseName.replace(/\s+/g, '') === stripTailNum(rec.caseName))
-    if (st.length === 1) return { entry: st[0], via: 'segName' }
-    // 子项号序数兜底（猜测性落位）：候选须同项同章、序数在范围内；同一子项多张表 → 尾号不限 001
-    const ordN = parseInt(/(\d{1,3})$/.exec(droppedSeg)?.[1] ?? '0', 10)
-    if (ordN >= 1 && ordN <= pool.length && new Set(pool.map(e => e.itemItemId + '\0' + e.chapter)).size === 1) {
-      return { entry: pool[ordN - 1], via: 'segOrd' }
+    if (!segAbort) {
+      if (pool.length === 1) return { entry: pool[0], via: 'seg' }
+      const hard = pool.filter(e => 'YL_' + e.itemId.replace(/^XQ_/, '') === b)
+      if (hard.length === 1) return { entry: hard[0], via: 'seg' }
+      const byName = pool.filter(e => e.caseName.replace(/\s+/g, '') === rec.caseName.replace(/\s+/g, ''))
+      if (byName.length === 1) return { entry: byName[0], via: 'seg' }
+      const st = pool.filter(e => e.caseName.replace(/\s+/g, '') === stripTailNum(rec.caseName))
+      if (st.length === 1) return { entry: st[0], via: 'segName' }
+      // 子项号序数兜底（猜测性落位）：候选须同项同章、序数在范围内
+      const ordN = parseInt(/(\d{1,3})$/.exec(droppedSeg)?.[1] ?? '0', 10)
+      if (ordN >= 1 && ordN <= pool.length && new Set(pool.map(e => e.itemItemId + '\u0000' + e.chapter)).size === 1) {
+        return { entry: pool[ordN - 1], via: 'segOrd' }
+      }
+      return undefined
     }
-    return undefined
   }
-  // 测试项级兜底（caseId 路线全断）：追踪行测试项标识精确 → 测试项名称唯一，项内四层落位
+  return alignItemFallback(idx, rec, b)
+}
+
+/** 测试项级兜底（caseId 路线全断，含 seg 收窄失败跳入）：追踪行测试项标识精确 → 测试项名称
+ *  （精确 → 双向包含 ≥3 字，2026-11-28 ELJG 实证：记录少写「功能」二字）唯一落在一个大纲测试项，
+ *  项内四层落位（单例 → 名称 → 剥序号名 → 序数）。 */
+function alignItemFallback(idx: AlignIdx, rec: { caseId: string; caseName: string; traceItemId?: string; traceItemName?: string }, b: string): { entry: AlignEntry; via: AlignRoute } | undefined {
   let use: AlignEntry[] | undefined
   if (rec.traceItemId !== undefined && rec.traceItemId !== '') use = idx.byItemId.get(normKey(rec.traceItemId))
   if (use === undefined && rec.traceItemName !== undefined && rec.traceItemName !== '') {
     const es = idx.byItemName.get(rec.traceItemName)
-    if (es !== undefined && new Set(es.map(e => e.itemItemId + '\0' + e.chapter)).size === 1) use = es
+    if (es !== undefined && new Set(es.map(e => e.itemItemId + '\u0000' + e.chapter)).size === 1) {
+      use = es
+    } else {
+      const hit = (x: string, y: string): boolean => {
+        const a = x.replace(/\s+/g, '')
+        const c = y.replace(/\s+/g, '')
+        return a.length >= 3 && c.length >= 3 && (a.includes(c) || c.includes(a))
+      }
+      const inAll: AlignEntry[] = []
+      for (const es2 of idx.byItemName.values()) {
+        if (es2.length > 0 && hit(es2[0].itemName, rec.traceItemName)) inAll.push(...es2)
+      }
+      if (inAll.length > 0 && new Set(inAll.map(e => e.itemItemId + '\u0000' + e.chapter)).size === 1) use = inAll
+    }
   }
   if (use === undefined || use.length === 0) return undefined
   if (use.length === 1) return { entry: use[0], via: 'itemSingle' }

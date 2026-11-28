@@ -125,24 +125,32 @@ export function matchRow(rows: CaseRow[], rec: RecordCase): MatchResult | null {
     if (cands.length > 0 && new Set(cands.map(r => baseId(normId(r.caseId)))).size === 1) {
       let pool = cands
       if (rec.traceItemName !== '' && new Set(cands.map(r => r.itemItemId + '\0' + r.chapter)).size > 1) {
+        // 大纲两项共用同段码（撞号跨项）：按记录追踪行的测试项名称收窄；收不窄（同名项不存在/仍跨项）
+        // → 整条 seg 路线放弃，落到测试项兜底（2026-11-28 高速检索实证：回退首行会把记录记到撞码项头上）
         const scoped = cands.filter(r => r.itemName === rec.traceItemName)
-        if (scoped.length > 0 && new Set(scoped.map(r => r.itemItemId + '\0' + r.chapter)).size === 1) pool = scoped
+        if (scoped.length === 0 || new Set(scoped.map(r => r.itemItemId + '\0' + r.chapter)).size !== 1) {
+          pool = []
+        } else {
+          pool = scoped
+        }
       }
-      const hard = pool.filter(r => 'YL_' + normId(r.itemId).replace(/^XQ_/, '') === b)
-      if (hard.length === 1) return { row: hard[0], byName: true, kind: 'segdrop', baseCount: 1, segNote: droppedSeg }
-      const p = pickByName(pool, rec)
-      if (p.byName || pool.length === 1) return { ...p, kind: 'segdrop', baseCount: pool.length, segNote: droppedSeg }
-      const st = pool.filter(r => normText(r.mingcheng) === stripTailNum(rec.caseName))
-      if (st.length === 1) return { row: st[0], byName: true, kind: 'segdrop', baseCount: pool.length, segNote: droppedSeg }
-      // 用例名对不上 → 子项号序数兜底：序数段须有尾号数字、候选全落同一测试项同章节，
-      // 序数在范围内才认（猜测性落位，调用方点名告警）
-      const ordN = parseInt(/(\d{1,3})$/.exec(droppedSeg)?.[1] ?? '0', 10)
-      const itemKeys = new Set(pool.map(r => r.itemItemId + '\0' + r.chapter))
-      if (ordN >= 1 && ordN <= pool.length && itemKeys.size === 1) {
+      if (pool.length > 0) {
+        const hard = pool.filter(r => 'YL_' + normId(r.itemId).replace(/^XQ_/, '') === b)
+        if (hard.length === 1) return { row: hard[0], byName: true, kind: 'segdrop', baseCount: 1, segNote: droppedSeg }
+        const p = pickByName(pool, rec)
+        if (p.byName || pool.length === 1) return { ...p, kind: 'segdrop', baseCount: pool.length, segNote: droppedSeg }
+        const st = pool.filter(r => normText(r.mingcheng) === stripTailNum(rec.caseName))
+        if (st.length === 1) return { row: st[0], byName: true, kind: 'segdrop', baseCount: pool.length, segNote: droppedSeg }
+        // 用例名对不上 → 子项号序数兜底：序数段须有尾号数字、候选全落同一测试项同章节，
+        // 序数在范围内才认（猜测性落位，调用方点名告警）
+        const ordN = parseInt(/(\d{1,3})$/.exec(droppedSeg)?.[1] ?? '0', 10)
+        const itemKeys = new Set(pool.map(r => r.itemItemId + '\0' + r.chapter))
+        if (ordN >= 1 && ordN <= pool.length && itemKeys.size === 1) {
         return { row: pool[ordN - 1], byName: false, kind: 'segdrop', baseCount: pool.length, segOrdinal: ordN, segNote: droppedSeg }
+        }
+        return { row: pool[0], byName: false, kind: 'segdrop', baseCount: pool.length, segNote: droppedSeg }
       }
-      return { row: pool[0], byName: false, kind: 'segdrop', baseCount: pool.length, segNote: droppedSeg }
-    }
+  }
   }
   if (rec.traceItemId !== '') {
     const inItem = rows.filter(r => normId(r.itemItemId) === normId(rec.traceItemId))
@@ -152,7 +160,16 @@ export function matchRow(rows: CaseRow[], rec: RecordCase): MatchResult | null {
   // YL_SU_PZCTZ ↔ YL_SU_PBTZ，记录测试需求标识是子项级对不上大纲项级）——同名须唯一落在一个
   // 大纲测试项，项内按 单例 → 名称 → 剥序号名 → 子项号序数 落位（ord 猜测性，调用方点名）
   if (rec.traceItemName !== '') {
-    const inName = rows.filter(r => r.itemName === rec.traceItemName)
+    // 测试项名称两级匹配：精确 → 双向包含（≥3 字，2026-11-28 ELJG 实证：记录少写「功能」二字），
+    // 两级都命中才用（精确有解不放宽）；同项唯一才认，跨项不猜
+    const nameEq = rows.filter(r => r.itemName === rec.traceItemName)
+    const nameHit = (x: string, y: string): boolean => {
+      const a = x.replace(/\s+/g, '')
+      const c = y.replace(/\s+/g, '')
+      return a.length >= 3 && c.length >= 3 && (a.includes(c) || c.includes(a))
+    }
+    const nameIn = nameEq.length > 0 ? nameEq : rows.filter(r => nameHit(r.itemName, rec.traceItemName))
+    const inName = nameIn
     if (inName.length > 0 && new Set(inName.map(r => r.itemItemId + '\0' + r.chapter)).size === 1) {
       if (inName.length === 1) return { row: inName[0], byName: false, kind: 'item', baseCount: 1, itemRoute: 'single' }
       const p = pickByName(inName, rec)
