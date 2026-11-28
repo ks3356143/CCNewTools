@@ -136,9 +136,12 @@ export function reshapeTraceTemplate(buf: Buffer, input: TraceReshapeInput): Buf
   }
 
   const gridXml = '<w:tblGrid>' + toWidths.map(w => `<w:gridCol w:w="${w}"/>`).join('') + '</w:tblGrid>'
+  // head 截到旧 tblGrid **之前**（head 自带旧列宽 grid——拼回去列宽就错；双 tblGrid 是同一根因）
+  const headEnd = tbl.indexOf('<w:tblGrid>')
+  if (headEnd < 0) return buf
   // 切分段自带 <w:tr> 开头（</w:tr> 已被切走）与尾料段自带 </w:tbl>；组/子列/循环三行是新拼的
   const newTbl =
-    tbl.slice(0, tbl.indexOf('<w:tr')) +
+    tbl.slice(0, headEnd) +
     gridXml +
     '<w:tr>' + grpOut.join('') + '</w:tr>' +
     '<w:tr>' + newSub.join('') + '</w:tr>' +
