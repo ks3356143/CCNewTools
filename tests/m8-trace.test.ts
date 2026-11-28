@@ -11,6 +11,7 @@ import { applyVmergeToDocx } from '../src/core/render/vmerge.ts'
 import { buildTraceTable } from '../src/core/trace/build.ts'
 import { parseTraceRel } from '../src/core/parse/outline.ts'
 import { DEFAULT_PARAMS, IssueCollector } from '../src/core/domain.ts'
+import { applyTraceCols } from '../src/core/trace/table.ts'
 import type { TraceRowVM, TraceTable } from '../src/core/trace/table.ts'
 import type { CaseRow } from '../src/core/convert/rows.ts'
 import type { RecordCase } from '../src/core/parse/record.ts'
@@ -137,7 +138,8 @@ describe('M8 四套追踪模板', () => {
     expect(text).toContain('{srsName}')
     expect(text).toContain('{outlineChapter}')
     expect(text).toContain('{itemName}')
-    expect(text).not.toContain('{typeName}')
+    // 2026-11-28 全量列超集：测试类型列进模板（默认列配置=旧形态，由列配置层隐藏）
+    expect(text).toContain('{typeName}')
   })
 
   test('含任务书大纲模板表头：9 列（任务书块在前）', () => {
@@ -258,13 +260,14 @@ describe('M8 /api/trace/parse（四 tab 第 1 步）', () => {
     const r = await postForm('/api/trace/parse', form)
     expect(r.status).toBe(200)
     const spec = r.body.spec as TraceTable
-    expect(spec.heads.reduce((a: number, g: any) => a + g.cols.length, 0)).toBe(9)
+    // 2026-11-28 全量列超集（12 列：+系统规格说明块、+测试类型）
+    expect(spec.heads.reduce((a: number, g: any) => a + g.cols.length, 0)).toBe(12)
     expect(spec.rows.length).toBe(1)
     // SRS 取回归说明追踪关系行（3.1），大纲章节号取大纲（6.2.1.4.x），用例章节号来自回归说明编号
-    expect(spec.rows[0].cells[1]).toBe('3.1')
-    expect(spec.rows[0].cells[3]).not.toBe('')
-    expect(spec.rows[0].cells[6]).not.toBe('')
-    expect(spec.rows[0].cells[8]).toBe('YL_A_B_001')
+    expect(spec.rows[0].cells[3]).toBe('3.1')
+    expect(spec.rows[0].cells[5]).not.toBe('')
+    expect(spec.rows[0].cells[9]).not.toBe('')
+    expect(spec.rows[0].cells[11]).toBe('YL_A_B_001')
   })
 
   test('未知类型 → 400', async () => {
@@ -371,6 +374,39 @@ describe('M8 /api/trace/generate（rows 渲染 + vMerge 后处理）', () => {
 })
 
 describe('M8 vmerge 后处理与表构建单元', () => {
+  test('applyTraceCols：报告表列显隐/顺序投影（组随连续叶子重组，可编辑列跟随）', () => {
+    // 直接构造（不依赖 buildTraceTable 的 records 校验）
+    const tbl: TraceTable = {
+      type: 'report',
+      heads: [
+        { group: '', cols: ['序号'] },
+        { group: '系统规格说明', cols: ['章节号', '章节名称'] },
+        { group: '测评大纲', cols: ['章节号', '测试项名称', '测试项标识', '测试类型'] },
+        { group: '', cols: ['备注'] }
+      ],
+      rows: [{ cells: ['1', '4.1', '能力', '6.2', '项A', 'XQ_A', '功能测试', '备注A'], span: [1, 1, 1, 1, 1, 1, 1, 1] }],
+      vars: ['no', 'sysChapter', 'sysName', 'outlineChapter', 'itemName', 'itemItemId', 'typeName', 'remark'],
+      editableCol: 6
+    }
+    // 全选原序 → 原表返回（零拷贝）
+    expect(applyTraceCols(tbl, tbl.vars!)).toBe(tbl)
+    // 隐藏系统规格说明两列 → 组消失，列 6 个，备注列前移
+    const p1 = applyTraceCols(tbl, ['no', 'outlineChapter', 'typeName', 'itemName', 'itemItemId', 'remark'])
+    expect(p1.heads.map(g => g.group)).toEqual(['', '测评大纲', ''])
+    // 显示序相邻的同组叶子全并入一组（章节号被挪到测试类型前，同为测评大纲组）
+    expect(p1.heads[1].cols).toEqual(['章节号', '测试类型', '测试项名称', '测试项标识'])
+    expect(p1.rows[0].cells).toEqual(['1', '6.2', '功能测试', '项A', 'XQ_A', '备注A'])
+    expect(p1.vars).toEqual(['no', 'outlineChapter', 'typeName', 'itemName', 'itemItemId', 'remark'])
+    // 全量隐藏可编辑列 → editableCol 消失
+    const p2 = applyTraceCols(tbl, ['no', 'sysChapter', 'remark'])
+    expect(p2.editableCol).toBeUndefined()
+    // 可编辑列前移 → 位置跟随（typeName 从 6 → 2）
+    const p3 = applyTraceCols(tbl, ['no', 'typeName', 'sysChapter', 'remark'])
+    expect(p3.editableCol).toBe(1)
+    // 脏变量名被忽略
+    const p4 = applyTraceCols(tbl, ['no', 'bogus' as string, 'remark'])
+    expect(p4.vars).toEqual(['no', 'remark'])
+  })
   const mkCase = (over: Partial<CaseRow>): CaseRow => ({
     head2: null, head3: null, head4: null, head5: null, head6: null, head7: null, head8: null, head9: null,
     path: [], typeName: '功能测试', groupName: null, itemName: '项A', chapter: '6.2.1.1',
@@ -384,33 +420,35 @@ describe('M8 vmerge 后处理与表构建单元', () => {
   test('buildTraceTable outline（2026-10-10 改版）：无任务书 7 列 / 有任务书 9 列 + 类型列去除', () => {
     // 全部无任务书 → 7 列基形，SRS 无对应 '--'
     const t7 = buildTraceTable({ type: 'outline', outlineCases: [mkCase({ srsChapter: '3.1', srsDesc: '参数' })] }, new IssueCollector())
-    expect(t7.heads.reduce((a, g) => a + g.cols.length, 0)).toBe(7)
-    expect(t7.heads.map(h => h.group)).toEqual(['', '软件需求规格说明', '软件测试大纲', ''])
-    expect(t7.rows[0].cells).toEqual(['1', '3.1', '参数', '6.2.1.1', '项A', 'XQ_A', '/'])
+    // 2026-11-28 全量列超集（10 列：+系统规格说明块、+测试类型）；默认显示列由列配置层控制
+    expect(t7.heads.reduce((a, g) => a + g.cols.length, 0)).toBe(10)
+    expect(t7.heads.map(h => h.group)).toEqual(['', '系统规格说明', '软件需求规格说明', '软件测试大纲', ''])
+    expect(t7.rows[0].cells).toEqual(['1', '--', '--', '3.1', '参数', '6.2.1.1', '项A', 'XQ_A', '功能测试', '/'])
+    expect(t7.vars?.length).toBe(10)
     const t7miss = buildTraceTable({ type: 'outline', outlineCases: [mkCase({})] }, new IssueCollector())
     expect(t7miss.rows[0].cells[1]).toBe('--')
-    expect(t7miss.rows[0].cells[2]).toBe('--')
+    expect(t7miss.rows[0].cells[3]).toBe('--')
     // 任一行有任务书 → 9 列（任务书块插入），无的行 '--'
     const mixed = [
       mkCase({ srsChapter: '3.1', srsDesc: '参数', taskBookChapter: '3.2', taskBookName: '指令要求' }),
       mkCase({ srsChapter: '3.3', srsDesc: '查询', chapter: '6.2.1.2', itemItemId: 'XQ_B', itemName: '项B' })
     ]
     const t9 = buildTraceTable({ type: 'outline', outlineCases: mixed }, new IssueCollector())
-    expect(t9.heads.reduce((a, g) => a + g.cols.length, 0)).toBe(9)
-    expect(t9.heads.map(h => h.group)).toEqual(['', '软件研制任务书', '软件需求规格说明', '软件测试大纲', ''])
+    expect(t9.heads.reduce((a, g) => a + g.cols.length, 0)).toBe(12)
+    expect(t9.heads.map(h => h.group)).toEqual(['', '软件研制任务书', '系统规格说明', '软件需求规格说明', '软件测试大纲', ''])
     expect(t9.rows[0].cells[1]).toBe('3.2')
     expect(t9.rows[0].cells[2]).toBe('指令要求')
     expect(t9.rows[1].cells[1]).toBe('--')
     expect(t9.rows[1].cells[2]).toBe('--')
-    // '/' 视为无任务书（不触发 9 列）
+    // '/' 视为无任务书（不触发含任务书形态）
     const tSlash = buildTraceTable({ type: 'outline', outlineCases: [mkCase({ taskBookChapter: '/', taskBookName: '/' })] }, new IssueCollector())
-    expect(tSlash.heads.reduce((a, g) => a + g.cols.length, 0)).toBe(7)
+    expect(tSlash.heads.reduce((a, g) => a + g.cols.length, 0)).toBe(10)
   })
 
   test('outline 渲染：两套模板按列数分派，产物落位无残留', () => {
     // 7 列走无任务书模板
     const buf7 = renderTemplate(readFileSync(join(import.meta.dir, '../模板/追踪-大纲模板.docx')), {
-      traceRows: [{ no: '1', srsChapter: '3.1', srsName: '参数管理', outlineChapter: '6.2.1.1', itemName: '项A', itemItemId: 'XQ_A', remark: '/' }],
+      traceRows: [{ no: '1', sysChapter: '--', sysName: '--', srsChapter: '3.1', srsName: '参数管理', outlineChapter: '6.2.1.1', itemName: '项A', itemItemId: 'XQ_A', typeName: '功能测试', remark: '/' }],
       configName: 'C'
     })
     const out7 = stripAnchorMarks(buf7)
@@ -421,7 +459,7 @@ describe('M8 vmerge 后处理与表构建单元', () => {
     assertWellFormed(xmlOf(out7))
     // 9 列走含任务书模板
     const buf9 = renderTemplate(readFileSync(join(import.meta.dir, '../模板/追踪-大纲-含任务书模板.docx')), {
-      traceRows: [{ no: '1', taskBookChapter: '3.2', taskBookName: '指令要求', srsChapter: '3.1', srsName: '参数管理', outlineChapter: '6.2.1.1', itemName: '项A', itemItemId: 'XQ_A', remark: '/' }],
+      traceRows: [{ no: '1', taskBookChapter: '3.2', taskBookName: '指令要求', sysChapter: '--', sysName: '--', srsChapter: '3.1', srsName: '参数管理', outlineChapter: '6.2.1.1', itemName: '项A', itemItemId: 'XQ_A', typeName: '功能测试', remark: '/' }],
       configName: 'C'
     })
     const out9 = stripAnchorMarks(buf9)

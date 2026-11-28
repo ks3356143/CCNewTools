@@ -1,18 +1,86 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { store, doTraceGenerate, showToast } from '../store.ts'
+import { store, doTraceGenerate, saveTraceCols, showToast } from '../store.ts'
 import { downloadBase64 } from '../api.ts'
-import { headRowsOf } from '../../../src/core/trace/table.ts'
+import { headRowsOf, applyTraceCols } from '../../../src/core/trace/table.ts'
+import type { TraceTable } from '../../../src/core/trace/table.ts'
 import type { TraceRowVM } from '../types.ts'
 
-// 第 2 步：追踪表预览（双层表头 + vmerge rowspan）+ 执行结果编辑 + 复制/下载（12 v2）
+// 第 2 步：追踪表预览（双层表头 + vmerge rowspan）+ 列显隐/顺序配置 + 执行结果编辑 + 复制/下载（12 v2，2026-11-28 列配置）
 
-const spec = computed(() => store.traceSpec)
+const fullSpec = computed(() => store.traceSpec)
+/** 投影后的追踪表（列显隐/顺序按 store.traceCols；null = 全量原序）。执行结果编辑写回 fullSpec */
+const viewSpec = computed<TraceTable | null>(() => {
+  const t = fullSpec.value
+  if (t === null) return null
+  return store.traceCols !== null ? applyTraceCols(t, store.traceCols) : t
+})
+const spec = computed(() => viewSpec.value)
+/** 编辑列的偏移 = 投影列序 - 全量列序（执行结果列在两形态中的位置差） */
+const editShift = computed(() => {
+  const full = fullSpec.value
+  const view = viewSpec.value
+  if (full === null || view === null || full.editableCol === undefined) return 0
+  return (view.editableCol ?? 0) - full.editableCol
+})
 const rows = computed<TraceRowVM[]>(() => spec.value?.rows ?? [])
 const editableCol = computed(() => spec.value?.editableCol)
 const headTop = computed(() => (spec.value ? headRowsOf(spec.value.heads)[0] : []))
 const headSub = computed(() => (spec.value ? headRowsOf(spec.value.heads)[1] : []))
 const totalCols = computed(() => spec.value?.heads.reduce((a, g) => a + g.cols.length, 0) ?? 0)
+
+// —— 列设置抽屉 ——
+const colDrawer = ref(false)
+/** 全量叶子列（配置清单的候选；label = 组名·子列名） */
+const allCols = computed(() => {
+  const t = fullSpec.value
+  if (t === null) return []
+  const vars = t.vars ?? t.heads.flatMap(g => g.cols)
+  const labels: string[] = []
+  for (const g of t.heads) {
+    for (const c of g.cols) labels.push(g.group !== '' ? g.group + '·' + c : c)
+  }
+  return vars.map((v, i) => ({ v, label: labels[i] ?? v }))
+})
+/** 抽屉工作副本（打开时从 store 拷贝；确定时写回） */
+const draftCols = ref<string[]>([])
+function openDrawer(): void {
+  const t = fullSpec.value
+  const vars = t ? (t.vars ?? t.heads.flatMap(g => g.cols)) : []
+  draftCols.value = store.traceCols ? [...store.traceCols] : [...vars]
+  colDrawer.value = true
+}
+function moveCol(i: number, dir: -1 | 1): void {
+  const j = i + dir
+  if (j < 0 || j >= draftCols.value.length) return
+  const a = draftCols.value
+  ;[a[i], a[j]] = [a[j], a[i]]
+}
+function toggleCol(v: string): void {
+  const a = draftCols.value
+  const at = a.indexOf(v)
+  if (at >= 0) a.splice(at, 1)
+  else a.push(v)
+}
+function resetCols(): void {
+  saveTraceCols(null)
+  colDrawer.value = false
+  showToast('已恢复默认列')
+}
+function applyCols(): void {
+  if (draftCols.value.length === 0) {
+    showToast('至少保留一列')
+    return
+  }
+  saveTraceCols([...draftCols.value])
+  colDrawer.value = false
+  showToast('列配置已应用（复制/下载同步生效）')
+}
+/** 抽屉条目显示序：按 draftCols（已含顺序） */
+const draftEntries = computed(() => {
+  const all = allCols.value
+  return draftCols.value.map(v => all.find(e => e.v === v) ?? { v, label: v })
+})
 
 /** 预览行上限（复制/下载不受此限）；截断处的合并块 rowspan 收缩到边界，不出"悬空合并" */
 const PREVIEW_LIMIT = 200
@@ -35,11 +103,15 @@ onMounted(() => {
   }
 })
 
-/** 报告追踪的执行结果列编辑（直接改 store.rows，生成随请求发送） */
+/** 报告追踪的执行结果列编辑：预览行是投影形态，写回全量 rows（行号一致、列号按偏移换算），生成随请求发送 */
 function onEditResult(i: number, e: Event): void {
   const v = (e.target as HTMLInputElement).value
   const col = editableCol.value
-  if (col !== undefined && store.traceSpec !== null) store.traceSpec.rows[i].cells[col] = v
+  const full = store.traceSpec
+  if (col !== undefined && full !== null) {
+    const fullCol = col - editShift.value
+    if (fullCol >= 0 && fullCol < full.rows[i].cells.length) full.rows[i].cells[fullCol] = v
+  }
 }
 
 /** 复制表格：text/html（含 colspan/rowspan，Word 直贴成合并单元格）+ text/plain TSV 兜底 */
@@ -139,6 +211,7 @@ async function download(): Promise<void> {
         <span>表格预览</span>
         <span v-if="rows.length > PREVIEW_LIMIT" class="pv-note">仅显示前 {{ PREVIEW_LIMIT }} 行，完整内容以下载文档与复制为准</span>
         <span v-else-if="rows.length === 0" class="pv-note warn">没有可生成的行</span>
+        <v-btn size="x-small" variant="tonal" rounded="pill" prepend-icon="mdi-view-column" @click="openDrawer">列设置</v-btn>
       </div>
       <div class="pv-scroll">
         <table>
@@ -164,6 +237,33 @@ async function download(): Promise<void> {
         <div v-if="rows.length === 0" class="pv-empty u-empty">暂无可显示的追踪表行</div>
       </div>
     </div>
+
+    <!-- 列设置抽屉：勾选显隐 + 上下移排序（2026-11-28 同事需求） -->
+    <v-navigation-drawer v-model="colDrawer" location="right" temporary width="340" class="col-drawer">
+      <div class="cd-head">
+        <span>列设置</span>
+        <v-btn icon="mdi-close" size="small" variant="text" @click="colDrawer = false" />
+      </div>
+      <div class="cd-tip">勾选要显示的列，箭头调整顺序；对复制与下载文档同样生效。</div>
+      <div class="cd-list">
+        <div v-for="(e, i) in draftEntries" :key="e.v" class="cd-row">
+          <v-checkbox
+            density="compact" hide-details
+            :model-value="draftCols.includes(e.v)"
+            @update:model-value="toggleCol(e.v)"
+          />
+          <span class="cd-label" :title="e.label">{{ e.label }}</span>
+          <span class="cd-ops">
+            <v-btn icon="mdi-arrow-up" size="x-small" variant="text" :disabled="i === 0" @click="moveCol(i, -1)" />
+            <v-btn icon="mdi-arrow-down" size="x-small" variant="text" :disabled="i === draftEntries.length - 1" @click="moveCol(i, 1)" />
+          </span>
+        </div>
+      </div>
+      <div class="cd-acts">
+        <v-btn variant="text" @click="resetCols">恢复默认</v-btn>
+        <v-btn color="primary" rounded="pill" @click="applyCols">应用</v-btn>
+      </div>
+    </v-navigation-drawer>
 
     <!-- 操作区 -->
     <div class="acts">
@@ -306,5 +406,22 @@ async function download(): Promise<void> {
 @media (prefers-reduced-motion: reduce) {
   .head, .pv-card, .acts { animation: none; }
   .res-input { transition: none; }
+}
+
+/* ---- 列设置抽屉 ---- */
+.col-drawer { padding: 0; }
+.cd-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 8px; font-size: 14px; font-weight: 650; color: var(--cn-fg);
+}
+.cd-tip { padding: 0 16px 10px; font-size: 11px; color: var(--cn-subtle); line-height: 1.7; }
+.cd-list { padding: 0 8px; max-height: calc(100vh - 190px); overflow-y: auto; }
+.cd-row { display: flex; align-items: center; gap: 2px; }
+.cd-row :deep(.v-checkbox) { flex: 0 0 auto; }
+.cd-label { flex: 1 1 auto; font-size: 12px; color: var(--cn-fg-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-ops { flex: 0 0 auto; display: flex; }
+.cd-acts {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 12px 16px; border-top: 1px solid var(--cn-border);
 }
 </style>

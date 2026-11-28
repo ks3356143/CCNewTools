@@ -1,5 +1,6 @@
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import PizZip from 'pizzip'
 import { readDocx } from '../core/parse/docx.ts'
 import { extractOutline } from '../core/parse/outline.ts'
 import { extractRecordCases } from '../core/parse/record.ts'
@@ -8,7 +9,8 @@ import { convertToTemplateData } from '../core/convert/index.ts'
 import type { CaseRow } from '../core/convert/rows.ts'
 import { renderTemplate, renderTemplateBatched, stripAnchorMarks, type LoopSpec } from '../core/render/docx.ts'
 import { applyVmergeToDocx } from '../core/render/vmerge.ts'
-import { buildTraceTable, TYPE_VARS, TRACE_TEMPLATE_NAMES, OUTLINE_VARS, OUTLINE_TASK_VARS, OUTLINE_TEMPLATE, OUTLINE_TASK_TEMPLATE } from '../core/trace/build.ts'
+import { buildTraceTable, TYPE_VARS, TRACE_TEMPLATE_NAMES, OUTLINE_VARS, OUTLINE_TASK_VARS, OUTLINE_TEMPLATE, OUTLINE_TASK_TEMPLATE, HEADS_OUTLINE, HEADS_OUTLINE_TASK, HEADS_SPEC, HEADS_REPORT, HEADS_RETURNSPEC } from '../core/trace/build.ts'
+import { reshapeTraceTemplate } from '../core/render/tracecols.ts'
 import { selectRegressCases, buildRegressData } from '../core/regress/build.ts'
 import { regressPost } from '../core/regress/post.ts'
 import { buildConfData, type DescMode } from '../core/report/build.ts'
@@ -31,6 +33,13 @@ function templateFile(name: string): Buffer {
   const embedded = EMBEDDED_TEMPLATES[name]
   if (embedded !== undefined) return readFileSync(embedded)
   return readFileSync(join(process.cwd(), '模板', name))
+}
+
+/** 模板表格 gridCol 宽清单（列配平时按总宽配平用） */
+function readTemplateGrid(name: string): number[] {
+  const xml = new PizZip(templateFile(name)).file('word/document.xml')?.asText() ?? ''
+  const m = /<w:tblGrid>([\s\S]*?)<\/w:tblGrid>/.exec(xml)
+  return m !== null ? [...m[1].matchAll(/w:w="(\d+)"/g)].map(x => parseInt(x[1], 10)) : []
 }
 
 /**
@@ -637,6 +646,8 @@ async function apiTraceGenerate(req: Request): Promise<Response> {
     rows: TraceRowVM[]
     primary: { name: string; hash?: string }
     configName?: string
+    /** 列配置（勾选列的变量名有序清单）；不传 = 全量列原序（老前端兼容） */
+    cols?: string[]
   }
   if (!TRACE_MODES.includes(body.traceType)) {
     return Response.json({ ok: false, error: '未知追踪类型' }, { status: 400 })
@@ -645,23 +656,39 @@ async function apiTraceGenerate(req: Request): Promise<Response> {
   if (!Array.isArray(rows) || rows.length === 0 || !Array.isArray(rows[0]?.cells)) {
     return Response.json({ ok: false, error: '没有可生成的追踪表行' }, { status: 400 })
   }
-  // 大纲表按形态分派：7 列 = 无任务书（任务书块整块省略）、9 列 = 含任务书（用户裁定动态表头）
-  const colN = rows[0].cells.length
+  // 大纲表按形态分派：无任务书 / 含任务书模板（任务书块整块省略 = 用户裁定动态表头）；
+  // 行数据是前端列配置投影后的形态，列序 = 行内 cells 序，按此组装渲染对象
   let vars: string[]
   let tmplName: string
   if (body.traceType === 'outline') {
-    if (colN === OUTLINE_VARS.length) {
-      vars = OUTLINE_VARS
-      tmplName = OUTLINE_TEMPLATE
-    } else if (colN === OUTLINE_TASK_VARS.length) {
-      vars = OUTLINE_TASK_VARS
-      tmplName = OUTLINE_TASK_TEMPLATE
-    } else {
+    // 任务书模板按列配置含 taskBookChapter 判定；未传配置时按行数据列数与两套全量精确匹配
+    const colsIn = Array.isArray(body.cols) && body.cols.length > 0 ? body.cols.filter(v => v === 'no' || OUTLINE_TASK_VARS.includes(v)) : null
+    const hasTaskCol = colsIn !== null ? colsIn.includes('taskBookChapter') : rows[0].cells.length === OUTLINE_TASK_VARS.length
+    const full = hasTaskCol ? OUTLINE_TASK_VARS : OUTLINE_VARS
+    vars = colsIn !== null ? colsIn.filter(v => full.includes(v)) : full
+    tmplName = hasTaskCol ? OUTLINE_TASK_TEMPLATE : OUTLINE_TEMPLATE
+    if (vars.length === 0) {
+      return Response.json({ ok: false, error: '列配置为空，请至少保留一列' }, { status: 400 })
+    }
+    if (colsIn === null && rows[0].cells.length !== full.length) {
       return Response.json({ ok: false, error: '追踪表行数据与列数不符，请回到第 1 步重新解析' }, { status: 400 })
     }
   } else {
-    vars = TYPE_VARS[body.traceType]
+    // 前端传了列配置 → 按配置序投影全量 vars（列显隐/顺序，2026-11-28 同事需求）；
+    // 未传（老前端）→ 行列数与全量 vars 等长校验后原样使用
+    const full = TYPE_VARS[body.traceType]
     tmplName = TRACE_TEMPLATE_NAMES[body.traceType]
+    if (Array.isArray(body.cols) && body.cols.length > 0) {
+      vars = body.cols.filter(v => full.includes(v))
+    } else {
+      if (rows[0].cells.length !== full.length) {
+        return Response.json({ ok: false, error: '追踪表行数据与列数不符，请回到第 1 步重新解析' }, { status: 400 })
+      }
+      vars = full
+    }
+    if (vars.length === 0) {
+      return Response.json({ ok: false, error: '列配置为空，请至少保留一列' }, { status: 400 })
+    }
   }
   for (const r of rows) {
     if (!Array.isArray(r.cells) || r.cells.length !== vars.length) {
@@ -677,7 +704,37 @@ async function apiTraceGenerate(req: Request): Promise<Response> {
   const settings = loadSettings()
   const configName = body.configName ?? settings.params?.configName ?? ''
   const t0 = Date.now()
-  const tmpl = templateFile(tmplName)
+  // 列配置 ≠ 全量原序 → 模板按投影后列序重塑（循环行/子列行/组行/tblGrid 四层同步）
+  const fullVars = body.traceType === 'outline' ? (tmplName === OUTLINE_TASK_TEMPLATE ? OUTLINE_TASK_VARS : OUTLINE_VARS) : TYPE_VARS[body.traceType]
+  const heads = body.traceType === 'outline' ? (tmplName === OUTLINE_TASK_TEMPLATE ? HEADS_OUTLINE_TASK : HEADS_OUTLINE) : ({ spec: HEADS_SPEC, report: HEADS_REPORT, returnSpec: HEADS_RETURNSPEC } as const)[body.traceType]
+  let tmpl = templateFile(tmplName)
+  if (!fullVars.every((v, i) => v === vars[i])) {
+    const leafHeads = heads.flatMap(g => g.cols)
+    const groupsOf: string[] = []
+    const widthsOf: number[] = []
+    for (const g of heads) {
+      for (const _c of g.cols) {
+        groupsOf.push(g.group)
+        void _c
+      }
+    }
+    // 组行宽度 = 叶宽和；模板原叶子宽 = 模板 gridCol（生成时按比例分摊）
+    const tmplGrid = readTemplateGrid(tmplName)
+    const total = tmplGrid.reduce((a, b) => a + b, 0)
+    const nominal = leafHeads.map((_, i) => 700 + i * 40)
+    const f = total / nominal.reduce((a, b) => a + b, 0)
+    for (let i = 0; i < vars.length; i++) {
+      const at = fullVars.indexOf(vars[i])
+      widthsOf.push(at >= 0 ? Math.max(60, Math.round(nominal[at] * f)) : Math.max(60, Math.round(700 * f)))
+    }
+    tmpl = reshapeTraceTemplate(tmpl, {
+      fromVars: fullVars,
+      toVars: vars,
+      toGroups: vars.map(v => groupsOf[fullVars.indexOf(v)] ?? ''),
+      toSubHeads: vars.map(v => leafHeads[fullVars.indexOf(v)] ?? v),
+      toWidths: widthsOf
+    })
+  }
   const buf0 = rows.length > BATCH_RENDER_THRESHOLD
     ? renderTemplateBatched(tmpl, { traceRows: data, configName }, TRACE_LOOPS)
     : stripAnchorMarks(renderTemplate(tmpl, { traceRows: data, configName }))

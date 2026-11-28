@@ -27,6 +27,9 @@ export interface TraceTable {
   type: TraceType
   heads: TraceHeadGroup[]
   rows: TraceRowVM[]
+  /** 全量列变量名（与 heads 的叶子列一一对应；列显隐/顺序配置按变量名投影） */
+  vars?: string[]
+  /** 可编辑列下标（报告追踪的执行结果列，预览里可改）；其余表 undefined */
   /** 可编辑列下标（报告追踪的执行结果列，预览里可改）；其余表 undefined */
   editableCol?: number
 }
@@ -93,4 +96,51 @@ export function headRowsOf(heads: TraceHeadGroup[]): [HeadCellVM[], HeadCellVM[]
     }
   }
   return [top, sub]
+}
+
+/** 列配置：勾选列的变量名有序清单（子集投影用） */
+export interface TraceColConfig { cols: string[] }
+
+/**
+ * 按列配置把全量追踪表投影成显示/生成用的形态：
+ * heads 按 varName 重排（组内连续选中的列合成组，组名保留；全组未选 → 组整块消失）；
+ * rows.cells / span 同步重排；vars 替换为选中变量序。
+ * 变量名不在全量 vars 里 → 忽略（防脏配置）。
+ */
+export function applyTraceCols(t: TraceTable, cols: string[]): TraceTable {
+  const vars = t.vars ?? t.heads.flatMap(g => g.cols)
+  if (cols.length === 0) return t
+  const varSet = new Set(vars)
+  const keep = cols.filter(v => varSet.has(v))
+  if (keep.length === vars.length && keep.every((v, i) => v === vars[i])) return t // 全选原序 = 原表
+  const order = keep.map(v => vars.indexOf(v))
+  if (order.some(i => i < 0)) return t
+  // heads：按新序重组（同组叶子在显示序中相邻即归一组——列可重排，连续性按显示序判）
+  const leafNames = t.heads.flatMap(h => h.cols)
+  const owner: string[] = []
+  t.heads.forEach(g => g.cols.forEach(() => owner.push(g.group)))
+  const newHeads: TraceHeadGroup[] = []
+  for (let i = 0; i < order.length; i++) {
+    const g = owner[order[i]]
+    const last = newHeads[newHeads.length - 1]
+    if (g !== '' && last !== undefined && last.group === g) {
+      last.cols.push(leafNames[order[i]])
+      continue
+    }
+    newHeads.push({ group: g, cols: [leafNames[order[i]]] })
+  }
+  const rows = t.rows.map(r => ({
+    cells: order.map(i => r.cells[i]),
+    span: order.map(i => r.span[i])
+  }))
+  // 可编辑列跟随移动；被移除 → 编辑能力消失
+  let editableCol: number | undefined
+  if (t.editableCol !== undefined) {
+    const at = order.indexOf(t.editableCol)
+    editableCol = at >= 0 ? at : undefined
+  }
+  const out: TraceTable = { ...t, heads: newHeads, rows: rows, vars: keep }
+  if (editableCol !== undefined) out.editableCol = editableCol
+  else delete out.editableCol
+  return out
 }

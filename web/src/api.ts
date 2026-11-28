@@ -114,9 +114,10 @@ export async function traceGenerate(
   traceType: string,
   rows: import('../../src/core/trace/table.ts').TraceRowVM[],
   primary: { name: string; hash?: string },
-  configName: string
+  configName: string,
+  cols?: string[]
 ): Promise<TraceGenerateResponse> {
-  return post<TraceGenerateResponse>('/api/trace/generate', { traceType: traceType, rows: rows, primary: primary, configName: configName })
+  return post<TraceGenerateResponse>('/api/trace/generate', { traceType: traceType, rows: rows, primary: primary, configName: configName, ...(cols !== undefined ? { cols } : {}) })
 }
 
 /** 追踪工具打开最近项目（按项目 sourceType 重建追踪表；outline 项目用当前 tab 的 mode） */

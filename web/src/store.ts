@@ -44,8 +44,10 @@ export const store = reactive({
   traceAlignKind: null as 'outline' | 'spec' | null,
   traceStats: { items: 0, cases: 0, steps: 0 },
   traceIssues: [] as Issue[],
-  /** 统一追踪表（双层表头 + rows[vmerge]）；执行结果列编辑直接改 rows 的 cells */
+  /** 统一追踪表（双层表头 + rows[vmerge]，全量列）；执行结果列编辑直接改 rows 的 cells */
   traceSpec: null as TraceTable | null,
+  /** 列配置（勾选列变量名有序清单；null = 全量原序）。按 traceType 分存 localStorage */
+  traceCols: null as string[] | null,
   traceGenerating: false,
   traceResult: null as { name: string; sizeKB: string; doc?: string; path?: string } | null,
   // —— 工具三：回归测试说明（F11/13-回归测试说明工具）——
@@ -305,6 +307,7 @@ export function setTraceType(t: TraceType): void {
   if (store.traceType === t) return
   store.traceType = t
   resetTraceParse()
+  store.traceCols = null
   store.traceScreen = 1
 }
 
@@ -328,9 +331,34 @@ function applyTraceResult(res: TraceParseResponse): void {
   store.traceStats = res.stats
   store.traceIssues = res.issues
   store.traceSpec = res.spec
+  store.traceCols = loadTraceCols(res.spec)
   store.traceParsed = true
   store.traceResult = null
   void loadProjects()
+}
+
+/** 列配置存取（按 traceType 分键；配置里的变量名不在当前表全量 vars 里 → 视为过期，回全量） */
+function traceColsKey(): string {
+  return 'cn-trace-cols-' + store.traceType
+}
+function loadTraceCols(spec: TraceTable): string[] | null {
+  try {
+    const raw = localStorage.getItem(traceColsKey())
+    if (raw === null) return null
+    const cols = JSON.parse(raw) as string[]
+    const vars = spec.vars ?? spec.heads.flatMap(g => g.cols)
+    const ok = cols.length > 0 && cols.every(v => vars.includes(v)) && new Set(cols).size === cols.length
+    return ok ? cols : null
+  } catch {
+    return null
+  }
+}
+export function saveTraceCols(cols: string[] | null): void {
+  store.traceCols = cols
+  try {
+    if (cols === null) localStorage.removeItem(traceColsKey())
+    else localStorage.setItem(traceColsKey(), JSON.stringify(cols))
+  } catch { /* localStorage 不可用（隐私模式）→ 仅内存 */ }
 }
 
 /** 四 tab 上传解析：主文档 + report/returnSpec 的大纲配对（项目库 hash 或新文件） */
@@ -378,7 +406,7 @@ export async function doTraceGenerate(): Promise<boolean> {
   }
   store.traceGenerating = true
   try {
-    const r = await traceGenerate(store.traceType, store.traceSpec.rows, store.tracePrimary, '')
+    const r = await traceGenerate(store.traceType, store.traceSpec.rows, store.tracePrimary, '', store.traceCols ?? undefined)
     if (!r.ok) {
       showToast(r.error ?? '生成失败')
       return false
