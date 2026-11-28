@@ -204,7 +204,10 @@ interface AlignEntry {
 }
 
 /** 标识键归一：剥零宽字符与首尾空白（matchRow 的 normId 同口径，工具二自己的防线） */
-const normKey = (s: string): string => s.replace(/[\u200b-\u200d\u2060]/g, '').trim()
+const normKey = (s: string): string =>
+  s.replace(/[\u200b-\u200d\u2060]/g, '').trim()
+    .replace(/[\uff21-\uff3a\uff41-\uff5a\uff10-\uff19\uff3f]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/-/g, '_')
 
 /** 说明（ReturnSpecData）→ 对齐索引：大纲侧信息取用例表追踪关系行，SRS/系统规格说明里没有 → 留空 */
 function alignIndexOfSpec(rs: ReturnSpecData): AlignIdx {

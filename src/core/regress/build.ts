@@ -47,12 +47,15 @@ export interface RegressDraft {
   stats: { recordCases: number; failed: number; matched: number }
 }
 
-const baseId = (id: string): string => id.replace(/_\d{3,}$/, '')
+const baseId = (id: string): string => id.replace(/_\d{2,}$/, '')
 /** 零宽字符（Word 粘贴常见 U+200B~U+200D/U+2060）不在 \s 与 trim 的空白集内——标识格里混一个就废掉整条精确匹配 */
 const ZW_RE = /[\u200b-\u200d\u2060]/g
 const normText = (s: string): string => s.replace(ZW_RE, '').replace(/\s+/g, '')
 /** 标识比对统一入口：Word 单元格常见首尾空白，裸相等会把「YL_A_001 」直接打成未匹配（2026-11-22 鲁棒性审查） */
-const normId = (s: string): string => s.replace(ZW_RE, '').trim()
+const normId = (s: string): string =>
+  s.replace(ZW_RE, '').trim()
+    .replace(/[Ａ-Ｚａ-ｚ０-９＿]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/-/g, '_')
 
 /** 匹配结果：kind 标命中路径（无尾号/单用例兜底是猜测性匹配，歧义时必须提示）；
  *  byName = 撞号消歧时用例名是否硬命中（false 且 baseCount>1 → 回退首个，调用方应告警请人工核对）；
